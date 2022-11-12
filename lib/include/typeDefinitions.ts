@@ -22,7 +22,7 @@ export const CXModuleMapDescriptor = "buffer" as const;
 /**
  * Describes the severity of a particular diagnostic.
  */
-export const enum CXDiagnosticSeverity {
+export enum CXDiagnosticSeverity {
   /**
    * A diagnostic that has been suppressed, e.g., by a command-line
    * option.
@@ -133,7 +133,7 @@ export const CXTUResourceUsage = "buffer" as const;
  * Describes the kind of error that occurred (if any) in a call to
  * `clang_loadDiagnostics`.
  */
-export const enum CXLoadDiag_Error {
+export enum CXLoadDiag_Error {
   /**
    * Indicates that no error occurred.
    */
@@ -171,7 +171,7 @@ export const CXLoadDiag_ErrorT = "u8" as const;
  * The values in this enum are meant to be combined to customize the
  * behavior of `clang_formatDiagnostic`().
  */
-export const enum CXDiagnosticDisplayOptions {
+export enum CXDiagnosticDisplayOptions {
   /**
    * Display the source-location information where the
    * diagnostic was located.
@@ -326,7 +326,7 @@ export const CXUnsavedFileT = "pointer" as const;
  * whether the use of this entity will result in a warning or error due to
  * it being deprecated or unavailable.
  */
-export const enum CXAvailabilityKind {
+export enum CXAvailabilityKind {
   /**
    * The entity is available.
    */
@@ -411,7 +411,7 @@ export const CXVersion = "buffer" as const;
  *
  * A negative value indicates that the cursor is not a function declaration.
  */
-export const enum CXCursor_ExceptionSpecificationKind {
+export enum CXCursor_ExceptionSpecificationKind {
   /**
    * The cursor has no exception specification.
    */
@@ -471,7 +471,7 @@ export const enum CXCursor_ExceptionSpecificationKind {
  */
 export const CXCursor_ExceptionSpecificationKindT = "i32" as const;
 
-export const enum CXGlobalOptFlags {
+export enum CXGlobalOptFlags {
   /**
    * Used to indicate that no special CXIndex options are needed.
    */
@@ -515,7 +515,7 @@ export const CXGlobalOptFlagsT = "u32" as const;
  * ORed together to specify which options should be used when
  * constructing the translation unit.
  */
-export const enum CXTranslationUnit_Flags {
+export enum CXTranslationUnit_Flags {
   /**
    * Used to indicate that no special translation-unit options are
    * needed.
@@ -671,7 +671,7 @@ export const enum CXTranslationUnit_Flags {
  * ORed together to specify which options should be used when
  * saving the translation unit.
  */
-export const enum CXSaveTranslationUnit_Flags {
+export enum CXSaveTranslationUnit_Flags {
   /**
    * Used to indicate that no special saving options are needed.
    */
@@ -682,7 +682,7 @@ export const enum CXSaveTranslationUnit_Flags {
  * Describes the kind of error that occurred (if any) in a call to
  * {@link clang_saveTranslationUnit} = { parameters: [).
  */
-export const enum CXSaveError {
+export enum CXSaveError {
   /**
    * Indicates that no error occurred while saving a translation unit.
    */
@@ -720,7 +720,7 @@ export const enum CXSaveError {
  * ORed together to specify which options should be used when
  * reparsing the translation unit.
  */
-export const enum CXReparse_Flags {
+export enum CXReparse_Flags {
   /**
    * Used to indicate that no special reparsing options are needed.
    */
@@ -730,7 +730,7 @@ export const enum CXReparse_Flags {
 /**
  * Categorizes how memory is being used by a translation unit.
  */
-export const enum CXTUResourceUsageKind {
+export enum CXTUResourceUsageKind {
   CXTUResourceUsage_AST = 1,
   CXTUResourceUsage_Identifiers = 2,
   CXTUResourceUsage_Selectors = 3,
@@ -756,7 +756,7 @@ export const enum CXTUResourceUsageKind {
 /**
  * Describes the kind of entity that a cursor refers to.
  */
-export const enum CXCursorKind {
+export enum CXCursorKind {
   /* Declarations */
   /**
    * A declaration whose specific kind is not exposed via this
@@ -1804,7 +1804,7 @@ export const CXCursorKindT = "u32" as const;
 /**
  * Describe the linkage of the entity referred to by a cursor.
  */
-export const enum CXLinkageKind {
+export enum CXLinkageKind {
   /** This value indicates that no linkage information is available
    * for a provided CXCursor. */
   CXLinkage_Invalid,
@@ -1823,7 +1823,7 @@ export const enum CXLinkageKind {
 }
 export const CXLinkageKindT = "u8" as const;
 
-export const enum CXVisibilityKind {
+export enum CXVisibilityKind {
   /** This value indicates that no visibility information is available
    * for a provided CXCursor. */
   CXVisibility_Invalid,
@@ -1840,7 +1840,7 @@ export const CXVisibilityKindT = "u8" as const;
 /**
  * Describe the "language" of the entity referred to by a cursor.
  */
-export const enum CXLanguageKind {
+export enum CXLanguageKind {
   CXLanguage_Invalid = 0,
   CXLanguage_C,
   CXLanguage_ObjC,
@@ -1852,7 +1852,7 @@ export const CXLanguageKindT = "u8" as const;
  * Describe the "thread-local storage (TLS) kind" of the declaration
  * referred to by a cursor.
  */
-export const enum CXTLSKind {
+export enum CXTLSKind {
   CXTLS_None = 0,
   CXTLS_Dynamic,
   CXTLS_Static,
@@ -1862,7 +1862,7 @@ export const CXTLSKindT = "u8" as const;
 /**
  * Describes the kind of type
  */
-export const enum CXTypeKind {
+export enum CXTypeKind {
   /**
    * Represents an invalid type (e.g., where no type is available).
    */
@@ -2016,7 +2016,7 @@ export const CXTypeKindT = "u32" as const;
 /**
  * Describes the calling convention of a function type
  */
-export const enum CXCallingConv {
+export enum CXCallingConv {
   CXCallingConv_Default = 0,
   CXCallingConv_C = 1,
   CXCallingConv_X86StdCall = 2,
@@ -2061,7 +2061,7 @@ export const CXTypeT = "buffer" as const;
  * See the definition of llvm::clang::TemplateArgument::ArgKind for full
  * element descriptions.
  */
-export const enum CXTemplateArgumentKind {
+export enum CXTemplateArgumentKind {
   CXTemplateArgumentKind_Null,
   CXTemplateArgumentKind_Type,
   CXTemplateArgumentKind_Declaration,
@@ -2076,7 +2076,7 @@ export const enum CXTemplateArgumentKind {
 }
 export const CXTemplateArgumentKindT = "u8" as const;
 
-export const enum CXTypeNullabilityKind {
+export enum CXTypeNullabilityKind {
   /**
    * Values of this type can never be null.
    */
@@ -2115,7 +2115,7 @@ export const CXTypeNullabilityKindT = "u8" as const;
  * A value of this enumeration type can be returned if the target type is not
  * a valid argument to sizeof, alignof or offsetof.
  */
-export const enum CXTypeLayoutError {
+export enum CXTypeLayoutError {
   /**
    * Type is of kind CXType_Invalid.
    */
@@ -2142,7 +2142,7 @@ export const enum CXTypeLayoutError {
   CXTypeLayoutError_Undeduced = -6,
 }
 
-export const enum CXRefQualifierKindA {
+export enum CXRefQualifierKindA {
   /** No ref-qualifier was provided. */
   CXRefQualifier_None = 0,
   /** An lvalue ref-qualifier was provided (\c &). */
@@ -2156,7 +2156,7 @@ export const CXRefQualifierKind = "u8" as const;
  * Represents the C++ access control level to a base class for a
  * cursor with kind CX_CXXBaseSpecifier.
  */
-export const enum CX_CXXAccessSpecifier {
+export enum CX_CXXAccessSpecifier {
   CX_CXXInvalidAccessSpecifier,
   CX_CXXPublic,
   CX_CXXProtected,
@@ -2168,7 +2168,7 @@ export const CX_CXXAccessSpecifierT = "u8" as const;
  * Represents the storage classes as declared in the source. CX_SC_Invalid
  * was added for the case that the passed cursor in not a declaration.
  */
-export const enum CX_StorageClass {
+export enum CX_StorageClass {
   CX_SC_Invalid,
   CX_SC_None,
   CX_SC_Extern,
@@ -2187,7 +2187,7 @@ export const CX_StorageClassT = "u8" as const;
  * A value of this enumeration type should be returned by each
  * {@link CXCursorVisitor} to indicate how clang_visitChildren() proceed.
  */
-export const enum CXChildVisitResult {
+export enum CXChildVisitResult {
   /**
    * Terminates the cursor traversal.
    */
@@ -2207,7 +2207,7 @@ export const enum CXChildVisitResult {
 /**
  * Property attributes for a {@link CXCursor_ObjCPropertyDecl}.
  */
-export const enum CXObjCPropertyAttrKind {
+export enum CXObjCPropertyAttrKind {
   CXObjCPropertyAttr_noattr = 0x00,
   CXObjCPropertyAttr_readonly = 0x01,
   CXObjCPropertyAttr_getter = 0x02,
@@ -2228,7 +2228,7 @@ export const enum CXObjCPropertyAttrKind {
  * 'Qualifiers' written next to the return and parameter types in
  * Objective-C method declarations.
  */
-export const enum CXObjCDeclQualifierKind {
+export enum CXObjCDeclQualifierKind {
   CXObjCDeclQualifier_None = 0x0,
   CXObjCDeclQualifier_In = 0x1,
   CXObjCDeclQualifier_Inout = 0x2,
@@ -2238,7 +2238,7 @@ export const enum CXObjCDeclQualifierKind {
   CXObjCDeclQualifier_Oneway = 0x20,
 }
 
-export const enum CXNameRefFlags {
+export enum CXNameRefFlags {
   /**
    * Include the nested-name-specifier, e.g. Foo:: in x.Foo::y, in the
    * range.
@@ -2275,7 +2275,7 @@ export const enum CXNameRefFlags {
 /**
  * Describes a kind of token.
  */
-export const enum CXTokenKind {
+export enum CXTokenKind {
   /**
    * A token that contains some kind of punctuation.
    */
@@ -2359,7 +2359,7 @@ export const CXCompletionResult = "pointer" as const;
  * either a piece of text with a specific "kind" that describes how that text
  * should be interpreted by the client or is another completion string.
  */
-export const enum CXCompletionChunkKind {
+export enum CXCompletionChunkKind {
   /**
    * A code-completion string that describes "optional" text that
    * could be a part of the template (but is not required).
@@ -2531,7 +2531,7 @@ export const CXCompletionChunkKindT = "u8" as const;
  * The enumerators in this enumeration can be bitwise-OR'd together to
  * provide multiple options to {@link clang_codeCompleteAt}().
  */
-export const enum CXCodeComplete_Flags {
+export enum CXCodeComplete_Flags {
   /**
    * Whether to include macros within the set of code
    * completions returned.
@@ -2570,7 +2570,7 @@ export const enum CXCodeComplete_Flags {
  * The enumerators in this enumeration may be bitwise-OR'd together if multiple
  * contexts are occurring simultaneously.
  */
-export const enum CXCompletionContext {
+export enum CXCompletionContext {
   /**
    * The context for completions is unexposed, as only Clang results
    * should be included. (This is equivalent to having no context bits set.)
@@ -2700,7 +2700,7 @@ export const enum CXCompletionContext {
   CXCompletionContext_Unknown = ((1 << 23) - 1),
 }
 
-export const enum CXEvalResultKind {
+export enum CXEvalResultKind {
   CXEval_Int = 1,
   CXEval_Float = 2,
   CXEval_ObjCStrLiteral = 3,
@@ -2717,7 +2717,7 @@ export const CXEvalResultKindT = "u8" as const;
  */
 export const CXEvalResult = "pointer" as const;
 
-export const enum CXVisitorResult {
+export enum CXVisitorResult {
   CXVisit_Break,
   CXVisit_Continue,
 }
@@ -2733,7 +2733,7 @@ export const enum CXVisitorResult {
 // export const CXCursorAndRangeVisitor = { struct: ["pointer", "function"] } as const;
 export const CXCursorAndRangeVisitor = "buffer" as const;
 
-export const enum CXResult {
+export enum CXResult {
   /**
    * Function returned successfully.
    */
@@ -2823,7 +2823,7 @@ export const CXIdxIncludedFileInfo = "buffer" as const;
  */
 export const CXIdxImportedASTFileInfo = "buffer" as const;
 
-export const enum CXIdxEntityKind {
+export enum CXIdxEntityKind {
   CXIdxEntity_Unexposed = 0,
   CXIdxEntity_Typedef = 1,
   CXIdxEntity_Function = 2,
@@ -2859,7 +2859,7 @@ export const enum CXIdxEntityKind {
 }
 export const CXIdxEntityKindT = "u8" as const;
 
-export const enum CXIdxEntityLanguage {
+export enum CXIdxEntityLanguage {
   CXIdxEntityLang_None = 0,
   CXIdxEntityLang_C = 1,
   CXIdxEntityLang_ObjC = 2,
@@ -2878,7 +2878,7 @@ export const CXIdxEntityLanguageT = "u8" as const;
  * CXIdxEntity_CXXConversionFunction
  * CXIdxEntity_CXXTypeAlias
  */
-export const enum CXIdxEntityCXXTemplateKind {
+export enum CXIdxEntityCXXTemplateKind {
   CXIdxEntity_NonTemplate = 0,
   CXIdxEntity_Template = 1,
   CXIdxEntity_TemplatePartialSpecialization = 2,
@@ -2886,7 +2886,7 @@ export const enum CXIdxEntityCXXTemplateKind {
 }
 export const CXIdxEntityCXXTemplateKindT = "u8" as const;
 
-export const enum CXIdxAttrKind {
+export enum CXIdxAttrKind {
   CXIdxAttr_Unexposed = 0,
   CXIdxAttr_IBAction = 1,
   CXIdxAttr_IBOutlet = 2,
@@ -2942,7 +2942,7 @@ export const CXIdxContainerInfoT = "buffer" as const;
  */
 export const CXIdxIBOutletCollectionAttrInfoT = "buffer" as const;
 
-export const enum CXIdxDeclInfoFlags {
+export enum CXIdxDeclInfoFlags {
   CXIdxDeclFlag_Skipped = 0x1,
 }
 export const CXIdxDeclInfoFlagsT = "u8" as const;
@@ -2973,7 +2973,7 @@ export const CXIdxDeclInfoFlagsT = "u8" as const;
  */
 export const CXIdxDeclInfoT = "buffer" as const;
 
-export const enum CXIdxObjCContainerKind {
+export enum CXIdxObjCContainerKind {
   CXIdxObjCContainer_ForwardRef = 0,
   CXIdxObjCContainer_Interface = 1,
   CXIdxObjCContainer_Implementation = 2,
@@ -3074,7 +3074,7 @@ export const CXIdxCXXClassDeclInfo = "buffer" as const;
  * This may be deprecated in a future version as this duplicates
  * the {@link CXSymbolRole_Implicit} bit in {@link CXSymbolRole}.
  */
-export const enum CXIdxEntityRefKind {
+export enum CXIdxEntityRefKind {
   /**
    * The entity is referenced directly in user's code.
    */
@@ -3092,7 +3092,7 @@ export const enum CXIdxEntityRefKind {
  * Internal: this currently mirrors low 9 bits of clang::index::SymbolRole with
  * higher bits zeroed. These high bits may be exposed in the future.
  */
-export const enum CXSymbolRole {
+export enum CXSymbolRole {
   CXSymbolRole_None = 0,
   CXSymbolRole_Declaration = 1 << 0,
   CXSymbolRole_Definition = 1 << 1,
@@ -3172,7 +3172,7 @@ export const CXIdxEntityRefInfo = "buffer" as const;
  */
 export const IndexerCallbacks = "buffer" as const;
 
-export const enum CXIndexOptFlags {
+export enum CXIndexOptFlags {
   /**
    * Used to indicate that no special indexing options are needed.
    */
@@ -3270,7 +3270,7 @@ export const CXCursorVisitorBlock = "function" as const;
  *
  * See \c clang::PrintingPolicy for more information.
  */
-export const enum CXPrintingPolicyPropertyA {
+export enum CXPrintingPolicyPropertyA {
   CXPrintingPolicy_Indentation,
   CXPrintingPolicy_SuppressSpecifiers,
   CXPrintingPolicy_SuppressTagKeyword,
@@ -3477,7 +3477,7 @@ export const CXComment = "pointer" as const;
  * node can be considered block content (e. g., paragraph), inline content
  * (plain text) or neither (the root AST node).
  */
-export const enum CXCommentKind {
+export enum CXCommentKind {
   /**
    * Null comment.  No AST node is constructed at the requested location
    * because there is no text or a syntax error.
@@ -3596,7 +3596,7 @@ export const CXCommentKindT = "u8" as const;
  * The most appropriate rendering mode for an inline command, chosen on
  * command semantics in Doxygen.
  */
-export const enum CXCommentInlineCommandRenderKind {
+export enum CXCommentInlineCommandRenderKind {
   /**
    * Command argument should be rendered in a normal font.
    */
@@ -3633,7 +3633,7 @@ export const CXCommentInlineCommandRenderKindT = "u8" as const;
 /**
  * Describes parameter passing direction for \\param or \\arg command.
  */
-export const enum CXCommentParamPassDirection {
+export enum CXCommentParamPassDirection {
   /**
    * The parameter is an input parameter.
    */
@@ -3700,7 +3700,7 @@ export const CXCompileCommand = "pointer";
 /**
  * Error codes for Compilation Database
  */
-export const enum CXCompilationDatabase_Error {
+export enum CXCompilationDatabase_Error {
   /*
     * No error occurred
     */

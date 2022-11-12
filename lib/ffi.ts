@@ -8,7 +8,7 @@ import * as FatalErrorHandler from "./include/FatalErrorHandler.h.ts";
 import * as Index from "./include/Index.h.ts";
 import * as Rewrite from "./include/Rewrite.h.ts";
 
-const libclang = Deno.dlopen(
+export const libclang = Deno.dlopen(
   "/usr/lib/libclang.so.13",
   {
     ...BuildSystem,

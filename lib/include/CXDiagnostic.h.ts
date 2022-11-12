@@ -49,7 +49,7 @@ export const clang_getDiagnosticInSet = {
  */
 export const clang_loadDiagnostics = {
   parameters: [
-    "pointer",
+    "buffer",
     CXLoadDiag_ErrorT,
     CXString,
   ],

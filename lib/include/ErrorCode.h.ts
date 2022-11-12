@@ -4,7 +4,7 @@
  * Zero ({@link CXError_Success}) is the only error code indicating success. Other
  * error codes, including not yet assigned non-zero values, indicate errors.
  */
-export const enum CXErrorCode {
+export enum CXErrorCode {
   /**
    * No error.
    */

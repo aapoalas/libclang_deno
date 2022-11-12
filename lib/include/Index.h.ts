@@ -73,6 +73,11 @@ import {
  * It provides two options:
  *
  * - `excludeDeclarationsFromPCH`: When non-zero, allows enumeration of "local" declarations (when loading any new translation units). A "local" declaration is one that belongs in the translation unit itself and not in a precompiled header that was used by the translation unit. If zero, all declarations will be enumerated.
+ * - `displayDiagnostics`
+ * 
+ * @param excludeDeclarationsFromPCH
+ * @param displayDiagnostics
+ * @returns {CXIndexT} {@link CXIndexT}
  */
 export const clang_createIndex = {
   parameters: ["i32", "i32"],
@@ -301,11 +306,11 @@ export const clang_createTranslationUnitFromSourceFile = {
  * the {@link CXTranslationUnit} instead of an error code.  In case of an error this
  * routine returns a {@link NULL} {@link CXTranslationUnit}, without further detailed
  * error codes.
- * @param CIdx
+ * @param CIdx {@link CXIndexT}
  * @param ast_filename
  */
 export const clang_createTranslationUnit = {
-  parameters: [CXIndexT, "pointer"],
+  parameters: [CXIndexT, "buffer"],
   result: CXTranslationUnitT,
 } as const;
 
@@ -320,7 +325,7 @@ export const clang_createTranslationUnit = {
  * @returns Zero on success, otherwise returns an error code.
  */
 export const clang_createTranslationUnit2 = {
-  parameters: [CXIndexT, "pointer", CXTranslationUnitT],
+  parameters: [CXIndexT, "buffer", "buffer"],
   result: CXErrorCodeT,
 } as const;
 
@@ -357,7 +362,7 @@ export const clang_defaultEditingTranslationUnitOptions = {
 export const clang_parseTranslationUnit = {
   parameters: [
     CXIndexT,
-    "pointer",
+    "buffer",
     "pointer",
     int,
     CXUnsavedFileT,
@@ -414,13 +419,13 @@ export const clang_parseTranslationUnit = {
 export const clang_parseTranslationUnit2 = {
   parameters: [
     CXIndexT,
-    "pointer",
+    "buffer",
     "pointer",
     int,
     CXUnsavedFileT,
     unsigned,
     unsigned,
-    CXTranslationUnitT,
+    "buffer",
   ],
   result: CXErrorCodeT,
 } as const;
