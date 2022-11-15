@@ -65,7 +65,7 @@ export const clang_Comment_getChild = {
  * Other AST nodes (except {@link CXComment_Paragraph} and {@link CXComment_Text}) are
  * never considered whitespace.
  *
- * @returns non-zero if \c Comment is whitespace.
+ * @returns non-zero if `$1` is whitespace.
  */
 export const clang_Comment_isWhitespace = {
   parameters: [CXComment],
@@ -73,7 +73,7 @@ export const clang_Comment_isWhitespace = {
 } as const;
 
 /**
- * @returns non-zero if \c Comment is inline content and has a newline
+ * @returns non-zero if `$1` is inline content and has a newline
  * immediately following it in the comment text.  Newlines between paragraphs
  * do not count.
  */
@@ -247,7 +247,7 @@ export const clang_ParamCommandComment_getParamName = {
  * @param Comment a {@link CXComment_ParamCommand} AST node.
  *
  * @returns non-zero if the parameter that this AST node represents was found
- * in the function prototype and \c clang_ParamCommandComment_getParamIndex
+ * in the function prototype and `$1`
  * function will return a meaningful value.
  */
 export const clang_ParamCommandComment_isParamIndexValid = {
@@ -301,8 +301,8 @@ export const clang_TParamCommandComment_getParamName = {
  *
  * @returns non-zero if the parameter that this AST node represents was found
  * in the template parameter list and
- * \c clang_TParamCommandComment_getDepth and
- * \c clang_TParamCommandComment_getIndex functions will return a meaningful
+ * `$1` and
+ * `$1` functions will return a meaningful
  * value.
  */
 export const clang_TParamCommandComment_isParamPositionValid = {

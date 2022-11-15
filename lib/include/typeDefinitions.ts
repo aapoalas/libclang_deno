@@ -6,7 +6,18 @@ export const unsignedLong = unsigned;
 export const unsignedLongLong = "u64" as const;
 export const double = "f32" as const;
 export const time_t = "i32" as const;
-export const NULL = 0;
+export const NULLBUF = new Uint8Array();
+export const NULL = Deno.UnsafePointer.of(NULLBUF);
+/**
+ * Array of CStrings
+ *
+ * ```c
+ * const char *const *
+ * ```
+ */
+export const CStringArrayT = "buffer" as const;
+
+export const out = (_type: string) => "buffer" as const;
 
 /**
  * Object encapsulating information about overlaying virtual
@@ -96,8 +107,8 @@ export const CXDiagnosticSetT = "pointer" as const;
  * } CXCursor;
  * ```
  */
-//export const CXCursorT = { struct: ["u8", int, "pointer"] } as const;
-export const CXCursorT = "buffer" as const;
+export const CXCursorT = { struct: ["u8", int, "pointer", "pointer", "pointer"] } as const;
+// export const CXCursorT = "buffer" as const;
 
 /**
  * ```cpp
@@ -110,8 +121,8 @@ export const CXCursorT = "buffer" as const;
  * } CXTUResourceUsageEntry;
  * ``
  */
-// export const CXTUResourceUsageEntry = { struct: ["u32", unsignedLong] } as const;
-export const CXTUResourceUsageEntry = "buffer" as const;
+export const CXTUResourceUsageEntryT = { struct: ["u32", unsignedLong] } as const;
+// export const CXTUResourceUsageEntryT = "buffer" as const;
 
 /**
  * The memory usage of a CXTranslationUnit, broken into categories.
@@ -126,8 +137,8 @@ export const CXTUResourceUsageEntry = "buffer" as const;
  * } CXTUResourceUsage;
  * ```
  */
-//export const CXTUResourceUsage = { struct: ["pointer", unsigned, "pointer"] } as const;
-export const CXTUResourceUsage = "buffer" as const;
+export const CXTUResourceUsageT = { struct: ["pointer", unsigned, "pointer"] } as const;
+// export const CXTUResourceUsage = "buffer" as const;
 
 /**
  * Describes the kind of error that occurred (if any) in a call to
@@ -251,13 +262,10 @@ export const CXFileT = "pointer" as const;
  * Uniquely identifies a CXFile, that refers to the same underlying file,
  * across an indexing session.
  */
-// export const CXFileUniqueID = {
-//   /**
-//    * `data`
-//    */
-//   struct: ["u64", "u64", "u64"],
-// } as const;
-export const CXFileUniqueIDT = "pointer" as const;
+export const CXFileUniqueIDT = {
+  struct: ["u64", "u64", "u64"],
+} as const;
+// export const CXFileUniqueIDT = "pointer" as const;
 
 /**
  * An "index" that consists of a set of translation units that would
@@ -318,8 +326,8 @@ export const CXClientDataT = "pointer" as const;
  * };
  * ```
  */
-// export const CXUnsavedFile = { struct: ["pointer", "pointer", unsignedLong] } as const;
-export const CXUnsavedFileT = "pointer" as const;
+export const CXUnsavedFileT = { struct: ["pointer", "pointer", unsignedLong] } as const;
+// export const CXUnsavedFileT = "pointer" as const;
 
 /**
  * Describes the availability of a particular entity, which indicates
@@ -403,8 +411,8 @@ export const CXCursorSet = "pointer" as const;
  * } CXVersion;
  * ```
  */
-// export const CXVersion = { struct: ["int32", "int32", "int32"] } as const;
-export const CXVersion = "buffer" as const;
+export const CXVersion = { struct: [int, int, int] } as const;
+// export const CXVersion = "buffer" as const;
 
 /**
  * Describes the exception specification of a cursor.
@@ -471,7 +479,7 @@ export enum CXCursor_ExceptionSpecificationKind {
  */
 export const CXCursor_ExceptionSpecificationKindT = "i32" as const;
 
-export enum CXGlobalOptFlags {
+export const enum CXGlobalOptFlags {
   /**
    * Used to indicate that no special CXIndex options are needed.
    */
@@ -557,8 +565,8 @@ export enum CXTranslationUnit_Flags {
    * implicit precompiled header will be built containing all of the
    * initial includes at the top of the main file (what we refer to as
    * the "preamble" of the file). In subsequent parses, if the
-   * preamble or the files in it have not changed, \c
-   * clang_reparseTranslationUnit = { parameters: [) will re-use the implicit
+   * preamble or the files in it have not changed,
+   * {@link clang_reparseTranslationUnit}) will re-use the implicit
    * precompiled header to improve parsing performance.
    */
   CXTranslationUnit_PrecompiledPreamble = 0x04,
@@ -651,8 +659,8 @@ export enum CXTranslationUnit_Flags {
   /**
    * Used to indicate that non-errors from included files should be ignored.
    *
-   * If set, clang_getDiagnosticSetFromTU = { parameters: [) will not report e.g. warnings from
-   * included files anymore. This speeds up clang_getDiagnosticSetFromTU = { parameters: [) for
+   * If set, {@link clang_getDiagnosticSetFromTU}() will not report e.g. warnings from
+   * included files anymore. This speeds up {@link clang_getDiagnosticSetFromTU}() for
    * the case where these warnings are not of interest, as for an IDE for
    * example, which typically shows only the diagnostics in the main file.
    */
@@ -680,7 +688,7 @@ export enum CXSaveTranslationUnit_Flags {
 
 /**
  * Describes the kind of error that occurred (if any) in a call to
- * {@link clang_saveTranslationUnit} = { parameters: [).
+ * {@link clang_saveTranslationUnit}().
  */
 export enum CXSaveError {
   /**
@@ -702,7 +710,7 @@ export enum CXSaveError {
    * to save the translation unit.
    *
    * Errors that prevent the translation unit from being saved can be
-   * extracted using {@link clang_getNumDiagnostics} = { parameters: [) and {@link clang_getDiagnostic} = { parameters: [).
+   * extracted using {@link clang_getNumDiagnostics}() and {@link clang_getDiagnostic}().
    */
   CXSaveError_TranslationErrors = 2,
 
@@ -1799,7 +1807,7 @@ export enum CXCursorKind {
    */
   CXCursor_OverloadCandidate = 700,
 }
-export const CXCursorKindT = "u32" as const;
+export const CXCursorKindT = "u16" as const;
 
 /**
  * Describe the linkage of the entity referred to by a cursor.
@@ -2052,8 +2060,8 @@ export const CXCallingConvT = "u32" as const;
  *   void *data[2];
  * } CXType;
  */
-// export const CXType = { struct: [/* CXTypeKind */"u8", "pointer"]} as const;
-export const CXTypeT = "buffer" as const;
+export const CXTypeT = { struct: [/* CXTypeKind */"u8", "pointer", "pointer"]} as const;
+// export const CXTypeT = "buffer" as const;
 
 /**
  * Describes the kind of a template argument.
@@ -2145,9 +2153,9 @@ export enum CXTypeLayoutError {
 export enum CXRefQualifierKindA {
   /** No ref-qualifier was provided. */
   CXRefQualifier_None = 0,
-  /** An lvalue ref-qualifier was provided (\c &). */
+  /** An lvalue ref-qualifier was provided (`$1`. */
   CXRefQualifier_LValue,
-  /** An rvalue ref-qualifier was provided (\c &&). */
+  /** An rvalue ref-qualifier was provided (`$1`. */
   CXRefQualifier_RValue,
 }
 export const CXRefQualifierKind = "u8" as const;
@@ -2312,8 +2320,8 @@ export const CXTokenKindT = "u8" as const;
  * } CXToken;
  * ```
  */
-// export const CXToken = { struct: [unsigned, unsigned, unsigned, unsigned, "pointer"]} as const;
-export const CXToken = "pointer" as const;
+export const CXToken = { struct: [unsigned, unsigned, unsigned, unsigned, "pointer"]} as const;
+// export const CXToken = "pointer" as const;
 
 /**
  * A semantic string that describes a code-completion result.
@@ -2349,8 +2357,8 @@ export const CXCompletionString = "pointer" as const;
  * } CXCompletionResult;
  * ```
  */
-// export const CXCompletionResult = { struct: [CXCursorKind, CXCompletionString] } as const;
-export const CXCompletionResult = "pointer" as const;
+export const CXCompletionResult = { struct: [int, CXCompletionString] } as const;
+// export const CXCompletionResult = "pointer" as const;
 
 /**
  * Describes a single piece of text within a code-completion string.
@@ -2446,10 +2454,10 @@ export enum CXCompletionChunkKind {
    * int add(int x, int y);
    * \endcode
    *
-   * and the source code \c add(, where the code-completion point is after the
+   * and the source code `$1`, where the code-completion point is after the
    * "(", the code-completion string will contain a "current parameter" chunk
    * for "int x", indicating that the current argument will initialize that
-   * parameter. After typing further, to \c add(17, (where the code-completion
+   * parameter. After typing further, to `$1`, (where the code-completion
    * point is after the ","), the code-completion string will contain a
    * "current parameter" chunk to "int y".
    */
@@ -2730,8 +2738,8 @@ export enum CXVisitorResult {
  * } CXCursorAndRangeVisitor;
  * ```
  */
-// export const CXCursorAndRangeVisitor = { struct: ["pointer", "function"] } as const;
-export const CXCursorAndRangeVisitor = "buffer" as const;
+export const CXCursorAndRangeVisitor = { struct: ["pointer", "function"] } as const;
+// export const CXCursorAndRangeVisitor = "buffer" as const;
 
 export enum CXResult {
   /**
@@ -2781,8 +2789,8 @@ export const CXIdxClientASTFile = "pointer" as const;
  * } CXIdxLoc;
  * ```
  */
-// export const CXIdxLoc = { struct: ["pointer", unsigned] };
-export const CXIdxLoc = "buffer" as const;
+export const CXIdxLoc = { struct: ["pointer", "pointer", unsigned] } as const;
+// export const CXIdxLoc = "buffer" as const;
 
 /**
  * Data for ppIncludedFile callback.
@@ -2802,8 +2810,8 @@ export const CXIdxLoc = "buffer" as const;
  * } CXIdxIncludedFileInfo;
  * ```
  */
-//export const CXIdxIncludedFileInfo = { struct: [CXIdxLoc, "pointer", CXFile, int, int, int] };
-export const CXIdxIncludedFileInfo = "buffer" as const;
+export const CXIdxIncludedFileInfo = { struct: [CXIdxLoc, "pointer", CXFileT, int, int, int] } as const;
+// export const CXIdxIncludedFileInfo = "buffer" as const;
 
 /**
  * Data for IndexerCallbacks#importedASTFile.
@@ -3268,7 +3276,7 @@ export const CXCursorVisitorBlock = "function" as const;
 /**
  * Properties for the printing policy.
  *
- * See \c clang::PrintingPolicy for more information.
+ * See `$1` for more information.
  */
 export enum CXPrintingPolicyPropertyA {
   CXPrintingPolicy_Indentation,
@@ -3327,13 +3335,13 @@ export const CXModule = "pointer" as const;
  *   CXCompletionResult *Results;
  *
  *    // The number of code-completion results stored in the
- *    // \c Results array.
+ *    // `$1` array.
  *   unsigned NumResults;
  * } CXCodeCompleteResults;
  * ```
  */
-// export const CXCodeCompleteResults = { struct: ["pointer", unsigned] } as const;
-export const CXCodeCompleteResults = "buffer" as const;
+export const CXCodeCompleteResults = { struct: ["pointer", unsigned] } as const;
+// export const CXCodeCompleteResults = "buffer" as const;
 
 /**
  * Visitor invoked for each file in a translation unit
@@ -3412,8 +3420,8 @@ export const CXFieldVisitor = "function" as const;
  * } CXSourceLocation;
  * ```
  */
-//export const CXSourceLocation = { struct: ["pointer", "u32"] } as const;
-export const CXSourceLocation = "pointer" as const;
+export const CXSourceLocation = { struct: ["pointer", "pointer", "u32"] } as const;
+// export const CXSourceLocation = "pointer" as const;
 
 /**
  * Identifies a half-open character range in the source code.
@@ -3428,10 +3436,10 @@ export const CXSourceLocation = "pointer" as const;
  * } CXSourceRange;
  * ```
  */
-// export const CXSourceRange = {
-//   struct: ["pointer", "u32", "u32"],
-// } as const;
-export const CXSourceRange = "pointer" as const;
+export const CXSourceRange = {
+  struct: ["pointer", "pointer", "u32", "u32"],
+} as const;
+// export const CXSourceRange = "pointer" as const;
 
 /**
  * A character string.
@@ -3447,8 +3455,8 @@ export const CXSourceRange = "pointer" as const;
  * } CXString;
  * ```
  */
-//export const CXString = { struct: ["pointer", "u32"] } as const;
-export const CXString = "pointer" as const;
+export const CXString = { struct: ["pointer", "u32"] } as const;
+// export const CXString = "pointer" as const;
 
 /**
  * ```cpp
@@ -3458,8 +3466,8 @@ export const CXString = "pointer" as const;
  * } CXStringSet;
  * ```
  */
-//export const CXStringSet = { struct: ["pointer", "u32"] } as const;
-export const CXStringSet = "pointer" as const;
+export const CXStringSet = { struct: ["pointer", "u32"] } as const;
+// export const CXStringSet = "pointer" as const;
 
 /**
  * A parsed comment.
@@ -3470,7 +3478,7 @@ export const CXStringSet = "pointer" as const;
  * } CXComment;
  * ```
  */
-export const CXComment = "pointer" as const;
+export const CXComment = { struct: ["pointer", CXTranslationUnitT] } as const;
 
 /**
  * Describes the type of the comment AST node ({@link CXComment}).  A comment
@@ -3492,7 +3500,7 @@ export enum CXCommentKind {
   /**
    * A command with word-like arguments that is considered inline content.
    *
-   * For example: \\c command.
+   * For example: \`$1`.
    */
   CXComment_InlineCommand = 2,
 
@@ -3585,7 +3593,7 @@ export enum CXCommentKind {
 }
 /**
  * {@link CXCommentKind}
- * 
+ *
  * Describes the type of the comment AST node ({@link CXComment}).  A comment
  * node can be considered block content (e. g., paragraph), inline content
  * (plain text) or neither (the root AST node).
@@ -3651,7 +3659,7 @@ export enum CXCommentParamPassDirection {
 }
 /**
  * {@link CXCommentParamPassDirection}
- * 
+ *
  * Describes parameter passing direction for `param` or `arg` command.
  */
 export const CXCommentParamPassDirectionT = "u8" as const;
@@ -3667,10 +3675,10 @@ export const CXCommentParamPassDirectionT = "u8" as const;
  * } CXSourceRangeList;
  * ```
  */
-// export const CXSourceRangeList = {
-//   struct: ["u32", "pointer"],
-// } as const;
-export const CXSourceRangeList = "buffer" as const;
+export const CXSourceRangeList = {
+  struct: ["u32", "pointer"],
+} as const;
+// export const CXSourceRangeListT = "pointer" as const;
 
 /**
  * A compilation database holds all information used to compile files in a

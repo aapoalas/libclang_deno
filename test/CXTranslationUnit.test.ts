@@ -2,82 +2,132 @@ import {
 assert,
   assertEquals,
   assertNotEquals,
+  assertThrows,
 } from "https://deno.land/std@0.163.0/testing/asserts.ts";
 import { libclang } from "../lib/ffi.ts";
-import { CXErrorCode } from "../lib/include/ErrorCode.h.ts";
-import { NULL } from "../lib/include/typeDefinitions.ts";
-import { cstr } from "../lib/utils.ts";
+import { CXIndex } from "../lib/raw/CXIndex.ts";
+import { CXTranslationUnit } from "../lib/raw/CXTranslationUnit.ts";
 
-Deno.test("clang_createIndex", async (t) => {
-  await t.step("clang_createIndex(0, 0)", () => {
-    const index = libclang.symbols.clang_createIndex(0, 0);
-    assertNotEquals(index, 0, "Index must be non-zero");
-    libclang.symbols.clang_disposeIndex(index);
+Deno.test("class CXIndex", async (t) => {
+  await t.step("new CXIndex()", () => {
+    const index = new CXIndex();
+    index.dispose();
   });
 
-  await t.step("clang_createIndex(1, 0)", () => {
-    const index = libclang.symbols.clang_createIndex(1, 0);
-    assertNotEquals(index, 0, "Index must be non-zero");
-    libclang.symbols.clang_disposeIndex(index);
+  await t.step("new CXIndex(true)", () => {
+    const index = new CXIndex(true);
+    index.dispose();
   });
 
-  await t.step("clang_createIndex(0, 1)", () => {
-    const index = libclang.symbols.clang_createIndex(0, 1);
-    assertNotEquals(index, 0, "Index must be non-zero");
-    libclang.symbols.clang_disposeIndex(index);
+  await t.step("new CXIndex(false, true)", () => {
+    const index = new CXIndex(false, true);
+    index.dispose();
   });
 
-  await t.step("clang_createIndex(1, 1)", () => {
-    const index = libclang.symbols.clang_createIndex(1, 1);
-    assertNotEquals(index, 0, "Index must be non-zero");
-    libclang.symbols.clang_disposeIndex(index);
+  await t.step("new CXIndex(true, true)", () => {
+    const index = new CXIndex(true, true);
+    index.dispose();
+  });
+
+  await t.step("get options", () => {
+    const index = new CXIndex();
+    assertEquals(index.options, {
+      threadBackgroundPriorityForIndexing: false,
+      threadBackgroundPriorityForEditing: false,
+    });
+    index.dispose();
+  });
+
+  await t.step("set options", () => {
+    const index = new CXIndex();
+    index.options = {
+      threadBackgroundPriorityForEditing: true,
+      threadBackgroundPriorityForIndexing: false,
+    };
+    assertEquals(index.options, {
+      threadBackgroundPriorityForEditing: true,
+      threadBackgroundPriorityForIndexing: false,
+    });
+    index.options = {
+      threadBackgroundPriorityForEditing: false,
+      threadBackgroundPriorityForIndexing: true,
+    };
+    assertEquals(index.options, {
+      threadBackgroundPriorityForEditing: false,
+      threadBackgroundPriorityForIndexing: true,
+    });
+    index.options = {
+      threadBackgroundPriorityForEditing: true,
+      threadBackgroundPriorityForIndexing: true,
+    };
+    assertEquals(index.options, {
+      threadBackgroundPriorityForEditing: true,
+      threadBackgroundPriorityForIndexing: true,
+    });
+    index.dispose();
+  });
+
+  await t.step("setInvocationEmissionPathOption", () => {
+    const index = new CXIndex();
+    index.setInvocationEmissionPathOption("./logs");
+    index.dispose();
+  });
+
+  await t.step("setInvocationEmissionPathOption('')", () => {
+    const index = new CXIndex();
+    index.setInvocationEmissionPathOption("");
+    index.dispose();
+  });
+
+  await t.step("setInvocationEmissionPathOption(null)", () => {
+    const index = new CXIndex();
+    index.setInvocationEmissionPathOption(null);
+    index.dispose();
   });
 });
 
-Deno.test("clang_createTranslationUnit", async (t) => {
-  const index = libclang.symbols.clang_createIndex(0, 0);
-
-  await t.step("Invalid createTranslationUnit call", () => {
-    const tu = libclang.symbols.clang_createTranslationUnit(
-      index,
-      new Uint8Array(1),
-    );
-    assertEquals(
-      tu,
-      NULL,
-      "Invalid createTranslationUnit call must return NULL",
-    );
+Deno.test("class CXTranslationUnit", async (t) => {
+  await t.step("Empty parseTranslationUnit", () => {
+    const index = new CXIndex();
+    assertThrows(() => index.parseTranslationUnit(""));
+    index.dispose();
   });
 
-  await t.step("Invalid createTranslationUnit2 call", () => {
-    const tuOut = new Uint8Array(8);
-    const errorCode = libclang.symbols.clang_createTranslationUnit2(
-      index,
-      new Uint8Array(1),
-      tuOut,
-    );
-    assertEquals(
-      errorCode,
-      CXErrorCode.CXError_Failure,
-      "Invalid createTranslationUnit2 call must return CXError_Failure",
-    );
+  await t.step("Invalid parseTranslationUnit", () => {
+    const index = new CXIndex();
+    assertThrows(() => index.parseTranslationUnit("does_not_exist.h"));
+    index.dispose();
   });
-});
 
-Deno.test("clang_parseTranslationUnit", async (t) => {
-    const index = libclang.symbols.clang_createIndex(0, 0);
-    await t.step("Empty parseTranslationUnit call", () => {
-        const tu = libclang.symbols.clang_parseTranslationUnit(index, new Uint8Array(1), NULL, 0, NULL, 0, 0);
-        assertEquals(tu, NULL);
-    });
+  await t.step("Valid parseTranslationUnit", () => {
+    const index = new CXIndex();
+    index.parseTranslationUnit("./test/assets/test.h");
+    index.dispose();
+  });
 
-    await t.step("Invalid parseTranslationUnit call", () => {
-        const tu = libclang.symbols.clang_parseTranslationUnit(index, cstr("does_not_exist.h"), NULL, 0, NULL, 0, 0);
-        assertEquals(tu, NULL);
-    });
+  await t.step("getTargetInfo", () => {
+    const index = new CXIndex();
+    const tu = index.parseTranslationUnit("./test/assets/test.h");
+    const targetInfo1 = tu.getTargetInfo();
+    const targetInfo2 = tu.getTargetInfo();
+    assertEquals(targetInfo1.pointerWidth, targetInfo2.pointerWidth);
+    assertEquals(targetInfo1.triple, targetInfo2.triple);
+    tu.dispose();
+    assertThrows(() => tu.getTargetInfo());
+  });
 
-    await t.step("Parsing", () => {
-        const tu = libclang.symbols.clang_parseTranslationUnit(index, cstr("./test/assets/test.h"), NULL, 0, NULL, 0, 0);
-        assertNotEquals(tu, NULL);
-    });
+  await t.step("file stuff", () => {
+    const index = new CXIndex();
+    const tu = index.parseTranslationUnit("./test/assets/test.h");
+    const file = tu.getFile("./test/assets/test.h");
+    assertNotEquals(file, null);
+    const contents = file!.getFileContents();
+    assertEquals(contents.startsWith("// my_class.h"), true);
+    assertEquals(contents.length, 171);
+    const cursor = tu.getCursor();
+    assertEquals(cursor.getBriefCommentText(), "");
+    console.log(cursor.kind);
+    console.log(cursor.getAvailability());
+    console.log(cursor.getLanguage());
+  });
 });

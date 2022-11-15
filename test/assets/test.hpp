@@ -6,6 +6,8 @@ namespace N {
 class my_class {
 public:
   void do_something();
+private:
+  int foo;
 };
 } // namespace N
 

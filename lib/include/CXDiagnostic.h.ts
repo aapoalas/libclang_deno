@@ -107,8 +107,7 @@ export const clang_formatDiagnostic = {
  * Retrieve the set of display options most similar to the
  * default behavior of the clang compiler.
  *
- * @returns A set of display options suitable for use with \c
- * clang_formatDiagnostic().
+ * @returns A set of display options suitable for use with {@link clang_formatDiagnostic}().
  */
 export const clang_defaultDiagnosticDisplayOptions = {
   parameters: [],

@@ -1,5 +1,6 @@
 import { CXErrorCodeT } from "./ErrorCode.h.ts";
 import {
+  CStringArrayT,
   CX_CXXAccessSpecifierT,
   CX_StorageClassT,
   CXAvailabilityKindT,
@@ -53,7 +54,7 @@ import {
   CXToken,
   CXTokenKindT,
   CXTranslationUnitT,
-  CXTUResourceUsage,
+  CXTUResourceUsageT,
   CXTypeKindT,
   CXTypeNullabilityKindT,
   CXTypeT,
@@ -63,6 +64,7 @@ import {
   IndexerCallbacks,
   int,
   longLong,
+  out,
   unsigned,
   unsignedLongLong,
 } from "./typeDefinitions.ts";
@@ -74,7 +76,7 @@ import {
  *
  * - `excludeDeclarationsFromPCH`: When non-zero, allows enumeration of "local" declarations (when loading any new translation units). A "local" declaration is one that belongs in the translation unit itself and not in a precompiled header that was used by the translation unit. If zero, all declarations will be enumerated.
  * - `displayDiagnostics`
- * 
+ *
  * @param excludeDeclarationsFromPCH
  * @param displayDiagnostics
  * @returns {CXIndexT} {@link CXIndexT}
@@ -107,7 +109,7 @@ export const clang_CXIndex_setGlobalOptions = {
 /**
  * Gets the general options associated with a CXIndex.
  *
- * @returns A bitmask of options, a bitwise OR of CXGlobalOpt_XXX flags that are associated with the given CXIndex object.
+ * @returns A bitmask of options, a bitwise OR of {@link CXGlobalOptFlags} flags that are associated with the given CXIndex object.
  */
 export const clang_CXIndex_getGlobalOptions = {
   parameters: [CXIndexT],
@@ -120,7 +122,7 @@ export const clang_CXIndex_getGlobalOptions = {
  * The invocation emission path specifies a path which will contain log files for certain libclang invocations. A null value (default) implies that libclang invocations are not logged..
  */
 export const clang_CXIndex_setInvocationEmissionPathOption = {
-  parameters: [CXIndexT, "pointer"],
+  parameters: [CXIndexT, "buffer"],
   result: "void",
 } as const;
 
@@ -142,7 +144,7 @@ export const clang_isFileMultipleIncludeGuarded = {
  * @returns the file handle for the named file in the translation unit tu, or a NULL file handle if the file was not a part of this translation unit.
  */
 export const clang_getFile = {
-  parameters: [CXTranslationUnitT, "pointer"],
+  parameters: [CXTranslationUnitT, "buffer"],
   result: CXFileT,
 } as const;
 /**
@@ -155,7 +157,7 @@ export const clang_getFile = {
  * @returns a pointer to the buffer in memory that holds the contents of file, or a NULL pointer when the file is not loaded.
  */
 export const clang_getFileContents = {
-  parameters: [CXTranslationUnitT, CXFileT, "usize"],
+  parameters: [CXTranslationUnitT, CXFileT, "buffer"],
   result: "pointer",
 } as const;
 /**
@@ -275,7 +277,7 @@ export const clang_getTranslationUnitSpelling = {
  * \p clang_command_line_args.
  *
  * @param clang_command_line_args The command-line arguments that would be
- * passed to the \c clang executable if it were being invoked out-of-process.
+ * passed to the `$1` executable if it were being invoked out-of-process.
  * These command-line options will be parsed and will affect how the translation
  * unit is parsed. Note that the following options are ignored: '-c',
  * '-emit-ast', '-fsyntax-only' (which is the default), and '-o <output file>'.
@@ -292,9 +294,9 @@ export const clang_getTranslationUnitSpelling = {
 export const clang_createTranslationUnitFromSourceFile = {
   parameters: [
     CXIndexT,
-    "pointer",
+    "buffer",
     int,
-    "pointer",
+    "buffer",
     unsigned,
     CXUnsavedFileT,
   ],
@@ -315,7 +317,7 @@ export const clang_createTranslationUnit = {
 } as const;
 
 /**
- * Create a translation unit from an AST file (\c -emit-ast).
+ * Create a translation unit from an AST file (`$1`.
  *
  * @param CIdx
  * @param ast_filename
@@ -325,7 +327,7 @@ export const clang_createTranslationUnit = {
  * @returns Zero on success, otherwise returns an error code.
  */
 export const clang_createTranslationUnit2 = {
-  parameters: [CXIndexT, "buffer", "buffer"],
+  parameters: [CXIndexT, "buffer", out(CXTranslationUnitT)],
   result: CXErrorCodeT,
 } as const;
 
@@ -333,10 +335,10 @@ export const clang_createTranslationUnit2 = {
  * Returns the set of flags that is suitable for parsing a translation
  * unit that is being edited.
  *
- * The set of flags returned provide options for {@link clang_parseTranslationUnit} = { parameters: [)
+ * The set of flags returned provide options for {@link clang_parseTranslationUnit})
  * to indicate that the translation unit is likely to be reparsed many times,
- * either explicitly (via {@link clang_reparseTranslationUnit} = { parameters: [)) or implicitly
- * (e.g., by code completion ({@link clang_codeCompletionAt} = { parameters: [))). The returned flag
+ * either explicitly (via {@link clang_reparseTranslationUnit})) or implicitly
+ * (e.g., by code completion ({@link clang_codeCompletionAt}))). The returned flag
  * set contains an unspecified set of optimizations (e.g., the precompiled
  * preamble) geared toward improving the performance of these routines. The
  * set of optimizations enabled may change from one version to the next.
@@ -363,7 +365,7 @@ export const clang_parseTranslationUnit = {
   parameters: [
     CXIndexT,
     "buffer",
-    "pointer",
+    CStringArrayT,
     int,
     CXUnsavedFileT,
     unsigned,
@@ -386,16 +388,16 @@ export const clang_parseTranslationUnit = {
  * associated.
  *
  * @param source_filename The name of the source file to load, or NULL if the
- * source file is included in \c command_line_args.
+ * source file is included in `command_line_args`.
  *
  * @param command_line_args The command-line arguments that would be
- * passed to the \c clang executable if it were being invoked out-of-process.
+ * passed to the `clang` executable if it were being invoked out-of-process.
  * These command-line options will be parsed and will affect how the translation
  * unit is parsed. Note that the following options are ignored: '-c',
  * '-emit-ast', '-fsyntax-only' (which is the default), and '-o <output file>'.
  *
  * @param num_command_line_args The number of command-line arguments in
- * \c command_line_args.
+ * `command_line_args`.
  *
  * @param unsaved_files the files that have not yet been saved to disk
  * but may be required for parsing, including the contents of
@@ -420,19 +422,20 @@ export const clang_parseTranslationUnit2 = {
   parameters: [
     CXIndexT,
     "buffer",
-    "pointer",
+    CStringArrayT,
     int,
-    CXUnsavedFileT,
+    //CXUnsavedFileT,
+    "pointer",
     unsigned,
     unsigned,
-    "buffer",
+    out(CXTranslationUnitT),
   ],
   result: CXErrorCodeT,
 } as const;
 
 /**
  * Same as clang_parseTranslationUnit2 but requires a full command line
- * for \c command_line_args including argv[0]. This is useful if the standard
+ * for `$1` including argv[0]. This is useful if the standard
  * library paths are relative to the binary.
  * @param CIdx
  * @param source_filename
@@ -446,13 +449,13 @@ export const clang_parseTranslationUnit2 = {
 export const clang_parseTranslationUnit2FullArgv = {
   parameters: [
     CXIndexT,
-    "pointer",
-    "pointer",
+    "buffer",
+    CStringArrayT,
     int,
     CXUnsavedFileT,
     unsigned,
     unsigned,
-    CXTranslationUnitT,
+    out(CXTranslationUnitT),
   ],
   result: CXErrorCodeT,
 } as const;
@@ -462,7 +465,7 @@ export const clang_parseTranslationUnit2FullArgv = {
  * unit.
  *
  * The set of flags returned provide options for
- * {@link clang_saveTranslationUnit} = { parameters: [) by default. The returned flag
+ * {@link clang_saveTranslationUnit}) by default. The returned flag
  * set contains an unspecified set of options that save translation units with
  * the most commonly-requested data.
  *
@@ -479,7 +482,7 @@ export const clang_defaultSaveOptions = {
  *
  * Any translation unit that was parsed without error can be saved
  * into a file. The translation unit can then be deserialized into a
- * new {@link CXTranslationUnit} with {@link clang_createTranslationUnit} = { parameters: [) or,
+ * new {@link CXTranslationUnit} with {@link clang_createTranslationUnit}) or,
  * if it is an incomplete translation unit that corresponds to a
  * header, used as a precompiled header when parsing other translation
  * units.
@@ -497,7 +500,7 @@ export const clang_defaultSaveOptions = {
  * saved successfully, while a non-zero value indicates that a problem occurred.
  */
 export const clang_saveTranslationUnit = {
-  parameters: [CXTranslationUnitT, "pointer", unsigned],
+  parameters: [CXTranslationUnitT, "buffer", unsigned],
   result: int,
 } as const;
 
@@ -526,7 +529,7 @@ export const clang_disposeTranslationUnit = {
  * unit.
  *
  * The set of flags returned provide options for
- * {@link clang_reparseTranslationUnit} = { parameters: [) by default. The returned flag
+ * {@link clang_reparseTranslationUnit}) by default. The returned flag
  * set contains an unspecified set of optimizations geared toward common uses
  * of reparsing. The set of optimizations enabled may change from one version
  * to the next.
@@ -555,7 +558,7 @@ export const clang_defaultReparseOptions = {
  *
  * @param TU The translation unit whose contents will be re-parsed. The
  * translation unit must originally have been built with
- * {@link clang_createTranslationUnitFromSourceFile} = { parameters: [).
+ * {@link clang_createTranslationUnitFromSourceFile}).
  *
  * @param num_unsaved_files The number of unsaved file entries in \p
  * unsaved_files.
@@ -567,13 +570,13 @@ export const clang_defaultReparseOptions = {
  * guarantee their validity until the call to this function returns.
  *
  * @param options A bitset of options composed of the flags in CXReparse_Flags.
- * The function {@link clang_defaultReparseOptions} = { parameters: [) produces a default set of
+ * The function {@link clang_defaultReparseOptions}) produces a default set of
  * options recommended for most uses, based on the translation unit.
  *
  * @returns 0 if the sources could be reparsed.  A non-zero error code will be
  * returned if reparsing was impossible, such that the translation unit is
- * invalid. In such cases, the only valid call for \c TU is
- * {@link clang_disposeTranslationUnit} = { parameters: [TU).  The error codes returned by this
+ * invalid. In such cases, the only valid call for `$1` is
+ * {@link clang_disposeTranslationUnit}().  The error codes returned by this
  * routine are described by the {@link CXErrorCode} enum.
  */
 export const clang_reparseTranslationUnit = {
@@ -598,14 +601,14 @@ export const clang_getTUResourceUsageName = {
  */
 export const clang_getCXTUResourceUsage = {
   parameters: [CXTranslationUnitT],
-  result: CXTUResourceUsage,
+  result: CXTUResourceUsageT,
 } as const;
 
 /**
  * @param usage
  */
 export const clang_disposeCXTUResourceUsage = {
-  parameters: [CXTUResourceUsage],
+  parameters: [CXTUResourceUsageT],
   result: "void",
 } as const;
 
@@ -868,18 +871,18 @@ export const clang_getCursorAvailability = {
  * @param availability If non-NULL, an array of CXPlatformAvailability instances
  * that will be populated with platform availability information, up to either
  * the number of platforms for which availability information is available (as
- * returned by this function) or \c availability_size, whichever is smaller.
+ * returned by this function) or `$1`, whichever is smaller.
  *
  * @param availability_size The number of elements available in the
- * \c availability array.
+ * `$1` array.
  *
  * \returns The number of platforms (N) for which availability information is
- * available (which is unrelated to \c availability_size).
+ * available (which is unrelated to `$1`.
  *
  * Note that the client is responsible for calling
  * {@link clang_disposeCXPlatformAvailability} to free each of the
  * platform-availability structures returned. There are
- * \c min(N, availability_size) such structures.
+ * `$1`, availability_size) such structures.
  */
 export const clang_getCursorPlatformAvailability = {
   parameters: [
@@ -1022,8 +1025,8 @@ export const clang_CXCursorSet_insert = {
  * void C::f() { }
  * \endcode
  *
- * In the out-of-line definition of \c C::f, the semantic parent is
- * the class \c C, of which this function is a member. The lexical parent is
+ * In the out-of-line definition of `$1`, the semantic parent is
+ * the class `$1`, of which this function is a member. The lexical parent is
  * the place where the declaration actually occurs in the source code; in this
  * case, the definition occurs in the translation unit. In general, the
  * lexical parent for a given entity can change without affecting the semantics
@@ -1032,9 +1035,9 @@ export const clang_CXCursorSet_insert = {
  * on the other hand, can have a major impact on semantics, and redeclarations
  * of a particular entity should all have the same semantic context.
  *
- * In the example above, both declarations of \c C::f have \c C as their
- * semantic context, while the lexical context of the first \c C::f is \c C
- * and the lexical context of the second \c C::f is the translation unit.
+ * In the example above, both declarations of `$1` have `$1` as their
+ * semantic context, while the lexical context of the first `$1` is `$1`
+ * and the lexical context of the second `$1` is the translation unit.
  *
  * For global declarations, the semantic parent is the translation unit.
  * @param {CxCursor} cursor
@@ -1061,8 +1064,8 @@ export const clang_getCursorSemanticParent = {
  * void C::f() { }
  * \endcode
  *
- * In the out-of-line definition of \c C::f, the semantic parent is
- * the class \c C, of which this function is a member. The lexical parent is
+ * In the out-of-line definition of `$1`, the semantic parent is
+ * the class `$1`, of which this function is a member. The lexical parent is
  * the place where the declaration actually occurs in the source code; in this
  * case, the definition occurs in the translation unit. In general, the
  * lexical parent for a given entity can change without affecting the semantics
@@ -1071,9 +1074,9 @@ export const clang_getCursorSemanticParent = {
  * on the other hand, can have a major impact on semantics, and redeclarations
  * of a particular entity should all have the same semantic context.
  *
- * In the example above, both declarations of \c C::f have \c C as their
- * semantic context, while the lexical context of the first \c C::f is \c C
- * and the lexical context of the second \c C::f is the translation unit.
+ * In the example above, both declarations of `$1` have `$1` as their
+ * semantic context, while the lexical context of the first `$1` is `$1`
+ * and the lexical context of the second `$1` is the translation unit.
  *
  * For declarations written in the global scope, the lexical parent is
  * the translation unit.
@@ -1133,8 +1136,7 @@ export const clang_getOverriddenCursors = {
 } as const;
 
 /**
- * Free the set of overridden cursors returned by \c
- * clang_getOverriddenCursors().
+ * Free the set of overridden cursors returned by {@link clang_getOverriddenCursors}().
  * @param {CxCursor *} overridden
  */
 export const clang_disposeOverriddenCursors = {
@@ -1167,7 +1169,7 @@ export const clang_getIncludedFile = {
  *
  * clang_getCursor() maps an arbitrary source location within a translation
  * unit down to the most specific cursor that describes the entity at that
- * location. For example, given an expression \c x + y, invoking
+ * location. For example, given an expression `$1` + y, invoking
  * clang_getCursor() with a source location pointing to "x" will return the
  * cursor for "x"; similarly for "y". If the cursor points anywhere between
  * "x" or "y" (e.g., on the + or the whitespace around it), clang_getCursor()
@@ -1562,8 +1564,8 @@ export const clang_getPointeeType = {
  * \endcode
  *
  * Executing {@link clang_getUnqualifiedType}() on a {@link CXType} that
- * represents \c DifferenceType, will desugar to a type representing
- * \c Integer, that has no qualifiers.
+ * represents `$1`, will desugar to a type representing
+ * `$1`, that has no qualifiers.
  *
  * And, executing {@link clang_getUnqualifiedType}() on the type of the
  * first argument of the following function declaration:
@@ -1572,17 +1574,16 @@ export const clang_getPointeeType = {
  * void foo(const int);
  * \endcode
  *
- * Will return a type representing \c int, removing the \c const
+ * Will return a type representing `$1`, removing the `$1`
  * qualifier.
  *
  * Sugar over array types is not desugared.
  *
- * A type can be checked for qualifiers with \c
- * clang_isConstQualifiedType(), {@link clang_isVolatileQualifiedType}()
+ * A type can be checked for qualifiers with {@link clang_isConstQualifiedType}(), {@link clang_isVolatileQualifiedType}()
  * and {@link clang_isRestrictQualifiedType}().
  *
  * A type that resulted from a call to {@link clang_getUnqualifiedType}
- * will return \c false for all of the above calls.
+ * will return `$1` for all of the above calls.
  * @param CT
  */
 const _clang_getUnqualifiedType = {
@@ -1998,7 +1999,7 @@ export const clang_Cursor_isInlineNamespace = {
 
 /**
  * Returns the number of template arguments for given template
- * specialization, or -1 if type \c T is not a template specialization.
+ * specialization, or -1 if type `$1` is not a template specialization.
  */
 export const clang_Type_getNumTemplateArguments = {
   parameters: [CXTypeT],
@@ -2076,7 +2077,7 @@ export const clang_Cursor_getStorageClass = {
  *
  * \param cursor The cursor whose overloaded declarations are being queried.
  *
- * \returns The number of overloaded declarations referenced by \c cursor. If it
+ * \returns The number of overloaded declarations referenced by `$1`. If it
  * is not a {@link CXCursor_OverloadedDeclRef} cursor, returns 0.
  */
 export const clang_getNumOverloadedDecls = {
@@ -2094,7 +2095,7 @@ export const clang_getNumOverloadedDecls = {
  * the cursor.
  *
  * \returns A cursor representing the declaration referenced by the given
- * \c cursor at the specified \c index. If the cursor does not have an
+ * `$1` at the specified `$1`. If the cursor does not have an
  * associated set of overloaded declarations, or if the index is out of bounds,
  * returns {@link clang_getNullCursor}();
  */
@@ -2294,8 +2295,7 @@ export const clang_PrintingPolicy_setProperty = {
 /**
  * Retrieve the default policy for the cursor.
  *
- * The policy should be released after use with \c
- * clang_PrintingPolicy_dispose.
+ * The policy should be released after use with {@link clang_PrintingPolicy_dispose}.
  */
 export const clang_getCursorPrintingPolicy = {
   parameters: [CXCursorT],
@@ -2411,7 +2411,7 @@ export const clang_isCursorDefinition = {
  * };
  * \endcode
  *
- * The declarations and the definition of \c X are represented by three
+ * The declarations and the definition of `$1` are represented by three
  * different cursors, all of which are declarations of the same underlying
  * entity. One of these cursor is considered the "canonical" cursor, which
  * is effectively the representative for the underlying entity. One can
@@ -2871,8 +2871,8 @@ export const clang_getTemplateCursorKind = {
  * This routine determines the template involved both for explicit
  * specializations of templates and for implicit instantiations of the template,
  * both of which are referred to as "specializations". For a class template
- * specialization (e.g., \c std::vector<bool>), this routine will return
- * either the primary template (\c std::vector) or, if the specialization was
+ * specialization (e.g., `$1`, this routine will return
+ * either the primary template (`$1` or, if the specialization was
  * instantiated from a class template partial specialization, the class template
  * partial specialization. For a class template partial specialization and a
  * function template specialization (including instantiations), this
@@ -2983,7 +2983,7 @@ export const clang_getTokenExtent = {
  * that occur within the given source range. The returned pointer must be
  * freed with clang_disposeTokens() before the translation unit is destroyed.
  *
- * @param {unsinged *} NumTokens [out] will be set to the number of tokens in the \c *Tokens
+ * @param {unsinged *} NumTokens [out] will be set to the number of tokens in the `$1`
  * array.
  */
 export const clang_tokenize = {
@@ -2999,7 +2999,7 @@ export const clang_tokenize = {
  * clang_getCursor() for the source locations of each of the
  * tokens. The cursors provided are filtered, so that only those
  * cursors that have a direct correspondence to the token are
- * accepted. For example, given a function call \c f(x),
+ * accepted. For example, given a function call `$1`,
  * clang_getCursor() would provide the following cursors:
  *
  *   * when the cursor is over the 'f', a DeclRefExpr cursor referring to 'f'.
@@ -3081,7 +3081,7 @@ export const clang_executeOnThread = {
  *
  * @param chunk_number the 0-based index of the chunk in the completion string.
  *
- * @returns the kind of the chunk at the index \c chunk_number.
+ * @returns the kind of the chunk at the index `$1`.
  */
 export const clang_getCompletionChunkKind = {
   parameters: [CXCompletionString, unsigned],
@@ -3096,7 +3096,7 @@ export const clang_getCompletionChunkKind = {
  *
  * @param chunk_number the 0-based index of the chunk in the completion string.
  *
- * @returns the text associated with the chunk at index \c chunk_number.
+ * @returns the text associated with the chunk at index `$1`.
  */
 export const clang_getCompletionChunkText = {
   parameters: [CXCompletionString, unsigned],
@@ -3112,7 +3112,7 @@ export const clang_getCompletionChunkText = {
  * @param chunk_number the 0-based index of the chunk in the completion string.
  *
  * @returns the completion string associated with the chunk at index
- * \c chunk_number.
+ * `$1`.
  */
 export const clang_getCompletionChunkCompletionString = {
   parameters: [CXCompletionString, unsigned],
@@ -3180,7 +3180,7 @@ export const clang_getCompletionNumAnnotations = {
  * completion string.
  *
  * @returns annotation string associated with the completion at index
- * \c annotation_number, or a NULL string if that annotation is not available.
+ * `$1`, or a NULL string if that annotation is not available.
  */
 export const clang_getCompletionAnnotation = {
   parameters: [CXCompletionString, unsigned],
@@ -3322,14 +3322,14 @@ export const clang_defaultCodeCompleteOptions = {
  *
  * Code completion itself is meant to be triggered by the client when the
  * user types punctuation characters or whitespace, at which point the
- * code-completion location will coincide with the cursor. For example, if \c p
+ * code-completion location will coincide with the cursor. For example, if `$1`
  * is a pointer, code-completion might be triggered after the "-" and then
- * after the ">" in \c p->. When the code-completion location is after the ">",
+ * after the ">" in `$1`. When the code-completion location is after the ">",
  * the completion results will provide, e.g., the members of the struct that
  * "p" points to. The client is responsible for placing the cursor at the
  * beginning of the token currently being typed, then filtering the results
  * based on the contents of the token. For example, when code-completing for
- * the expression \c p->get, the client should provide the location just after
+ * the expression `$1`, the client should provide the location just after
  * the ">" (e.g., pointing at the "g") to this code-completion hook. Then, the
  * client can filter the results based on the current token text ("get"), only
  * showing those results that start with "get". The intent of this interface
@@ -3377,7 +3377,7 @@ export const clang_defaultCodeCompleteOptions = {
 export const clang_codeCompleteAt = {
   parameters: [
     CXTranslationUnitT,
-    "pointer",
+    "buffer",
     unsigned,
     unsigned,
     "pointer",
@@ -3898,7 +3898,7 @@ export const clang_indexSourceFile = {
 
 /**
  * Same as clang_indexSourceFile but requires a full command line
- * for \c command_line_args including argv[0]. This is useful if the standard
+ * for `$1` including argv[0]. This is useful if the standard
  * library paths are relative to the binary.
  * @param client_data
  * @param {IndexerCallbacks *} index_callback
@@ -3908,7 +3908,7 @@ export const clang_indexSourceFile = {
  * @param num_command_line_args
  * @param {struct CXUnsavedFile *} unsaved_file
  * @param num_unsaved_files
- * @param {CXTranslationUnit *} out_TU
+ * @param {@link CXTranslationUnit} out_TU
  * @param TU_options
  */
 export const clang_indexSourceFileFullArgv = {

@@ -13,7 +13,7 @@ import {
 
 /**
  * Return the timestamp for use with Clang's
- * \c -fbuild-session-timestamp= option.
+ * `$1` option.
  */
 export const clang_getBuildSessionTimestamp = {
   parameters: [],
