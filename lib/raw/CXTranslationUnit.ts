@@ -2,9 +2,12 @@ import { libclang } from "../ffi.ts";
 import { throwIfError } from "../include/ErrorCode.h.ts";
 import {
   CXAvailabilityKind,
+  CXChildVisitResult,
   CXCursorKind,
+  CXCursorVisitorCallbackDefinition,
   CXLanguageKind,
   CXLinkageKind,
+  CXPrintingPolicyProperty,
   CXReparse_Flags,
   CXSaveError,
   CXTLSKind,
@@ -12,12 +15,31 @@ import {
   NULL,
   NULLBUF,
 } from "../include/typeDefinitions.ts";
-import { charBufferToString, cstr, cxstringToString } from "../utils.ts";
+import { charBufferToString, cstr, cxstringSetToStringArray, cxstringToString } from "../utils.ts";
 import { CXDiagnostic, CXDiagnosticSet } from "./CXDiagnostic.ts";
+
+const POINTER = Symbol("[[pointer]]");
+const BUFFER = Symbol("[[buffer]]");
 
 const OUT = new Uint8Array(16);
 const OUT_2 = OUT.subarray(8);
 const OUT_64 = new BigUint64Array(OUT.buffer);
+
+let CURRENT_TU: null | CXTranslationUnit = null;
+const INVALID_VISITOR_CALLBACK = () => CXChildVisitResult.CXChildVisit_Break;
+let CURRENT_VISITOR_CALLBACK: (
+  cursor: CXCursor,
+  parent: CXCursor,
+) => CXChildVisitResult = INVALID_VISITOR_CALLBACK;
+const CX_CURSOR_VISITOR_CALLBACK = new Deno.UnsafeCallback(
+  CXCursorVisitorCallbackDefinition,
+  (cursor, parent, _client_data) => {
+    return CURRENT_VISITOR_CALLBACK(
+      new CXCursor(cursor, CURRENT_TU),
+      new CXCursor(parent, CURRENT_TU),
+    );
+  },
+);
 
 export interface TargetInfo {
   triple: string;
@@ -260,7 +282,8 @@ export class CXFile {
     if (count === 0) {
       return ranges;
     }
-    const rangeArrayPointer = Number(view.getBigUint64(8));
+    const rangesPointer = Number(view.getBigUint64(8));
+    const rangesView = new Deno.UnsafePointerView(rangesPointer);
     for (let i = 0; i < count; i++) {
     }
     return ranges;
@@ -280,8 +303,6 @@ export class CXFile {
   }
 }
 
-const BUFFER = Symbol("[[buffer]]");
-
 export class CXCursor {
   tu: CXTranslationUnit | null;
   #buffer: Uint8Array;
@@ -296,6 +317,11 @@ export class CXCursor {
   get kind(): CXCursorKind {
     return this.#kind ??
       (this.#kind = libclang.symbols.clang_getCursorKind(this.#buffer));
+  }
+
+  equals(other: CXCursor): boolean {
+    return libclang.symbols.clang_equalCursors(this.#buffer, other.#buffer) !==
+      0;
   }
 
   getVarDeclInitializer(): CXCursor {
@@ -391,6 +417,166 @@ export class CXCursor {
     );
     return cxstringToString(cxstring);
   }
+
+  getCommentRange(): CXSourceRange {
+    return new CXSourceRange(
+      libclang.symbols.clang_Cursor_getCommentRange(this.#buffer),
+    );
+  }
+
+  getObjCDeclQualifiers(): number {
+    return libclang.symbols.clang_Cursor_getObjCDeclQualifiers(this.#buffer);
+  }
+
+  getObjCPropertyAttributes(): number {
+    return libclang.symbols.clang_Cursor_getObjCPropertyAttributes(
+      this.#buffer,
+      0,
+    );
+  }
+
+  getObjCPropertySetterName(): string {
+    return cxstringToString(
+      libclang.symbols.clang_Cursor_getObjCPropertySetterName(this.#buffer),
+    );
+  }
+
+  getObjCPropertyGetterName(): string {
+    return cxstringToString(
+      libclang.symbols.clang_Cursor_getObjCPropertyGetterName(this.#buffer),
+    );
+  }
+
+  getObjCSelectorIndex(): number {
+    return libclang.symbols.clang_Cursor_getObjCSelectorIndex(this.#buffer);
+  }
+
+  isObjCOptional(): boolean {
+    return libclang.symbols.clang_Cursor_isObjCOptional(this.#buffer) !== 0;
+  }
+
+  getRawCommentText(): string {
+    return cxstringToString(
+      libclang.symbols.clang_Cursor_getRawCommentText(this.#buffer),
+    );
+  }
+
+  getReceiverType(): CXType {
+    return new CXType(
+      libclang.symbols.clang_Cursor_getReceiverType(this.#buffer),
+    );
+  }
+
+  isDynamicCall(): boolean {
+    return libclang.symbols.clang_Cursor_isDynamicCall(this.#buffer) !== 0;
+  }
+
+  isExternalSymbol(): boolean {
+    return libclang.symbols.clang_Cursor_isExternalSymbol(
+      this.#buffer,
+      NULLBUF,
+      NULLBUF,
+      NULLBUF,
+    ) !== 0;
+  }
+
+  getExternalSymbolAttributes(): null | {
+    language: null | string;
+    definedIn: null | string;
+    isGenerated: boolean;
+  } {
+    const languageOut = new Uint8Array(16 * 2 + 4);
+    const definedInOut = languageOut.subarray(16, 16 * 2);
+    const isGeneratedOut = languageOut.subarray(16 * 2);
+    const isExternalSymbol = libclang.symbols.clang_Cursor_isExternalSymbol(
+      this.#buffer,
+      languageOut,
+      definedInOut,
+      isGeneratedOut,
+    ) !== 0;
+    const language = cxstringToString(languageOut) || null;
+    const definedIn = cxstringToString(definedInOut) || null;
+    const isGenerated = isGeneratedOut[0] !== 0 || isGeneratedOut[1] !== 0 ||
+      isGeneratedOut[2] !== 0 || isGeneratedOut[3] !== 0;
+    return isExternalSymbol
+      ? {
+        language,
+        definedIn,
+        isGenerated,
+      }
+      : null;
+  }
+
+  isVariadic(): boolean {
+    return libclang.symbols.clang_Cursor_isVariadic(this.#buffer) !== 0;
+  }
+
+  getCanonicalCursor(): CXCursor {
+    return new CXCursor(
+      libclang.symbols.clang_getCanonicalCursor(this.#buffer),
+      this.tu,
+    );
+  }
+
+  getDefinition(): CXCursor {
+    return new CXCursor(
+      libclang.symbols.clang_getCursorDefinition(this.#buffer),
+      this.tu,
+    );
+  }
+
+  getDisplayName(): string {
+    return cxstringToString(
+      libclang.symbols.clang_getCursorDisplayName(this.#buffer),
+    );
+  }
+
+  getPrettyPrinted(printingPolicy: null | CXPrintingPolicy = null): string {
+    return cxstringToString(
+      libclang.symbols.clang_getCursorPrettyPrinted(
+        this.#buffer,
+        printingPolicy ? printingPolicy[POINTER] : NULL,
+      ),
+    );
+  }
+
+  getPrintingPolicy(): CXPrintingPolicy {
+    return new CXPrintingPolicy(
+      libclang.symbols.clang_getCursorPrintingPolicy(this.#buffer),
+    );
+  }
+
+  getReferenced(): CXCursor {
+    return new CXCursor(
+      libclang.symbols.clang_getCursorReferenced(this.#buffer),
+      this.tu,
+    );
+  }
+
+  getSpelling(): string {
+    return cxstringToString(
+      libclang.symbols.clang_getCursorSpelling(this.#buffer),
+    );
+  }
+
+  getUSR(): string {
+    return cxstringToString(libclang.symbols.clang_getCursorUSR(this.#buffer));
+  }
+
+  isDefinition(): boolean {
+    return libclang.symbols.clang_isCursorDefinition(this.#buffer) !== 0;
+  }
+
+  visitChildren(
+    callback: (cursor: CXCursor, parent: CXCursor) => CXChildVisitResult,
+  ): boolean {
+    CURRENT_VISITOR_CALLBACK = callback;
+    return libclang.symbols.clang_visitChildren(this.#buffer, CX_CURSOR_VISITOR_CALLBACK.pointer, NULL) > 0;
+  }
+
+  getCXXManglings(): string[] {
+    return cxstringSetToStringArray(libclang.symbols.clang_Cursor_getCXXManglings(this.#buffer));
+  }
 }
 
 class CXSourceRangeList {
@@ -402,5 +588,411 @@ class CXSourceRangeList {
 
   dispose() {
     libclang.symbols.clang_disposeSourceRangeList(this.#pointer);
+  }
+}
+
+class CXSourceRange {
+  #buffer: Uint8Array;
+
+  constructor(buffer: Uint8Array) {
+    this.#buffer = buffer;
+  }
+
+  isNull() {
+    return libclang.symbols.clang_Range_isNull(this.#buffer);
+  }
+
+  equals(other: CXSourceRange): boolean {
+    return libclang.symbols.clang_equalCursors(this.#buffer, other.#buffer) !==
+      0;
+  }
+
+  getRangeStart() {
+    return new CXSourceLocation(
+      libclang.symbols.clang_getRangeStart(this.#buffer),
+    );
+  }
+
+  getRangeEnd() {
+    return new CXSourceLocation(
+      libclang.symbols.clang_getRangeEnd(this.#buffer),
+    );
+  }
+}
+
+class CXSourceLocation {
+  #buffer: Uint8Array;
+
+  constructor(buffer: Uint8Array) {
+    this.#buffer = buffer;
+  }
+
+  equals(other: CXSourceLocation) {
+    return libclang.symbols.clang_equalLocations(this.#buffer, other.#buffer);
+  }
+}
+
+class CXType {
+  #buffer: Uint8Array;
+
+  constructor(buffer: Uint8Array) {
+    this.#buffer = buffer;
+  }
+}
+
+class CXPrintingPolicy {
+  #pointer: Deno.PointerValue;
+
+  constructor(pointer: Deno.PointerValue) {
+    this.#pointer = pointer;
+  }
+
+  get [POINTER]() {
+    return this.#pointer;
+  }
+
+  get indentation(): number {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_Indentation,
+    );
+  }
+  set indentation(value: number) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_Indentation,
+      value,
+    );
+  }
+  get suppressSpecifiers(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_SuppressSpecifiers,
+    ) !== 0;
+  }
+  set suppressSpecifiers(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_SuppressSpecifiers,
+      value ? 1 : 0,
+    );
+  }
+  get suppressTagKeyword(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_SuppressTagKeyword,
+    ) !== 0;
+  }
+  set suppressTagKeyword(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_SuppressTagKeyword,
+      value ? 1 : 0,
+    );
+  }
+  get includeTagDefinition(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_IncludeTagDefinition,
+    ) !== 0;
+  }
+  set includeTagDefinition(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_IncludeTagDefinition,
+      value ? 1 : 0,
+    );
+  }
+  get suppressScope(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_SuppressScope,
+    ) !== 0;
+  }
+  set suppressScope(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_SuppressScope,
+      value ? 1 : 0,
+    );
+  }
+  get suppressUnwrittenScope(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_SuppressUnwrittenScope,
+    ) !== 0;
+  }
+  set suppressUnwrittenScope(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_SuppressUnwrittenScope,
+      value ? 1 : 0,
+    );
+  }
+  get suppressInitializers(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_SuppressInitializers,
+    ) !== 0;
+  }
+  set suppressInitializers(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_SuppressInitializers,
+      value ? 1 : 0,
+    );
+  }
+  get constantArraySizeAsWritten(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_ConstantArraySizeAsWritten,
+    ) !== 0;
+  }
+  set constantArraySizeAsWritten(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_ConstantArraySizeAsWritten,
+      value ? 1 : 0,
+    );
+  }
+  get anonymousTagLocations(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_AnonymousTagLocations,
+    ) !== 0;
+  }
+  set anonymousTagLocations(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_AnonymousTagLocations,
+      value ? 1 : 0,
+    );
+  }
+  get suppressStrongLifetime(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_SuppressStrongLifetime,
+    ) !== 0;
+  }
+  set suppressStrongLifetime(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_SuppressStrongLifetime,
+      value ? 1 : 0,
+    );
+  }
+  get suppressLifetimeQualifiers(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_SuppressLifetimeQualifiers,
+    ) !== 0;
+  }
+  set suppressLifetimeQualifiers(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_SuppressLifetimeQualifiers,
+      value ? 1 : 0,
+    );
+  }
+  get suppressTemplateArgsInCXXConstructors(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty
+        .CXPrintingPolicy_SuppressTemplateArgsInCXXConstructors,
+    ) !== 0;
+  }
+  set suppressTemplateArgsInCXXConstructors(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty
+        .CXPrintingPolicy_SuppressTemplateArgsInCXXConstructors,
+      value ? 1 : 0,
+    );
+  }
+  get bool(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_Bool,
+    ) !== 0;
+  }
+  set bool(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_Bool,
+      value ? 1 : 0,
+    );
+  }
+  get restrict(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_Restrict,
+    ) !== 0;
+  }
+  set restrict(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_Restrict,
+      value ? 1 : 0,
+    );
+  }
+  get alignof(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_Alignof,
+    ) !== 0;
+  }
+  set alignof(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_Alignof,
+      value ? 1 : 0,
+    );
+  }
+  get underscoreAlignof(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_UnderscoreAlignof,
+    ) !== 0;
+  }
+  set underscoreAlignof(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_UnderscoreAlignof,
+      value ? 1 : 0,
+    );
+  }
+  get useVoidForZeroParams(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_UseVoidForZeroParams,
+    ) !== 0;
+  }
+  set useVoidForZeroParams(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_UseVoidForZeroParams,
+      value ? 1 : 0,
+    );
+  }
+  get terseOutput(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_TerseOutput,
+    ) !== 0;
+  }
+  set terseOutput(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_TerseOutput,
+      value ? 1 : 0,
+    );
+  }
+  get polishForDeclaration(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_PolishForDeclaration,
+    ) !== 0;
+  }
+  set polishForDeclaration(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_PolishForDeclaration,
+      value ? 1 : 0,
+    );
+  }
+  get half(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_Half,
+    ) !== 0;
+  }
+  set half(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_Half,
+      value ? 1 : 0,
+    );
+  }
+  get mSWChar(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_MSWChar,
+    ) !== 0;
+  }
+  set mSWChar(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_MSWChar,
+      value ? 1 : 0,
+    );
+  }
+  get includeNewlines(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_IncludeNewlines,
+    ) !== 0;
+  }
+  set includeNewlines(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_IncludeNewlines,
+      value ? 1 : 0,
+    );
+  }
+  get mSVCFormatting(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_MSVCFormatting,
+    ) !== 0;
+  }
+  set mSVCFormatting(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_MSVCFormatting,
+      value ? 1 : 0,
+    );
+  }
+  get constantsAsWritten(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_ConstantsAsWritten,
+    ) !== 0;
+  }
+  set constantsAsWritten(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_ConstantsAsWritten,
+      value ? 1 : 0,
+    );
+  }
+  get suppressImplicitBase(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_SuppressImplicitBase,
+    ) !== 0;
+  }
+  set suppressImplicitBase(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_SuppressImplicitBase,
+      value ? 1 : 0,
+    );
+  }
+  get fullyQualifiedName(): boolean {
+    return libclang.symbols.clang_PrintingPolicy_getProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_FullyQualifiedName,
+    ) !== 0;
+  }
+  set fullyQualifiedName(value: boolean) {
+    libclang.symbols.clang_PrintingPolicy_setProperty(
+      this.#pointer,
+      CXPrintingPolicyProperty.CXPrintingPolicy_FullyQualifiedName,
+      value ? 1 : 0,
+    );
+  }
+
+  dispose() {
+    libclang.symbols.clang_PrintingPolicy_dispose(this.#pointer);
   }
 }

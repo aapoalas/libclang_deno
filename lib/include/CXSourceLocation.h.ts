@@ -1,4 +1,8 @@
-import { CXFileT, CXSourceLocation, CXSourceRange } from "./typeDefinitions.ts";
+import {
+  CXFileT,
+  CXSourceLocationT,
+  CXSourceRangeT,
+} from "./typeDefinitions.ts";
 
 /**
  * Physical source locations
@@ -16,7 +20,7 @@ import { CXFileT, CXSourceLocation, CXSourceRange } from "./typeDefinitions.ts";
  */
 export const clang_getNullLocation = {
   parameters: [],
-  result: CXSourceLocation,
+  result: CXSourceLocationT,
 } as const;
 
 /**
@@ -30,7 +34,7 @@ export const clang_getNullLocation = {
  * if they refer to different locations.
  */
 export const clang_equalLocations = {
-  parameters: [CXSourceLocation, CXSourceLocation],
+  parameters: [CXSourceLocationT, CXSourceLocationT],
   result: "u32",
 } as const;
 
@@ -39,7 +43,7 @@ export const clang_equalLocations = {
  * @param location
  */
 export const clang_Location_isInSystemHeader = {
-  parameters: [CXSourceLocation],
+  parameters: [CXSourceLocationT],
   result: "i32",
 } as const;
 
@@ -49,7 +53,7 @@ export const clang_Location_isInSystemHeader = {
  * @param location
  */
 export const clang_Location_isFromMainFile = {
-  parameters: [CXSourceLocation],
+  parameters: [CXSourceLocationT],
   result: "i32",
 } as const;
 
@@ -58,7 +62,7 @@ export const clang_Location_isFromMainFile = {
  */
 export const clang_getNullRange = {
   parameters: [],
-  result: CXSourceRange,
+  result: CXSourceRangeT,
 } as const;
 
 /**
@@ -69,8 +73,8 @@ export const clang_getNullRange = {
  * @param end
  */
 export const clang_getRange = {
-  parameters: [CXSourceLocation, CXSourceLocation],
-  result: CXSourceRange,
+  parameters: [CXSourceLocationT, CXSourceLocationT],
+  result: CXSourceRangeT,
 } as const;
 
 /**
@@ -81,7 +85,7 @@ export const clang_getRange = {
  * @returns non-zero if the ranges are the same, zero if they differ.
  */
 export const clang_equalRanges = {
-  parameters: [CXSourceRange, CXSourceRange],
+  parameters: [CXSourceRangeT, CXSourceRangeT],
   result: "u32",
 } as const;
 
@@ -90,7 +94,7 @@ export const clang_equalRanges = {
  * @param range
  */
 export const clang_Range_isNull = {
-  parameters: [CXSourceRange],
+  parameters: [CXSourceRangeT],
   result: "i32",
 } as const;
 
@@ -123,11 +127,14 @@ export const clang_Range_isNull = {
  */
 export const clang_getExpansionLocation = {
   parameters: [
-    CXSourceLocation,
+    CXSourceLocationT,
     CXFileT,
-    /* unsigned * */ "buffer",
-    /* unsigned * */ "buffer",
-    /* unsigned * */ "buffer",
+    /* `unsigned * `*/
+    "buffer",
+    /* `unsigned * `*/
+    "buffer",
+    /* `unsigned * `*/
+    "buffer",
   ],
   result: "void",
 } as const;
@@ -138,14 +145,14 @@ export const clang_getExpansionLocation = {
  *
  * Example: given the following source code in a file somefile.c
  *
- * \code
+ * ```c
  * #123 "dummy.c" 1
  *
  * static int func(void)
  * {
  *     return 0;
  * }
- * \endcode
+ * ```
  *
  * the location information returned by this function would be
  *
@@ -174,7 +181,7 @@ export const clang_getExpansionLocation = {
  */
 export const clang_getPresumedLocation = {
   parameters: [
-    CXSourceLocation,
+    CXSourceLocationT,
     "buffer",
     /* `unsigned *` */
     "buffer",
@@ -200,7 +207,7 @@ export const clang_getPresumedLocation = {
  */
 export const clang_getInstantiationLocation = {
   parameters: [
-    CXSourceLocation,
+    CXSourceLocationT,
     "buffer",
     /* `unsigned *` */
     "buffer",
@@ -236,7 +243,7 @@ export const clang_getInstantiationLocation = {
  */
 export const clang_getSpellingLocation = {
   parameters: [
-    CXSourceLocation,
+    CXSourceLocationT,
     "buffer",
     /* `unsigned *` */
     "buffer",
@@ -273,7 +280,7 @@ export const clang_getSpellingLocation = {
  */
 export const clang_getFileLocation = {
   parameters: [
-    CXSourceLocation,
+    CXSourceLocationT,
     "buffer",
     /* `unsigned *` */
     "buffer",
@@ -292,8 +299,8 @@ export const clang_getFileLocation = {
  * @param range
  */
 export const clang_getRangeStart = {
-  parameters: [CXSourceRange],
-  result: CXSourceLocation,
+  parameters: [CXSourceRangeT],
+  result: CXSourceLocationT,
 } as const;
 
 /**
@@ -303,8 +310,8 @@ export const clang_getRangeStart = {
  * @param range
  */
 export const clang_getRangeEnd = {
-  parameters: [CXSourceRange],
-  result: CXSourceLocation,
+  parameters: [CXSourceRangeT],
+  result: CXSourceLocationT,
 } as const;
 
 /**

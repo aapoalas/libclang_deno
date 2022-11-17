@@ -1,7 +1,7 @@
 import {
   CXRewriter,
-  CXSourceLocation,
-  CXSourceRange,
+  CXSourceLocationT,
+  CXSourceRangeT,
   CXTranslationUnitT,
   int,
 } from "./typeDefinitions.ts";
@@ -22,7 +22,7 @@ export const clang_CXRewriter_create = {
  * @param Insert CString
  */
 export const clang_CXRewriter_insertTextBefore = {
-  parameters: [CXRewriter, CXSourceLocation, "buffer"],
+  parameters: [CXRewriter, CXSourceLocationT, "buffer"],
   result: "void",
 } as const;
 
@@ -34,7 +34,7 @@ export const clang_CXRewriter_insertTextBefore = {
  * @param Replacement CString
  */
 export const clang_CXRewriter_replaceText = {
-  parameters: [CXRewriter, CXSourceRange, "buffer"],
+  parameters: [CXRewriter, CXSourceRangeT, "buffer"],
   result: "void",
 } as const;
 
@@ -44,7 +44,7 @@ export const clang_CXRewriter_replaceText = {
  * @param ToBeRemoved
  */
 export const clang_CXRewriter_removeText = {
-  parameters: [CXRewriter, CXSourceRange],
+  parameters: [CXRewriter, CXSourceRangeT],
   result: "void",
 } as const;
 

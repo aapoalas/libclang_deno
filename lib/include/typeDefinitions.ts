@@ -107,7 +107,9 @@ export const CXDiagnosticSetT = "pointer" as const;
  * } CXCursor;
  * ```
  */
-export const CXCursorT = { struct: ["u8", int, "pointer", "pointer", "pointer"] } as const;
+export const CXCursorT = {
+  struct: ["u8", int, "pointer", "pointer", "pointer"],
+} as const;
 // export const CXCursorT = "buffer" as const;
 
 /**
@@ -121,7 +123,9 @@ export const CXCursorT = { struct: ["u8", int, "pointer", "pointer", "pointer"] 
  * } CXTUResourceUsageEntry;
  * ``
  */
-export const CXTUResourceUsageEntryT = { struct: ["u32", unsignedLong] } as const;
+export const CXTUResourceUsageEntryT = {
+  struct: ["u32", unsignedLong],
+} as const;
 // export const CXTUResourceUsageEntryT = "buffer" as const;
 
 /**
@@ -137,7 +141,9 @@ export const CXTUResourceUsageEntryT = { struct: ["u32", unsignedLong] } as cons
  * } CXTUResourceUsage;
  * ```
  */
-export const CXTUResourceUsageT = { struct: ["pointer", unsigned, "pointer"] } as const;
+export const CXTUResourceUsageT = {
+  struct: ["pointer", unsigned, "pointer"],
+} as const;
 // export const CXTUResourceUsage = "buffer" as const;
 
 /**
@@ -190,9 +196,9 @@ export enum CXDiagnosticDisplayOptions {
    * When set, diagnostics will be prefixed by the file, line, and
    * (optionally) column to which the diagnostic refers. For example,
    *
-   * \code
+   * ```log
    * test.c:28: warning: extra tokens at end of #endif directive
-   * \endcode
+   * ```
    *
    * This option corresponds to the clang flag `-fshow`-source-location.
    */
@@ -326,7 +332,9 @@ export const CXClientDataT = "pointer" as const;
  * };
  * ```
  */
-export const CXUnsavedFileT = { struct: ["pointer", "pointer", unsignedLong] } as const;
+export const CXUnsavedFileT = {
+  struct: ["pointer", "pointer", unsignedLong],
+} as const;
 // export const CXUnsavedFileT = "pointer" as const;
 
 /**
@@ -860,7 +868,8 @@ export enum CXCursorKind {
   CXCursor_LastDecl = CXCursor_CXXAccessSpecifier,
 
   /* References */
-  CXCursor_FirstRef = 40, /* Decl references */
+  CXCursor_FirstRef = 40,
+  /* Decl references */
   CXCursor_ObjCSuperClassRef = 40,
   CXCursor_ObjCProtocolRef = 41,
   CXCursor_ObjCClassRef = 42,
@@ -870,10 +879,10 @@ export enum CXCursorKind {
    * A type reference occurs anywhere where a type is named but not
    * declared. For example, given:
    *
-   * \code
+   * ```c++
    * typedef unsigned size_type;
    * size_type size;
-   * \endcode
+   * ```
    *
    * The typedef is a declaration of size_type (CXCursor_TypedefDecl),
    * while the type of the variable "size" is referenced. The cursor
@@ -901,12 +910,12 @@ export enum CXCursorKind {
    * This cursor kind is used to describe the jump to "start_over" in the
    * goto statement in the following example:
    *
-   * \code
+   * ```c++
    *   start_over:
    *     ++counter;
    *
    *     goto start_over;
-   * \endcode
+   * ```
    *
    * A label reference cursor refers to a label statement.
    */
@@ -919,7 +928,7 @@ export enum CXCursorKind {
    * An overloaded declaration reference cursor occurs in C++ templates where
    * a dependent name refers to a function. For example:
    *
-   * \code
+   * ```c++
    * template<typename T> void swap(T&, T&);
    *
    * struct X { ... };
@@ -935,7 +944,7 @@ export enum CXCursorKind {
    *
    * struct Y { };
    * void swap(Y&, Y&);
-   * \endcode
+   * ```
    *
    * Here, the identifier "swap" is associated with an overloaded declaration
    * reference. In the template definition, "swap" refers to either of the two
@@ -1107,9 +1116,9 @@ export enum CXCursorKind {
    * notion (C++ [expr.type.conv]).
    *
    * Example:
-   * \code
+   * ```c++
    *   x = int(0.5);
-   * \endcode
+   * ```
    */
   CXCursor_CXXFunctionalCastExpr = 128,
 
@@ -1169,9 +1178,9 @@ export enum CXCursorKind {
   /** An Objective-C "bridged" cast expression, which casts between
    * Objective-C pointers and C pointers, transferring ownership in the process.
    *
-   * \code
+   * ```c++
    *   NSString *str = (__bridge_transfer NSString *)CFCreateString();
-   * \endcode
+   * ```
    */
   CXCursor_ObjCBridgedCastExpr = 141,
 
@@ -1181,39 +1190,39 @@ export enum CXCursorKind {
    * A pack expansion expression contains a pattern (which itself is an
    * expression) followed by an ellipsis. For example:
    *
-   * \code
+   * ```c++
    * template<typename F, typename ...Types>
    * void forward(F f, Types &&...args) {
    *  f(static_cast<Types&&>(args)...);
    * }
-   * \endcode
+   * ```
    */
   CXCursor_PackExpansionExpr = 142,
 
   /** Represents an expression that computes the length of a parameter
    * pack.
    *
-   * \code
+   * ```c++
    * template<typename ...Types>
    * struct count {
    *   static const unsigned value = sizeof...(Types);
    * };
-   * \endcode
+   * ```
    */
   CXCursor_SizeOfPackExpr = 143,
 
-  /* Represents a C++ lambda expression that produces a local function
-    * object.
-    *
-    * \code
-    * void abssort(float *x, unsigned N) {
-    *   std::sort(x, x + N,
-    *             [](float a, float b) {
-    *               return std::abs(a) < std::abs(b);
-    *             });
-    * }
-    * \endcode
-    */
+  /** Represents a C++ lambda expression that produces a local function
+   * object.
+   *
+   * ```c++
+   * void abssort(float *x, unsigned N) {
+   *   std::sort(x, x + N,
+   *             [](float a, float b) {
+   *               return std::abs(a) < std::abs(b);
+   *             });
+   * }
+   * ```
+   */
   CXCursor_LambdaExpr = 144,
 
   /** Objective-c Boolean Literal.
@@ -1262,7 +1271,8 @@ export enum CXCursorKind {
 
   CXCursor_LastExpr = CXCursor_RequiresExpr,
 
-  /* Statements */
+  /** Statements
+   */
   CXCursor_FirstStmt = 200,
   /**
    * A statement whose specific kind is not exposed via this
@@ -1280,10 +1290,10 @@ export enum CXCursorKind {
    * This cursor kind is used to describe the "start_over:" label statement in
    * the following example:
    *
-   * \code
+   * ```c++
    *   start_over:
    *     ++counter;
-   * \endcode
+   * ```
    */
   CXCursor_LabelStmt = 201,
 
@@ -2060,7 +2070,9 @@ export const CXCallingConvT = "u32" as const;
  *   void *data[2];
  * } CXType;
  */
-export const CXTypeT = { struct: [/* CXTypeKind */"u8", "pointer", "pointer"]} as const;
+export const CXTypeT = {
+  struct: [CXTypeKindT, "pointer", "pointer"],
+} as const;
 // export const CXTypeT = "buffer" as const;
 
 /**
@@ -2079,7 +2091,7 @@ export enum CXTemplateArgumentKind {
   CXTemplateArgumentKind_TemplateExpansion,
   CXTemplateArgumentKind_Expression,
   CXTemplateArgumentKind_Pack,
-  /* Indicates an error case, preventing the kind from being deduced. */
+  /** Indicates an error case, preventing the kind from being deduced. */
   CXTemplateArgumentKind_Invalid,
 }
 export const CXTemplateArgumentKindT = "u8" as const;
@@ -2264,10 +2276,10 @@ export enum CXNameRefFlags {
    *
    * Non-contiguous names occur in Objective-C when a selector with two or more
    * parameters is used, or in C++ when using an operator:
-   * \code
+   * ```c++
    * [object doSomething:here withValue:there]; // Objective-C
    * return some_vector[1]; // C++
-   * \endcode
+   * ```
    */
   CXNameRange_WantSinglePiece = 0x4,
 }
@@ -2320,7 +2332,9 @@ export const CXTokenKindT = "u8" as const;
  * } CXToken;
  * ```
  */
-export const CXToken = { struct: [unsigned, unsigned, unsigned, unsigned, "pointer"]} as const;
+export const CXToken = {
+  struct: [unsigned, unsigned, unsigned, unsigned, "pointer"],
+} as const;
 // export const CXToken = "pointer" as const;
 
 /**
@@ -2357,7 +2371,9 @@ export const CXCompletionString = "pointer" as const;
  * } CXCompletionResult;
  * ```
  */
-export const CXCompletionResult = { struct: [int, CXCompletionString] } as const;
+export const CXCompletionResult = {
+  struct: [int, CXCompletionString],
+} as const;
 // export const CXCompletionResult = "pointer" as const;
 
 /**
@@ -2379,9 +2395,9 @@ export enum CXCompletionChunkKind {
    * For example, optional chunks can be used to describe the placeholders for
    * arguments that match up with defaulted function parameters, e.g. given:
    *
-   * \code
+   * ```c++
    * void f(int x, float y = 3.14, double z = 2.71828);
-   * \endcode
+   * ```
    *
    * The code-completion string for this function would contain:
    *   - a TypedText chunk for "f".
@@ -2450,9 +2466,9 @@ export enum CXCompletionChunkKind {
    * information about a parameter corresponding to the argument at the
    * code-completion point. For example, given a function
    *
-   * \code
+   * ```c++
    * int add(int x, int y);
-   * \endcode
+   * ```
    *
    * and the source code `$1`, where the code-completion point is after the
    * "(", the code-completion string will contain a "current parameter" chunk
@@ -2738,7 +2754,9 @@ export enum CXVisitorResult {
  * } CXCursorAndRangeVisitor;
  * ```
  */
-export const CXCursorAndRangeVisitor = { struct: ["pointer", "function"] } as const;
+export const CXCursorAndRangeVisitor = {
+  struct: ["pointer", "function"],
+} as const;
 // export const CXCursorAndRangeVisitor = "buffer" as const;
 
 export enum CXResult {
@@ -2810,7 +2828,9 @@ export const CXIdxLoc = { struct: ["pointer", "pointer", unsigned] } as const;
  * } CXIdxIncludedFileInfo;
  * ```
  */
-export const CXIdxIncludedFileInfo = { struct: [CXIdxLoc, "pointer", CXFileT, int, int, int] } as const;
+export const CXIdxIncludedFileInfo = {
+  struct: [CXIdxLoc, "pointer", CXFileT, int, int, int],
+} as const;
 // export const CXIdxIncludedFileInfo = "buffer" as const;
 
 /**
@@ -3278,7 +3298,7 @@ export const CXCursorVisitorBlock = "function" as const;
  *
  * See `$1` for more information.
  */
-export enum CXPrintingPolicyPropertyA {
+export enum CXPrintingPolicyProperty {
   CXPrintingPolicy_Indentation,
   CXPrintingPolicy_SuppressSpecifiers,
   CXPrintingPolicy_SuppressTagKeyword,
@@ -3314,7 +3334,7 @@ export const CXPrintingPolicyPropertyT = "i32" as const;
  * Opaque pointer representing a policy that controls pretty printing
  * for {@link clang_getCursorPrettyPrinted}.
  */
-export const CXPrintingPolicy = "pointer" as const;
+export const CXPrintingPolicyT = "pointer" as const;
 
 /**
  * Module introspection
@@ -3420,7 +3440,9 @@ export const CXFieldVisitor = "function" as const;
  * } CXSourceLocation;
  * ```
  */
-export const CXSourceLocation = { struct: ["pointer", "pointer", "u32"] } as const;
+export const CXSourceLocationT = {
+  struct: ["pointer", "pointer", "u32"],
+} as const;
 // export const CXSourceLocation = "pointer" as const;
 
 /**
@@ -3436,7 +3458,7 @@ export const CXSourceLocation = { struct: ["pointer", "pointer", "u32"] } as con
  * } CXSourceRange;
  * ```
  */
-export const CXSourceRange = {
+export const CXSourceRangeT = {
   struct: ["pointer", "pointer", "u32", "u32"],
 } as const;
 // export const CXSourceRange = "pointer" as const;
@@ -3465,9 +3487,10 @@ export const CXString = { struct: ["pointer", "u32"] } as const;
  *   unsigned Count;
  * } CXStringSet;
  * ```
+ * 
+ * Used always as a pointer.
  */
-export const CXStringSet = { struct: ["pointer", "u32"] } as const;
-// export const CXStringSet = "pointer" as const;
+export const CXStringSetT = "pointer" as const;
 
 /**
  * A parsed comment.
@@ -3709,14 +3732,14 @@ export const CXCompileCommand = "pointer";
  * Error codes for Compilation Database
  */
 export enum CXCompilationDatabase_Error {
-  /*
-    * No error occurred
-    */
+  /**
+   * No error occurred
+   */
   CXCompilationDatabase_NoError = 0,
 
-  /*
-    * Database can not be loaded
-    */
+  /**
+   * Database can not be loaded
+   */
   CXCompilationDatabase_CanNotLoadDatabase = 1,
 }
 export const CXCompilationDatabase_ErrorT = "u8" as const;

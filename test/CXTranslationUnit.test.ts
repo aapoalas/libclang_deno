@@ -5,6 +5,7 @@ assert,
   assertThrows,
 } from "https://deno.land/std@0.163.0/testing/asserts.ts";
 import { libclang } from "../lib/ffi.ts";
+import { CXChildVisitResult } from "../lib/include/typeDefinitions.ts";
 import { CXIndex } from "../lib/raw/CXIndex.ts";
 import { CXTranslationUnit } from "../lib/raw/CXTranslationUnit.ts";
 
@@ -129,5 +130,10 @@ Deno.test("class CXTranslationUnit", async (t) => {
     console.log(cursor.kind);
     console.log(cursor.getAvailability());
     console.log(cursor.getLanguage());
+    
+    cursor.visitChildren(cursor => {
+      console.log(cursor.getCXXManglings());
+      return CXChildVisitResult.CXChildVisit_Recurse;
+    });
   });
 });

@@ -55,6 +55,32 @@ export const cstrToString = (cstr: Uint8Array): string =>
 export const charBufferToString = (cstr: Uint8Array): string =>
   DECODER.decode(cstr);
 
+export const cxstringSetToStringArray = (cxstringSetPointer: Deno.PointerValue): string[] => {
+  if (cxstringSetPointer === NULL) {
+    return [];
+  }
+
+  const view = new Deno.UnsafePointerView(cxstringSetPointer);
+  const count = view.getUint32(8);
+  if (count === 0) {
+    libclang.symbols.clang_disposeStringSet(cxstringSetPointer);
+    return [];
+  }
+  const stringsPointer = Number(view.getBigUint64(0));
+  const strings = [];
+  for (let i = 0; i < count; i++) {
+    const cxstring = new Uint8Array(Deno.UnsafePointerView.getArrayBuffer(stringsPointer, 16, i * 16));
+    const cstring = libclang.symbols.clang_getCString(cxstring);
+    if (cstring === NULL) {
+      strings.push("");
+      continue;
+    }
+    strings.push(Deno.UnsafePointerView.getCString(cstring));
+  }
+  libclang.symbols.clang_disposeStringSet(cxstringSetPointer);
+  return strings;
+};
+
 export const wrapPointerInBuffer = (pointer: Deno.PointerValue): Uint8Array => {
   const buf = new Uint8Array(8);
   const u64Buf = new BigUint64Array(buf.buffer);

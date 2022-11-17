@@ -1,4 +1,4 @@
-import { CXString, CXStringSet } from "./typeDefinitions.ts";
+import { CXString, CXStringSetT } from "./typeDefinitions.ts";
 
 /**
  * Retrieve the character data associated with the given string.
@@ -24,6 +24,6 @@ export const clang_disposeString = {
  * @param {CXStringSet *} set
  */
 export const clang_disposeStringSet = {
-  parameters: [CXStringSet],
+  parameters: ["pointer"],
   result: "void",
 } as const;

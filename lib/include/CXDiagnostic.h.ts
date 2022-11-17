@@ -3,8 +3,8 @@ import {
   CXDiagnosticSetT,
   CXDiagnosticT,
   CXLoadDiag_ErrorT,
-  CXSourceLocation,
-  CXSourceRange,
+  CXSourceLocationT,
+  CXSourceRangeT,
   CXString,
 } from "./typeDefinitions.ts";
 
@@ -132,7 +132,7 @@ export const clang_getDiagnosticSeverity = {
  */
 export const clang_getDiagnosticLocation = {
   parameters: [CXDiagnosticT],
-  result: CXSourceLocation,
+  result: CXSourceLocationT,
 } as const;
 
 /**
@@ -224,7 +224,7 @@ export const clang_getDiagnosticNumRanges = {
  */
 export const clang_getDiagnosticRange = {
   parameters: [CXDiagnosticT, "u32"],
-  result: CXSourceRange,
+  result: CXSourceRangeT,
 } as const;
 
 /**
@@ -267,7 +267,7 @@ export const clang_getDiagnosticFixIt = {
   parameters: [
     CXDiagnosticT,
     "u32",
-    CXSourceRange,
+    CXSourceRangeT,
   ],
   result: CXString,
 } as const;

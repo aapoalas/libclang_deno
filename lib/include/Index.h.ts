@@ -40,13 +40,13 @@ import {
   CXLanguageKindT,
   CXLinkageKindT,
   CXModule,
-  CXPrintingPolicy,
+  CXPrintingPolicyT,
   CXPrintingPolicyPropertyT,
   CXRefQualifierKind,
   CXRemapping,
   CXResultT,
-  CXSourceLocation,
-  CXSourceRange,
+  CXSourceLocationT,
+  CXSourceRangeT,
   CXString,
   CXTargetInfoT,
   CXTemplateArgumentKindT,
@@ -169,7 +169,7 @@ export const clang_getFileContents = {
  */
 export const clang_getLocation = {
   parameters: [CXTranslationUnitT, CXFileT, "u32", "u32"],
-  result: CXSourceLocation,
+  result: CXSourceLocationT,
 } as const;
 /**
  * Retrieves the source location associated with a given character offset in a particular translation unit.
@@ -179,7 +179,7 @@ export const clang_getLocation = {
  */
 export const clang_getLocationForOffset = {
   parameters: [CXTranslationUnitT, CXFileT, "u32"],
-  result: CXSourceLocation,
+  result: CXSourceLocationT,
 } as const;
 /**
  * Retrieve all ranges that were skipped by the preprocessor.
@@ -271,10 +271,10 @@ export const clang_getTranslationUnitSpelling = {
  * associated.
  *
  * @param source_filename The name of the source file to load, or NULL if the
- * source file is included in \p clang_command_line_args.
+ * source file is included in `clang_command_line_args`.
  *
  * @param num_clang_command_line_args The number of command-line arguments in
- * \p clang_command_line_args.
+ * `clang_command_line_args`.
  *
  * @param clang_command_line_args The command-line arguments that would be
  * passed to the `$1` executable if it were being invoked out-of-process.
@@ -545,7 +545,7 @@ export const clang_defaultReparseOptions = {
  *
  * This routine can be used to re-parse the source files that originally
  * created the given translation unit, for example because those source files
- * have changed (either on disk or as passed via \p unsaved_files). The
+ * have changed (either on disk or as passed via `unsaved_files`). The
  * source code will be reparsed with the same command-line options as it
  * was originally parsed.
  *
@@ -682,7 +682,7 @@ export const clang_equalCursors = {
 } as const;
 
 /**
- * Returns non-zero if \p cursor is null.
+ * Returns non-zero if `cursor` is null.
  * @param {CxCursor} cursor
  */
 export const clang_Cursor_isNull = {
@@ -1012,18 +1012,18 @@ export const clang_CXCursorSet_insert = {
  * Determine the semantic parent of the given cursor.
  *
  * The semantic parent of a cursor is the cursor that semantically contains
- * the given \p cursor. For many declarations, the lexical and semantic parents
+ * the given `cursor`. For many declarations, the lexical and semantic parents
  * are equivalent (the lexical parent is returned by
  * {@link clang_getCursorLexicalParent}()). They diverge when declarations or
  * definitions are provided out-of-line. For example:
  *
- * \code
+ * ```c++
  * class C {
  *  void f();
  * };
  *
  * void C::f() { }
- * \endcode
+ * ```
  *
  * In the out-of-line definition of `$1`, the semantic parent is
  * the class `$1`, of which this function is a member. The lexical parent is
@@ -1050,19 +1050,19 @@ export const clang_getCursorSemanticParent = {
 /**
  * Determine the lexical parent of the given cursor.
  *
- * The lexical parent of a cursor is the cursor in which the given \p cursor
+ * The lexical parent of a cursor is the cursor in which the given `cursor`
  * was actually written. For many declarations, the lexical and semantic parents
  * are equivalent (the semantic parent is returned by
  * {@link clang_getCursorSemanticParent}()). They diverge when declarations or
  * definitions are provided out-of-line. For example:
  *
- * \code
+ * ```c++
  * class C {
  *  void f();
  * };
  *
  * void C::f() { }
- * \endcode
+ * ```
  *
  * In the out-of-line definition of `$1`, the semantic parent is
  * the class `$1`, of which this function is a member. The lexical parent is
@@ -1128,7 +1128,7 @@ export const clang_getCursorLexicalParent = {
  *
  * @param num_overridden A pointer to the number of overridden
  * functions, will be set to the number of overridden functions in the
- * array pointed to by \p overridden.
+ * array pointed to by `overridden`.
  */
 export const clang_getOverriddenCursors = {
   parameters: [CXCursorT, "buffer", "buffer"],
@@ -1179,7 +1179,7 @@ export const clang_getIncludedFile = {
  * a NULL cursor if no such entity can be found.
  */
 export const clang_getCursor = {
-  parameters: [CXTranslationUnitT, CXSourceLocation],
+  parameters: [CXTranslationUnitT, CXSourceLocationT],
   result: CXCursorT,
 } as const;
 
@@ -1195,7 +1195,7 @@ export const clang_getCursor = {
  */
 export const clang_getCursorLocation = {
   parameters: [CXCursorT],
-  result: CXSourceLocation,
+  result: CXSourceLocationT,
 } as const;
 
 /**
@@ -1211,7 +1211,7 @@ export const clang_getCursorLocation = {
  */
 export const clang_getCursorExtent = {
   parameters: [CXCursorT],
-  result: CXSourceRange,
+  result: CXSourceRangeT,
 } as const;
 
 /**
@@ -1557,11 +1557,11 @@ export const clang_getPointeeType = {
  *
  * For example, given the following series of typedefs:
  *
- * \code
+ * ```c++
  * typedef int Integer;
  * typedef const Integer CInteger;
  * typedef CInteger DifferenceType;
- * \endcode
+ * ```
  *
  * Executing {@link clang_getUnqualifiedType}() on a {@link CXType} that
  * represents `$1`, will desugar to a type representing
@@ -1570,9 +1570,9 @@ export const clang_getPointeeType = {
  * And, executing {@link clang_getUnqualifiedType}() on the type of the
  * first argument of the following function declaration:
  *
- * \code
+ * ```c++
  * void foo(const int);
- * \endcode
+ * ```
  *
  * Will return a type representing `$1`, removing the `$1`
  * qualifier.
@@ -2128,7 +2128,7 @@ export const clang_getIBOutletCollectionType = {
  * Visit the children of a particular cursor.
  *
  * This function visits all the direct children of the given cursor,
- * invoking the given \p visitor function with the cursors of each
+ * invoking the given `visitor` function with the cursors of each
  * visited child. The traversal may be recursive, if the visitor returns
  * {@link CXChildVisit_Recurse}. The traversal may also be ended prematurely, if
  * the visitor returns {@link CXChildVisit_Break}.
@@ -2138,7 +2138,7 @@ export const clang_getIBOutletCollectionType = {
  * definition, have no children).
  *
  * \param visitor the visitor function that will be invoked for each
- * child of \p parent.
+ * child of `parent`.
  *
  * \param client_data pointer data supplied by the client, which will
  * be passed to the visitor each time it is invoked.
@@ -2268,7 +2268,7 @@ export const clang_getCursorSpelling = {
  */
 export const clang_Cursor_getSpellingNameRange = {
   parameters: [CXCursorT, unsigned, unsigned],
-  result: CXSourceRange,
+  result: CXSourceRangeT,
 } as const;
 
 /**
@@ -2277,7 +2277,7 @@ export const clang_Cursor_getSpellingNameRange = {
  * @param Property
  */
 export const clang_PrintingPolicy_getProperty = {
-  parameters: [CXPrintingPolicy, CXPrintingPolicyPropertyT],
+  parameters: [CXPrintingPolicyT, CXPrintingPolicyPropertyT],
   result: unsigned,
 } as const;
 
@@ -2288,7 +2288,7 @@ export const clang_PrintingPolicy_getProperty = {
  * @param Value
  */
 export const clang_PrintingPolicy_setProperty = {
-  parameters: [CXPrintingPolicy, CXPrintingPolicyPropertyT, unsigned],
+  parameters: [CXPrintingPolicyT, CXPrintingPolicyPropertyT, unsigned],
   result: "void",
 } as const;
 
@@ -2299,7 +2299,7 @@ export const clang_PrintingPolicy_setProperty = {
  */
 export const clang_getCursorPrintingPolicy = {
   parameters: [CXCursorT],
-  result: CXPrintingPolicy,
+  result: CXPrintingPolicyT,
 } as const;
 
 /**
@@ -2307,7 +2307,7 @@ export const clang_getCursorPrintingPolicy = {
  * @param Policy
  */
 export const clang_PrintingPolicy_dispose = {
-  parameters: [CXPrintingPolicy],
+  parameters: [CXPrintingPolicyT],
   result: "void",
 } as const;
 
@@ -2323,7 +2323,7 @@ export const clang_PrintingPolicy_dispose = {
  * other cursors.
  */
 export const clang_getCursorPrettyPrinted = {
-  parameters: [CXCursorT, CXPrintingPolicy],
+  parameters: [CXCursorT, CXPrintingPolicyT],
   result: CXString,
 } as const;
 
@@ -2403,13 +2403,13 @@ export const clang_isCursorDefinition = {
  * times within a single translation unit. For example, a structure type can
  * be forward-declared (possibly multiple times) and later defined:
  *
- * \code
+ * ```c++
  * struct X;
  * struct X;
  * struct X {
  *   int member;
  * };
- * \endcode
+ * ```
  *
  * The declarations and the definition of `$1` are represented by three
  * different cursors, all of which are declarations of the same underlying
@@ -2552,7 +2552,7 @@ export const clang_Cursor_isExternalSymbol = {
  */
 export const clang_Cursor_getCommentRange = {
   parameters: [CXCursorT],
-  result: CXSourceRange,
+  result: CXSourceRangeT,
 } as const;
 
 /**
@@ -2855,7 +2855,7 @@ export const clang_CXXMethod_isConst = {
  * declaration.
  *
  * @returns The cursor kind of the specializations that would be generated
- * by instantiating the template \p C. If \p C is not a template, returns
+ * by instantiating the template `C`. If `C` is not a template, returns
  * {@link CXCursor_NoDeclFound}.
  */
 export const clang_getTemplateCursorKind = {
@@ -2916,7 +2916,7 @@ export const clang_getSpecializedCursorTemplate = {
  */
 export const clang_getCursorReferenceNameRange = {
   parameters: [CXCursorT, unsigned, unsigned],
-  result: CXSourceRange,
+  result: CXSourceRangeT,
 } as const;
 
 /**
@@ -2931,7 +2931,7 @@ export const clang_getCursorReferenceNameRange = {
  * translation unit is destroyed.
  */
 export const clang_getToken = {
-  parameters: [CXTranslationUnitT, CXSourceLocation],
+  parameters: [CXTranslationUnitT, CXSourceLocationT],
   result: CXToken, /*pointer*/
 } as const;
 
@@ -2959,7 +2959,7 @@ export const clang_getTokenSpelling = {
  */
 export const clang_getTokenLocation = {
   parameters: [CXTranslationUnitT, CXToken],
-  result: CXSourceLocation,
+  result: CXSourceLocationT,
 } as const;
 
 /**
@@ -2967,7 +2967,7 @@ export const clang_getTokenLocation = {
  */
 export const clang_getTokenExtent = {
   parameters: [CXTranslationUnitT, CXToken],
-  result: CXSourceRange,
+  result: CXSourceRangeT,
 } as const;
 
 /**
@@ -2987,7 +2987,7 @@ export const clang_getTokenExtent = {
  * array.
  */
 export const clang_tokenize = {
-  parameters: [CXTranslationUnitT, CXSourceRange, "buffer", "buffer"],
+  parameters: [CXTranslationUnitT, CXSourceRangeT, "buffer", "buffer"],
   result: "void",
 } as const;
 
@@ -3016,9 +3016,9 @@ export const clang_tokenize = {
  *
  * @param {CXToken *} Tokens the set of tokens to annotate.
  *
- * @param NumTokens the number of tokens in \p Tokens.
+ * @param NumTokens the number of tokens in `Tokens`.
  *
- * @param {CXCursor *} Cursors an array of \p NumTokens cursors, whose contents will be
+ * @param {CXCursor *} Cursors an array of `NumTokens` cursors, whose contents will be
  * replaced with the cursors corresponding to each token.
  */
 export const clang_annotateTokens = {
@@ -3046,7 +3046,7 @@ export const clang_disposeTokens = {
  * be relied upon.
  */
 
-/* for debug/testing */
+/** for debug/testing */
 export const clang_getCursorKindSpelling = {
   parameters: [CXCursorKindT],
   result: CXString,
@@ -3293,7 +3293,7 @@ export const clang_getCompletionNumFixIts = {
  * before the completion at completion_index can be applied
  */
 export const clang_getCompletionFixIt = {
-  parameters: [CXCodeCompleteResults, unsigned, unsigned, CXSourceRange],
+  parameters: [CXCodeCompleteResults, unsigned, unsigned, CXSourceRangeT],
   result: CXString,
 } as const;
 
@@ -3340,7 +3340,7 @@ export const clang_defaultCodeCompleteOptions = {
  * @param TU The translation unit in which code-completion should
  * occur. The source files for this translation unit need not be
  * completely up-to-date (and the contents of those source files may
- * be overridden via \p unsaved_files). Cursors referring into the
+ * be overridden via `unsaved_files`). Cursors referring into the
  * translation unit may be invalidated by this invocation.
  *
  * @param complete_filename The name of the source file where code
@@ -3392,7 +3392,7 @@ export const clang_codeCompleteAt = {
  * order.
  *
  * @param {CXCompletionResult *} Results The set of results to sort.
- * @param NumResults The number of results in \p Results.
+ * @param NumResults The number of results in `Results`.
  */
 export const clang_sortCodeCompletionResults = {
   parameters: [CXCompletionResult, unsigned],
@@ -3982,21 +3982,21 @@ export const clang_indexLoc_getFileLocation = {
  */
 export const clang_indexLoc_getCXSourceLocation = {
   parameters: [CXIdxLoc],
-  result: CXSourceLocation,
+  result: CXSourceLocationT,
 } as const;
 
 /**
  * Visit the fields of a particular type.
  *
  * This function visits all the direct fields of the given cursor,
- * invoking the given \p visitor function with the cursors of each
+ * invoking the given `visitor` function with the cursors of each
  * visited field. The traversal may be ended prematurely, if
  * the visitor returns {@link CXFieldVisit_Break}.
  *
  * @param T the record type whose field may be visited.
  *
  * @param visitor the visitor function that will be invoked for each
- * field of \p T.
+ * field of `T`.
  *
  * @param client_data pointer data supplied by the client, which will
  * be passed to the visitor each time it is invoked.
