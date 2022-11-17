@@ -451,6 +451,10 @@ export class CXCursor {
     return libclang.symbols.clang_Cursor_getObjCSelectorIndex(this.#buffer);
   }
 
+  getObjCManglings(): string[] {
+    return cxstringSetToStringArray(libclang.symbols.clang_Cursor_getObjCManglings(this.#buffer));
+  }
+
   isObjCOptional(): boolean {
     return libclang.symbols.clang_Cursor_isObjCOptional(this.#buffer) !== 0;
   }
@@ -627,8 +631,36 @@ class CXSourceLocation {
     this.#buffer = buffer;
   }
 
+  static getNullLocation() {
+    return new CXSourceLocation(libclang.symbols.clang_getNullLocation());
+  }
+
   equals(other: CXSourceLocation) {
     return libclang.symbols.clang_equalLocations(this.#buffer, other.#buffer);
+  }
+
+  isInSystemHeader(): boolean {
+
+  }
+
+  isFromMainFile(): boolean {
+
+  }
+
+  getExpansionLocation() {
+
+  }
+
+  getPresumedLocation() {
+    
+  }
+
+  getSpellingLocation() {
+
+  }
+
+  getFileLocation() {
+
   }
 }
 
