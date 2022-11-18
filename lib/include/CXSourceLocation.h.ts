@@ -1,8 +1,4 @@
-import {
-  CXFileT,
-  CXSourceLocationT,
-  CXSourceRangeT,
-} from "./typeDefinitions.ts";
+import { CXSourceLocationT, CXSourceRangeT } from "./typeDefinitions.ts";
 
 /**
  * Physical source locations
@@ -108,32 +104,24 @@ export const clang_Range_isNull = {
  * @param location the location within a source file that will be decomposed
  * into its parts.
  *
- * @param file [out] if non-NULL, will be set to the file to which the given
+ * @param file [out] (`CXFile*`) if non-NULL, will be set to the file to which the given
  * source location points.
  *
- * @param line [out] if non-NULL, will be set to the line to which the given
+ * @param line [out] (`unsigned *`) if non-NULL, will be set to the line to which the given
  * source location points.
  *
- * @param column [out] if non-NULL, will be set to the column to which the given
+ * @param column [out] (`unsigned *`) if non-NULL, will be set to the column to which the given
  * source location points.
  *
- * @param offset [out] if non-NULL, will be set to the offset into the
+ * @param offset [out] (`unsigned *`) if non-NULL, will be set to the offset into the
  * buffer to which the given source location points.
- * @param location
- * @param {CXFile*} file
- * @param {u32*} line
- * @param {u32*} column
- * @param {u32*} offset
  */
 export const clang_getExpansionLocation = {
   parameters: [
     CXSourceLocationT,
-    CXFileT,
-    /* `unsigned * `*/
     "buffer",
-    /* `unsigned * `*/
     "buffer",
-    /* `unsigned * `*/
+    "buffer",
     "buffer",
   ],
   result: "void",
@@ -165,7 +153,7 @@ export const clang_getExpansionLocation = {
  * @param location the location within a source file that will be decomposed
  * into its parts.
  *
- * @param {CXString *} filename [out] if non-NULL, will be set to the filename of the
+ * @param filename [out] (`CXFile *`) if non-NULL, will be set to the filename of the
  * source location. Note that filenames returned will be for "virtual" files,
  * which don't necessarily exist on the machine running clang - e.g. when
  * parsing preprocessed output obtained from a different environment. If
@@ -173,19 +161,17 @@ export const clang_getExpansionLocation = {
  * using {@link clang_disposeString}() once you've finished with it. For an invalid
  * source location, an empty string is returned.
  *
- * @param line [out] if non-NULL, will be set to the line number of the
+ * @param line [out] (`unsigned *`) if non-NULL, will be set to the line number of the
  * source location. For an invalid source location, zero is returned.
  *
- * @param column [out] if non-NULL, will be set to the column number of the
+ * @param column [out] (`unsigned *`) if non-NULL, will be set to the column number of the
  * source location. For an invalid source location, zero is returned.
  */
 export const clang_getPresumedLocation = {
   parameters: [
     CXSourceLocationT,
     "buffer",
-    /* `unsigned *` */
     "buffer",
-    /* `unsigned *` */
     "buffer",
   ],
   result: "void",
@@ -229,27 +215,24 @@ export const clang_getInstantiationLocation = {
  * @param location the location within a source file that will be decomposed
  * into its parts.
  *
- * @param {CXFile *} file [out] if non-NULL, will be set to the file to which the given
+ * @param file [out] (`CXFile *`) if non-NULL, will be set to the file to which the given
  * source location points.
  *
- * @param line [out] if non-NULL, will be set to the line to which the given
+ * @param line [out] (`unsigned *`) if non-NULL, will be set to the line to which the given
  * source location points.
  *
- * @param column [out] if non-NULL, will be set to the column to which the given
+ * @param column [out] (`unsigned *`) if non-NULL, will be set to the column to which the given
  * source location points.
  *
- * @param offset [out] if non-NULL, will be set to the offset into the
+ * @param offset [out] (`unsigned *`) if non-NULL, will be set to the offset into the
  * buffer to which the given source location points.
  */
 export const clang_getSpellingLocation = {
   parameters: [
     CXSourceLocationT,
     "buffer",
-    /* `unsigned *` */
     "buffer",
-    /* `unsigned *` */
     "buffer",
-    /* `unsigned *` */
     "buffer",
   ],
   result: "void",
@@ -266,27 +249,24 @@ export const clang_getSpellingLocation = {
  * @param location the location within a source file that will be decomposed
  * into its parts.
  *
- * @param {CXFile *} file [out] if non-NULL, will be set to the file to which the given
+ * @param file [out] (`CXFile *`) if non-NULL, will be set to the file to which the given
  * source location points.
  *
- * @param line [out] if non-NULL, will be set to the line to which the given
+ * @param line [out] (`unsigned *`) if non-NULL, will be set to the line to which the given
  * source location points.
  *
- * @param column [out] if non-NULL, will be set to the column to which the given
+ * @param column [out] (`unsigned *`) if non-NULL, will be set to the column to which the given
  * source location points.
  *
- * @param offset [out] if non-NULL, will be set to the offset into the
+ * @param offset [out] (`unsigned *`) if non-NULL, will be set to the offset into the
  * buffer to which the given source location points.
  */
 export const clang_getFileLocation = {
   parameters: [
     CXSourceLocationT,
     "buffer",
-    /* `unsigned *` */
     "buffer",
-    /* `unsigned *` */
     "buffer",
-    /* `unsigned *` */
     "buffer",
   ],
   result: "void",
@@ -315,8 +295,8 @@ export const clang_getRangeEnd = {
 } as const;
 
 /**
- * Destroy the given {CXSourceRangeList}.
- * @param {CXSourceRangeList *} ranges
+ * Destroy the given {@link CXSourceRangeList}.
+ * @param ranges (`CXSourceRangeList *`)
  */
 export const clang_disposeSourceRangeList = {
   parameters: ["pointer"],

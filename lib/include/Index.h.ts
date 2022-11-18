@@ -40,8 +40,8 @@ import {
   CXLanguageKindT,
   CXLinkageKindT,
   CXModule,
-  CXPrintingPolicyT,
   CXPrintingPolicyPropertyT,
+  CXPrintingPolicyT,
   CXRefQualifierKind,
   CXRemapping,
   CXResultT,
@@ -79,7 +79,7 @@ import {
  *
  * @param excludeDeclarationsFromPCH
  * @param displayDiagnostics
- * @returns {CXIndexT} {@link CXIndexT}
+ * @returns CXIndex {@link CXIndexT}
  */
 export const clang_createIndex = {
   parameters: ["i32", "i32"],
@@ -277,7 +277,7 @@ export const clang_getTranslationUnitSpelling = {
  * `clang_command_line_args`.
  *
  * @param clang_command_line_args The command-line arguments that would be
- * passed to the `$1` executable if it were being invoked out-of-process.
+ * passed to the `clang` executable if it were being invoked out-of-process.
  * These command-line options will be parsed and will affect how the translation
  * unit is parsed. Note that the following options are ignored: '-c',
  * '-emit-ast', '-fsyntax-only' (which is the default), and '-o <output file>'.
@@ -587,7 +587,7 @@ export const clang_reparseTranslationUnit = {
 /**
  * Returns the human-readable null-terminated C string that represents
  *  the name of the memory category.  This string should never be freed.
- * @param {CXTUResourceUsageKind} kind
+ * @param kind {@link CXTUResourceUsageKind}
  */
 export const clang_getTUResourceUsageName = {
   parameters: ["u32"],
@@ -683,7 +683,7 @@ export const clang_equalCursors = {
 
 /**
  * Returns non-zero if `cursor` is null.
- * @param {CxCursor} cursor
+ * @param cursor {@link CXCursor}
  */
 export const clang_Cursor_isNull = {
   parameters: [CXCursorT],
@@ -810,7 +810,7 @@ export const clang_isUnexposed = {
 
 /**
  * Determine the linkage of the entity referred to by a given cursor.
- * @param {CxCursor} cursor
+ * @param cursor {@link CXCursor}
  */
 export const clang_getCursorLinkage = {
   parameters: [CXCursorT],
@@ -827,7 +827,7 @@ export const clang_getCursorLinkage = {
  * @param cursor The cursor to query.
  *
  * \returns The visibility of the cursor.
- * @param {CxCursor} cursor
+ * @param cursor {@link CXCursor}
  */
 export const clang_getCursorVisibility = {
   parameters: [CXCursorT],
@@ -841,7 +841,7 @@ export const clang_getCursorVisibility = {
  * @param cursor The cursor to query.
  *
  * \returns The availability of the cursor.
- * @param {CXCursor} cursor
+ * @param cursor {@link CXCursor}
  */
 export const clang_getCursorAvailability = {
   parameters: [CXCursorT],
@@ -874,7 +874,7 @@ export const clang_getCursorAvailability = {
  * returned by this function) or `$1`, whichever is smaller.
  *
  * @param availability_size The number of elements available in the
- * `$1` array.
+ * `availability` array.
  *
  * \returns The number of platforms (N) for which availability information is
  * available (which is unrelated to `$1`.
@@ -909,7 +909,7 @@ export const clang_disposeCXPlatformAvailability = {
 /**
  * If cursor refers to a variable declaration and it has initializer returns
  * cursor referring to the initializer otherwise return null cursor.
- * @param {CxCursor} cursor
+ * @param cursor {@link CXCursor}
  */
 export const clang_Cursor_getVarDeclInitializer = {
   parameters: [CXCursorT],
@@ -920,7 +920,7 @@ export const clang_Cursor_getVarDeclInitializer = {
  * If cursor refers to a variable declaration that has global storage returns 1.
  * If cursor refers to a variable declaration that doesn't have global storage
  * returns 0. Otherwise returns -1.
- * @param {CxCursor} cursor
+ * @param cursor {@link CXCursor}
  */
 export const clang_Cursor_hasVarDeclGlobalStorage = {
   parameters: [CXCursorT],
@@ -931,7 +931,7 @@ export const clang_Cursor_hasVarDeclGlobalStorage = {
  * If cursor refers to a variable declaration that has external storage
  * returns 1. If cursor refers to a variable declaration that doesn't have
  * external storage returns 0. Otherwise returns -1.
- * @param {CxCursor} cursor
+ * @param cursor {@link CXCursor}
  */
 export const clang_Cursor_hasVarDeclExternalStorage = {
   parameters: [CXCursorT],
@@ -940,8 +940,8 @@ export const clang_Cursor_hasVarDeclExternalStorage = {
 
 /**
  * Determine the "language" of the entity referred to by a given cursor.
- * @param {CxCursor} cursor
- * @returns {CXLanguageKind}
+ * @param cursor {@link CXCursor}
+ * @returns CXLanguageKind {@link CXLanguageKind}
  */
 export const clang_getCursorLanguage = {
   parameters: [CXCursorT],
@@ -951,8 +951,8 @@ export const clang_getCursorLanguage = {
 /**
  * Determine the "thread-local storage (TLS) kind" of the declaration
  * referred to by a cursor.
- * @param {CxCursor} cursor
- * @returns {CXTLSKind}
+ * @param cursor {@link CXCursor}
+ * @returns CXTLSKind {@link CXTLSKind}
  */
 export const clang_getCursorTLSKind = {
   parameters: [CXCursorT],
@@ -1040,7 +1040,7 @@ export const clang_CXCursorSet_insert = {
  * and the lexical context of the second `$1` is the translation unit.
  *
  * For global declarations, the semantic parent is the translation unit.
- * @param {CxCursor} cursor
+ * @param cursor {@link CXCursor}
  */
 export const clang_getCursorSemanticParent = {
   parameters: [CXCursorT],
@@ -1080,7 +1080,7 @@ export const clang_getCursorSemanticParent = {
  *
  * For declarations written in the global scope, the lexical parent is
  * the translation unit.
- * @param {CxCursor} cursor
+ * @param cursor {@link CXCursor}
  */
 export const clang_getCursorLexicalParent = {
   parameters: [CXCursorT],
@@ -1147,7 +1147,7 @@ export const clang_disposeOverriddenCursors = {
 /**
  * Retrieve the file that is included by the given inclusion directive
  * cursor.
- * @param {CxCursor} cursor
+ * @param cursor {@link CXCursor}
  */
 export const clang_getIncludedFile = {
   parameters: [CXCursorT],
@@ -1634,7 +1634,7 @@ export const clang_Type_getObjCEncoding = {
 
 /**
  * Retrieve the spelling of a given CXTypeKind.
- * @param {enum CXTypeKind} K
+ * @param K {@link CXTypeKind}
  */
 export const clang_getTypeKindSpelling = {
   parameters: [CXTypeKindT],
@@ -2154,7 +2154,7 @@ export const clang_visitChildren = {
 /**
  * Visits the children of a cursor using the specified block.  Behaves
  * identically to clang_visitChildren() in all other respects.
- * @param {CXCursor} parent
+ * @param parent {@link CXCursor}
  * @param {Deno.UnsafeCallback<CXCursorVisitorBlockCallbackDefinition>} block
  */
 export const clang_visitChildrenWithBlock = {

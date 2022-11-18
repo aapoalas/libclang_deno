@@ -3256,10 +3256,10 @@ export enum CXIndexOptFlags {
  *    CXClientData client_data);
  * ```
  *
- * @param {CXCursor} cursor
- * @param {CXCursor} parent
- * @param {CXClientData} client_data
- * @returns {CXChildVisitResult}
+ * @param cursor {@link CXCursor}
+ * @param parent {@link CXCursor}
+ * @param client_data {@link CXClientData}
+ * @returns CXChildVisitResult {@link CXChildVisitResult}
  */
 export const CXCursorVisitorCallbackDefinition = {
   parameters: [CXCursorT, CXCursorT, CXClientDataT],
@@ -3283,9 +3283,9 @@ export const CXCursorVisitor = "function" as const;
  *                                                         CXCursor parent);
  * ```
  *
- * @param {CXCursor} cursor
- * @param {CXCursor} parent
- * @returns {CXChildVisitResult}
+ * @param cursor {@link CXCursor}
+ * @param parent {@link CXCursor}
+ * @returns CXChildVisitResult {@link CXChildVisitResult}
  */
 export const CXCursorVisitorBlockCallbackDefinition = {
   parameters: [CXCursorT, CXCursorT],
@@ -3373,10 +3373,10 @@ export const CXCodeCompleteResults = { struct: ["pointer", unsigned] } as const;
  * the second and third arguments provide the inclusion stack.  The
  * array is sorted in order of immediate inclusion.  For example,
  * the first element refers to the location that included 'included_file'.
- * @param {CXFile} included_file
- * @param {CXSourceLocation *} inclusion_stack
- * @param {unsigned} include_len
- * @param {CXClientData} client_data
+ * @param included_file {@link CXFile}
+ * @param inclusion_stack (`CXSourceLocation *`) {@link CXSourceLocation}
+ * @param include_len `unsigned`
+ * @param client_data {@link CXClientData}
  *
  * ```cpp
  * typedef void (*CXInclusionVisitor)(CXFile included_file, CXSourceLocation *inclusion_stack, unsigned include_len, CXClientData client_data);

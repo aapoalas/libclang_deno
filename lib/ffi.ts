@@ -9,7 +9,7 @@ import * as Index from "./include/Index.h.ts";
 import * as Rewrite from "./include/Rewrite.h.ts";
 
 export const libclang = Deno.dlopen(
-  "/usr/lib/libclang.so.13",
+  "/lib64/libclang.so.13",
   {
     ...BuildSystem,
     ...CXCompilationDatabase,

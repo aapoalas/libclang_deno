@@ -247,7 +247,7 @@ export const clang_ParamCommandComment_getParamName = {
  * @param Comment a {@link CXComment_ParamCommand} AST node.
  *
  * @returns non-zero if the parameter that this AST node represents was found
- * in the function prototype and `$1`
+ * in the function prototype and `Comment`
  * function will return a meaningful value.
  */
 export const clang_ParamCommandComment_isParamIndexValid = {

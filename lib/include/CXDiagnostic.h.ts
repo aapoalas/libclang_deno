@@ -38,10 +38,10 @@ export const clang_getDiagnosticInSet = {
  * Deserialize a set of diagnostics from a Clang diagnostics bitcode
  * file.
  *
- * @param {const char *} file The name of the file to deserialize.
- * @param {CXLoadDiag_Error} error A pointer to a enum value recording if there was a problem
+ * @param file (`const char *`) The name of the file to deserialize.
+ * @param error {@link CXLoadDiag_Error} A pointer to a enum value recording if there was a problem
  *        deserializing the diagnostics.
- * @param {CXString *} errorString A pointer to a CXString for recording the error string
+ * @param errorString (`CXString *`) A pointer to a CXString for recording the error string
  *        if the file was not successfully loaded.
  *
  * @returns A loaded CXDiagnosticSet if successful, and NULL otherwise.  These
@@ -117,7 +117,7 @@ export const clang_defaultDiagnosticDisplayOptions = {
 /**
  * Determine the severity of the given diagnostic.
  *
- * @returns {CXDiagnosticSeverity}
+ * @returns CXDiagnosticSeverity {@link CXDiagnosticSeverity}
  */
 export const clang_getDiagnosticSeverity = {
   parameters: [CXDiagnosticT],
