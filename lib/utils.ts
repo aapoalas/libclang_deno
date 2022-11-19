@@ -5,33 +5,40 @@ const ENCODER = new TextEncoder();
 const DECODER = new TextDecoder();
 
 export class CStringArray extends Uint8Array {
-  #cstrs: Uint8Array[] = [];
   constructor(strings?: string[]) {
-    if (!strings) {
+    if (!strings || strings.length === 0) {
       super();
       return;
     }
-    super(8 * strings.length);
-    if (strings.length === 0) {
-      return;
-    }
-    const pointerBuffer = new BigUint64Array(this.buffer);
-    const buffers = this.#cstrs;
-    let index = 0;
+    let stringsLength = 0;
     for (const string of strings) {
-      const cstrBuffer = cstr(string);
-      buffers.push(cstrBuffer);
-      pointerBuffer[index++] = BigInt(Deno.UnsafePointer.of(cstrBuffer));
+      // Byte length of a UTF-8 string is never bigger than 3 times its length.
+      // 2 times the length would be a fairly safe guess. For command line arguments,
+      // we expect that all characters should be single-byte UTF-8 characters.
+      stringsLength = string.length;
     }
-  }
-
-  get arrayLength(): number {
-    return this.#cstrs.length;
+    super(9 * strings.length + stringsLength);
+    const pointerBuffer = new BigUint64Array(this.buffer, 0, strings.length);
+    const stringsBuffer = this.subarray(strings.length * 8);
+    const basePointer = BigInt(Deno.UnsafePointer.of(stringsBuffer));
+    let index = 0;
+    let offset = 0;
+    for (const string of strings) {
+      const start = offset;
+      const end = start + string.length;
+      offset = end + 1; // Leave null byte
+      const result = ENCODER.encodeInto(string, stringsBuffer.subarray(start, end));
+      if (result.read !== result.written) {
+        throw new Error("Not a single byte UTF-8 string");
+      }
+      pointerBuffer[index++] = basePointer + BigInt(start);
+    }
   }
 }
 
 export const cstr = (string: string): Uint8Array =>
   ENCODER.encode(`${string}\0`);
+export const cstrInto = (string: string, buffer: Uint8Array): TextEncoderEncodeIntoResult => ENCODER.encodeInto(`${string}\0`, buffer);
 export const charBuffer = (string: string): Uint8Array =>
   ENCODER.encode(string);
 export const cstrArray = (strings: string[]) => {
