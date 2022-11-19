@@ -136,5 +136,14 @@ Deno.test("class CXTranslationUnit", async (t) => {
     assertThrows(() => CXDiagnosticSet.loadDiagnostics("test-diag.foo"));
 
     console.log(tu.getAllSkippedRanges());
+    const resourceUsage = tu.getResourceUsage();
+    const length = resourceUsage.length;
+    console.log("ResourceUsage length:", length);
+    for (let i = 0; i < length; i++) {
+      console.log(resourceUsage.at(i));
+    }
+    resourceUsage.dispose();
+    tu.dispose();
+    tu2.dispose();
   });
 });

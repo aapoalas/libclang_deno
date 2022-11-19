@@ -412,7 +412,7 @@ class CXTUResourceUsage {
   #pointer: Deno.PointerValue;
 
   constructor(buffer: Uint8Array) {
-    if (CXTUResourceUsage.#constructable !== false) {
+    if (CXTUResourceUsage.#constructable !== true) {
       throw new Error("CXTUResourceUsage is not constructable");
     }
     if (buffer.byteLength < 3 * 8) {
@@ -421,7 +421,7 @@ class CXTUResourceUsage {
     this.#buffer = buffer;
     const u32Buf = new Uint32Array(buffer.buffer, 8, 1);
     this.#length = u32Buf[0];
-    const u64Buf = new BigUint64Array(buffer.buffer, 12, 1);
+    const u64Buf = new BigUint64Array(buffer.buffer, 16, 1);
     this.#pointer = Number(u64Buf[0]);
   }
 
@@ -442,10 +442,10 @@ class CXTUResourceUsage {
     }
     const buffer = Deno.UnsafePointerView.getArrayBuffer(
       this.#pointer,
-      8,
-      8 * index,
+      16,
+      16 * index,
     );
-    const [kind, bytes] = new Uint32Array(buffer);
+    const [kind, , bytes] = new Uint32Array(buffer, 0, 3);
     return {
       kind,
       bytes,
