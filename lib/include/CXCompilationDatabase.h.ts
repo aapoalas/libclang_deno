@@ -1,8 +1,11 @@
 import {
+  constCharPtr,
   CXCompilationDatabase,
+  CXCompilationDatabase_ErrorT,
   CXCompileCommand,
   CXCompileCommands,
   CXString,
+  out,
   unsigned,
 } from "./typeDefinitions.ts";
 
@@ -20,7 +23,7 @@ import {
  * @param {CXCompilationDatabase_ErrorT *} ErrorCode out pointer
  */
 export const clang_CompilationDatabase_fromDirectory = {
-  parameters: ["buffer", "buffer"],
+  parameters: [constCharPtr, out(CXCompilationDatabase_ErrorT)],
   result: CXCompilationDatabase,
 } as const;
 
@@ -40,7 +43,7 @@ export const clang_CompilationDatabase_dispose = {
  * @param {const char *} CompleteFileName
  */
 export const clang_CompilationDatabase_getCompileCommands = {
-  parameters: [CXCompilationDatabase, "buffer"],
+  parameters: [CXCompilationDatabase, constCharPtr],
   result: CXCompileCommands,
 } as const;
 

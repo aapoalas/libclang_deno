@@ -1,11 +1,15 @@
 import {
+  constCharPtr,
   CXDiagnosticDisplayOptionsT,
   CXDiagnosticSetT,
   CXDiagnosticSeverityT,
   CXDiagnosticT,
+  CXLoadDiag_ErrorT,
   CXSourceLocationT,
   CXSourceRangeT,
   CXString,
+  out,
+  unsigned,
 } from "./typeDefinitions.ts";
 
 /**
@@ -17,7 +21,7 @@ import {
  */
 export const clang_getNumDiagnosticsInSet = {
   parameters: [CXDiagnosticSetT],
-  result: "u32",
+  result: unsigned,
 } as const;
 
 /**
@@ -30,7 +34,7 @@ export const clang_getNumDiagnosticsInSet = {
  * via a call to `clang_disposeDiagnostic()`.
  */
 export const clang_getDiagnosticInSet = {
-  parameters: [CXDiagnosticSetT, "u32"],
+  parameters: [CXDiagnosticSetT, unsigned],
   result: CXDiagnosticT,
 } as const;
 
@@ -49,9 +53,9 @@ export const clang_getDiagnosticInSet = {
  */
 export const clang_loadDiagnostics = {
   parameters: [
-    "buffer",
-    "buffer",
-    "buffer",
+    constCharPtr,
+    out(CXLoadDiag_ErrorT),
+    out(CXString),
   ],
   result: CXDiagnosticSetT,
 } as const;
@@ -156,7 +160,7 @@ export const clang_getDiagnosticSpelling = {
  * warning, such as "-Wconversion" or "-pedantic".
  */
 export const clang_getDiagnosticOption = {
-  parameters: [CXDiagnosticT, "buffer"],
+  parameters: [CXDiagnosticT, out(CXString)],
   result: CXString,
 } as const;
 
@@ -172,7 +176,7 @@ export const clang_getDiagnosticOption = {
  */
 export const clang_getDiagnosticCategory = {
   parameters: [CXDiagnosticT],
-  result: "u32",
+  result: unsigned,
 } as const;
 
 /**
@@ -188,7 +192,7 @@ export const clang_getDiagnosticCategory = {
  * @returns The name of the given diagnostic category.
  */
 export const clang_getDiagnosticCategoryName = {
-  parameters: ["u32"],
+  parameters: [unsigned],
   result: CXString,
 } as const;
 
@@ -208,7 +212,7 @@ export const clang_getDiagnosticCategoryText = {
  */
 export const clang_getDiagnosticNumRanges = {
   parameters: [CXDiagnosticT],
-  result: "u32",
+  result: unsigned,
 } as const;
 
 /**
@@ -225,7 +229,7 @@ export const clang_getDiagnosticNumRanges = {
  * @returns the requested source range.
  */
 export const clang_getDiagnosticRange = {
-  parameters: [CXDiagnosticT, "u32"],
+  parameters: [CXDiagnosticT, unsigned],
   result: CXSourceRangeT,
 } as const;
 
@@ -237,7 +241,7 @@ export const clang_getDiagnosticRange = {
  */
 export const clang_getDiagnosticNumFixIts = {
   parameters: [CXDiagnosticT],
-  result: "u32",
+  result: unsigned,
 } as const;
 
 /**
@@ -268,8 +272,8 @@ export const clang_getDiagnosticNumFixIts = {
 export const clang_getDiagnosticFixIt = {
   parameters: [
     CXDiagnosticT,
-    "u32",
-    "buffer",
+    unsigned,
+    out(CXSourceRangeT),
   ],
   result: CXString,
 } as const;

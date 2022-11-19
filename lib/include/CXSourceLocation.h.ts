@@ -1,4 +1,12 @@
-import { CXSourceLocationT, CXSourceRangeT } from "./typeDefinitions.ts";
+import {
+  CXFileT,
+  CXSourceLocationT,
+  CXSourceRangeList,
+  CXSourceRangeT,
+  out,
+  ptr,
+  unsigned,
+} from "./typeDefinitions.ts";
 
 /**
  * Physical source locations
@@ -31,7 +39,7 @@ export const clang_getNullLocation = {
  */
 export const clang_equalLocations = {
   parameters: [CXSourceLocationT, CXSourceLocationT],
-  result: "u32",
+  result: unsigned,
 } as const;
 
 /**
@@ -82,7 +90,7 @@ export const clang_getRange = {
  */
 export const clang_equalRanges = {
   parameters: [CXSourceRangeT, CXSourceRangeT],
-  result: "u32",
+  result: unsigned,
 } as const;
 
 /**
@@ -119,10 +127,10 @@ export const clang_Range_isNull = {
 export const clang_getExpansionLocation = {
   parameters: [
     CXSourceLocationT,
-    "buffer",
-    "buffer",
-    "buffer",
-    "buffer",
+    out(CXFileT),
+    out(unsigned),
+    out(unsigned),
+    out(unsigned),
   ],
   result: "void",
 } as const;
@@ -170,9 +178,9 @@ export const clang_getExpansionLocation = {
 export const clang_getPresumedLocation = {
   parameters: [
     CXSourceLocationT,
-    "buffer",
-    "buffer",
-    "buffer",
+    out(CXFileT),
+    out(unsigned),
+    out(unsigned),
   ],
   result: "void",
 } as const;
@@ -196,13 +204,10 @@ export const clang_getPresumedLocation = {
 export const clang_getInstantiationLocation = {
   parameters: [
     CXSourceLocationT,
-    "buffer",
-    /* `unsigned *` */
-    "buffer",
-    /* `unsigned *` */
-    "buffer",
-    /* `unsigned *` */
-    "buffer",
+    out(CXFileT),
+    out(unsigned),
+    out(unsigned),
+    out(unsigned),
   ],
   result: "void",
 } as const;
@@ -232,10 +237,10 @@ export const clang_getInstantiationLocation = {
 export const clang_getSpellingLocation = {
   parameters: [
     CXSourceLocationT,
-    "buffer",
-    "buffer",
-    "buffer",
-    "buffer",
+    out(CXFileT),
+    out(unsigned),
+    out(unsigned),
+    out(unsigned),
   ],
   result: "void",
 } as const;
@@ -266,10 +271,10 @@ export const clang_getSpellingLocation = {
 export const clang_getFileLocation = {
   parameters: [
     CXSourceLocationT,
-    "buffer",
-    "buffer",
-    "buffer",
-    "buffer",
+    out(CXFileT),
+    out(unsigned),
+    out(unsigned),
+    out(unsigned),
   ],
   result: "void",
 } as const;
@@ -301,6 +306,6 @@ export const clang_getRangeEnd = {
  * @param ranges (`CXSourceRangeList *`)
  */
 export const clang_disposeSourceRangeList = {
-  parameters: ["pointer"],
+  parameters: [ptr(CXSourceRangeList)],
   result: "void",
 } as const;

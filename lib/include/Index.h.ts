@@ -1,5 +1,7 @@
 import { CXErrorCodeT } from "./ErrorCode.h.ts";
 import {
+  buf,
+  constCharPtr,
   CStringArrayT,
   CX_CXXAccessSpecifierT,
   CX_StorageClassT,
@@ -30,24 +32,32 @@ import {
   CXIdxClientEntity,
   CXIdxClientFile,
   CXIdxContainerInfoT,
+  CXIdxCXXClassDeclInfoT,
   CXIdxDeclInfoT,
   CXIdxEntityInfoT,
   CXIdxEntityKindT,
+  CXIdxIBOutletCollectionAttrInfoT,
   CXIdxLoc,
+  CXIdxObjCContainerDeclInfoT,
+  CXIdxObjCPropertyDeclInfoT,
+  CXIdxObjCProtocolRefListInfoT,
   CXInclusionVisitor,
   CXIndexAction,
   CXIndexT,
   CXLanguageKindT,
   CXLinkageKindT,
   CXModule,
+  CXPlatformAvailabilityT,
   CXPrintingPolicyPropertyT,
   CXPrintingPolicyT,
   CXRefQualifierKind,
   CXRemapping,
   CXResultT,
   CXSourceLocationT,
+  CXSourceRangeList,
   CXSourceRangeT,
   CXString,
+  CXStringSetT,
   CXTargetInfoT,
   CXTemplateArgumentKindT,
   CXTLSKindT,
@@ -65,6 +75,8 @@ import {
   int,
   longLong,
   out,
+  ptr,
+  size_t,
   unsigned,
   unsignedLongLong,
 } from "./typeDefinitions.ts";
@@ -122,7 +134,7 @@ export const clang_CXIndex_getGlobalOptions = {
  * The invocation emission path specifies a path which will contain log files for certain libclang invocations. A null value (default) implies that libclang invocations are not logged..
  */
 export const clang_CXIndex_setInvocationEmissionPathOption = {
-  parameters: [CXIndexT, "buffer"],
+  parameters: [CXIndexT, constCharPtr],
   result: "void",
 } as const;
 
@@ -134,7 +146,7 @@ export const clang_CXIndex_setInvocationEmissionPathOption = {
  */
 export const clang_isFileMultipleIncludeGuarded = {
   parameters: [CXTranslationUnitT, CXFileT],
-  result: "u32",
+  result: unsigned,
 } as const;
 /**
  * Retrieve a file handle within the given translation unit.
@@ -144,7 +156,7 @@ export const clang_isFileMultipleIncludeGuarded = {
  * @returns the file handle for the named file in the translation unit tu, or a NULL file handle if the file was not a part of this translation unit.
  */
 export const clang_getFile = {
-  parameters: [CXTranslationUnitT, "buffer"],
+  parameters: [CXTranslationUnitT, constCharPtr],
   result: CXFileT,
 } as const;
 /**
@@ -157,8 +169,8 @@ export const clang_getFile = {
  * @returns a pointer to the buffer in memory that holds the contents of file, or a NULL pointer when the file is not loaded.
  */
 export const clang_getFileContents = {
-  parameters: [CXTranslationUnitT, CXFileT, "buffer"],
-  result: "pointer",
+  parameters: [CXTranslationUnitT, CXFileT, out(size_t)],
+  result: constCharPtr,
 } as const;
 /**
  * Retrieves the source location associated with a given file/line/column in a particular translation unit.
@@ -168,7 +180,7 @@ export const clang_getFileContents = {
  * @param column
  */
 export const clang_getLocation = {
-  parameters: [CXTranslationUnitT, CXFileT, "u32", "u32"],
+  parameters: [CXTranslationUnitT, CXFileT, unsigned, unsigned],
   result: CXSourceLocationT,
 } as const;
 /**
@@ -178,7 +190,7 @@ export const clang_getLocation = {
  * @param offset
  */
 export const clang_getLocationForOffset = {
-  parameters: [CXTranslationUnitT, CXFileT, "u32"],
+  parameters: [CXTranslationUnitT, CXFileT, unsigned],
   result: CXSourceLocationT,
 } as const;
 /**
@@ -192,7 +204,7 @@ export const clang_getLocationForOffset = {
  */
 export const clang_getSkippedRanges = {
   parameters: [CXTranslationUnitT, CXFileT],
-  result: "pointer",
+  result: ptr(CXSourceRangeList),
 } as const;
 /**
  * Retrieve all ranges from all files that were skipped by the preprocessor.
@@ -203,7 +215,7 @@ export const clang_getSkippedRanges = {
  */
 export const clang_getAllSkippedRanges = {
   parameters: [CXTranslationUnitT],
-  result: "pointer",
+  result: ptr(CXSourceRangeList),
 } as const;
 /**
  * Determine the number of diagnostics produced for the given translation unit.
@@ -211,7 +223,7 @@ export const clang_getAllSkippedRanges = {
  */
 export const clang_getNumDiagnostics = {
   parameters: [CXTranslationUnitT],
-  result: "u32",
+  result: unsigned,
 } as const;
 /**
  * Retrieve a diagnostic associated with the given translation unit.
@@ -221,7 +233,7 @@ export const clang_getNumDiagnostics = {
  * @returns the requested diagnostic. This diagnostic must be freed via a call to `clang_disposeDiagnostic()`.
  */
 export const clang_getDiagnostic = {
-  parameters: [CXTranslationUnitT, "u32"],
+  parameters: [CXTranslationUnitT, unsigned],
   result: CXDiagnosticT,
 } as const;
 /**
@@ -294,9 +306,9 @@ export const clang_getTranslationUnitSpelling = {
 export const clang_createTranslationUnitFromSourceFile = {
   parameters: [
     CXIndexT,
-    "buffer",
+    constCharPtr,
     int,
-    "buffer",
+    constCharPtr,
     unsigned,
     CXUnsavedFileT,
   ],
@@ -312,7 +324,7 @@ export const clang_createTranslationUnitFromSourceFile = {
  * @param ast_filename
  */
 export const clang_createTranslationUnit = {
-  parameters: [CXIndexT, "buffer"],
+  parameters: [CXIndexT, constCharPtr],
   result: CXTranslationUnitT,
 } as const;
 
@@ -327,7 +339,7 @@ export const clang_createTranslationUnit = {
  * @returns Zero on success, otherwise returns an error code.
  */
 export const clang_createTranslationUnit2 = {
-  parameters: [CXIndexT, "buffer", out(CXTranslationUnitT)],
+  parameters: [CXIndexT, constCharPtr, out(CXTranslationUnitT)],
   result: CXErrorCodeT,
 } as const;
 
@@ -364,7 +376,7 @@ export const clang_defaultEditingTranslationUnitOptions = {
 export const clang_parseTranslationUnit = {
   parameters: [
     CXIndexT,
-    "buffer",
+    constCharPtr,
     CStringArrayT,
     int,
     CXUnsavedFileT,
@@ -421,11 +433,10 @@ export const clang_parseTranslationUnit = {
 export const clang_parseTranslationUnit2 = {
   parameters: [
     CXIndexT,
-    "buffer",
+    constCharPtr,
     CStringArrayT,
     int,
-    //CXUnsavedFileT,
-    "pointer",
+    ptr(CXUnsavedFileT),
     unsigned,
     unsigned,
     out(CXTranslationUnitT),
@@ -449,7 +460,7 @@ export const clang_parseTranslationUnit2 = {
 export const clang_parseTranslationUnit2FullArgv = {
   parameters: [
     CXIndexT,
-    "buffer",
+    constCharPtr,
     CStringArrayT,
     int,
     CXUnsavedFileT,
@@ -500,7 +511,7 @@ export const clang_defaultSaveOptions = {
  * saved successfully, while a non-zero value indicates that a problem occurred.
  */
 export const clang_saveTranslationUnit = {
-  parameters: [CXTranslationUnitT, "buffer", unsigned],
+  parameters: [CXTranslationUnitT, constCharPtr, unsigned],
   result: int,
 } as const;
 
@@ -590,8 +601,8 @@ export const clang_reparseTranslationUnit = {
  * @param kind {@link CXTUResourceUsageKind}
  */
 export const clang_getTUResourceUsageName = {
-  parameters: ["u32"],
-  result: "pointer",
+  parameters: [unsigned],
+  result: constCharPtr,
 } as const;
 
 /**
@@ -882,27 +893,27 @@ export const clang_getCursorAvailability = {
  * Note that the client is responsible for calling
  * {@link clang_disposeCXPlatformAvailability} to free each of the
  * platform-availability structures returned. There are
- * `$1`, availability_size) such structures.
+ * `availability_size` such structures.
  */
 export const clang_getCursorPlatformAvailability = {
   parameters: [
     CXCursorT,
-    "buffer",
-    "buffer",
-    "buffer",
-    "buffer",
-    "buffer",
+    out(int),
+    out(CXString),
+    out(int),
+    out(CXString),
+    out(CXPlatformAvailabilityT),
     int,
   ],
   result: int,
 } as const;
 
 /**
- * Free the memory associated with a {@link CXPlatformAvailability} structure.
- * @param {CXPlatformAvailability *} availability
+ * Free the memory associated with a {@link CXPlatformAvailabilityT} structure.
+ * @param availability (`CXPlatformAvailability *`)
  */
 export const clang_disposeCXPlatformAvailability = {
-  parameters: ["buffer"],
+  parameters: [out(CXPlatformAvailabilityT)],
   result: "void",
 } as const;
 
@@ -1131,7 +1142,7 @@ export const clang_getCursorLexicalParent = {
  * array pointed to by `overridden`.
  */
 export const clang_getOverriddenCursors = {
-  parameters: [CXCursorT, "buffer", "buffer"],
+  parameters: [CXCursorT, out(out(CXCursorT)), out(unsigned)],
   result: "void",
 } as const;
 
@@ -1140,7 +1151,7 @@ export const clang_getOverriddenCursors = {
  * @param {CxCursor *} overridden
  */
 export const clang_disposeOverriddenCursors = {
-  parameters: ["pointer"],
+  parameters: [ptr(CXCursorT)],
   result: "void",
 } as const;
 
@@ -1923,7 +1934,7 @@ export const clang_Type_getSizeOf = {
  * @param S
  */
 export const clang_Type_getOffsetOf = {
-  parameters: [CXTypeT, "pointer"],
+  parameters: [CXTypeT, constCharPtr],
   result: longLong,
 } as const;
 
@@ -2190,7 +2201,7 @@ export const clang_getCursorUSR = {
  * @param class_name
  */
 export const clang_constructUSR_ObjCClass = {
-  parameters: ["buffer"],
+  parameters: [constCharPtr],
   result: CXString,
 } as const;
 
@@ -2200,7 +2211,7 @@ export const clang_constructUSR_ObjCClass = {
  * @param category_name
  */
 export const clang_constructUSR_ObjCCategory = {
-  parameters: ["buffer", "buffer"],
+  parameters: [constCharPtr, constCharPtr],
   result: CXString,
 } as const;
 
@@ -2209,7 +2220,7 @@ export const clang_constructUSR_ObjCCategory = {
  * @param protocol_name
  */
 export const clang_constructUSR_ObjCProtocol = {
-  parameters: ["buffer"],
+  parameters: [constCharPtr],
   result: CXString,
 } as const;
 
@@ -2220,7 +2231,7 @@ export const clang_constructUSR_ObjCProtocol = {
  * @param classUSR
  */
 export const clang_constructUSR_ObjCIvar = {
-  parameters: ["buffer", CXString],
+  parameters: [constCharPtr, CXString],
   result: CXString,
 } as const;
 
@@ -2232,7 +2243,7 @@ export const clang_constructUSR_ObjCIvar = {
  * @param classUSR
  */
 export const clang_constructUSR_ObjCMethod = {
-  parameters: ["buffer", unsigned, CXString],
+  parameters: [constCharPtr, unsigned, CXString],
   result: CXString,
 } as const;
 
@@ -2243,7 +2254,7 @@ export const clang_constructUSR_ObjCMethod = {
  * @param classUSR
  */
 export const clang_constructUSR_ObjCProperty = {
-  parameters: ["buffer", CXString],
+  parameters: [constCharPtr, CXString],
   result: CXString,
 } as const;
 
@@ -2529,19 +2540,19 @@ export const clang_Cursor_isVariadic = {
  * Returns non-zero if the given cursor points to a symbol marked with
  * external_source_symbol attribute.
  *
- * @param C
+ * @param Cursor
  *
- * @param {CXString *} language If non-NULL, and the attribute is present, will be set to
+ * @param language (`CXString *`) If non-NULL, and the attribute is present, will be set to
  * the 'language' string from the attribute.
  *
- * @param {CXString *} definedIn If non-NULL, and the attribute is present, will be set to
+ * @param definedIn (`CXString *`) If non-NULL, and the attribute is present, will be set to
  * the 'definedIn' string from the attribute.
  *
- * @param {u32*} isGenerated If non-NULL, and the attribute is present, will be set to
+ * @param isGenerated (`unsigned *`) If non-NULL, and the attribute is present, will be set to
  * non-zero if the 'generated_declaration' is set in the attribute.
  */
 export const clang_Cursor_isExternalSymbol = {
-  parameters: [CXCursorT, "buffer", "buffer", "buffer"],
+  parameters: [CXCursorT, out(CXString), out(CXString), out(unsigned)],
   result: unsigned,
 } as const;
 
@@ -2592,7 +2603,7 @@ export const clang_Cursor_getMangling = {
  */
 export const clang_Cursor_getCXXManglings = {
   parameters: [CXCursorT],
-  result: "pointer",
+  result: CXStringSetT,
 } as const;
 
 /**
@@ -2602,7 +2613,7 @@ export const clang_Cursor_getCXXManglings = {
  */
 export const clang_Cursor_getObjCManglings = {
   parameters: [CXCursorT],
-  result: "pointer",
+  result: CXStringSetT,
 } as const;
 
 /**
@@ -2987,7 +2998,12 @@ export const clang_getTokenExtent = {
  * array.
  */
 export const clang_tokenize = {
-  parameters: [CXTranslationUnitT, CXSourceRangeT, "buffer", "buffer"],
+  parameters: [
+    CXTranslationUnitT,
+    CXSourceRangeT,
+    out(out(CXToken)),
+    out(unsigned),
+  ],
   result: "void",
 } as const;
 
@@ -3052,7 +3068,15 @@ export const clang_getCursorKindSpelling = {
   result: CXString,
 } as const;
 export const clang_getDefinitionSpellingAndExtent = {
-  parameters: [CXCursorT, "buffer", "buffer", "function"],
+  parameters: [
+    CXCursorT,
+    out(constCharPtr),
+    out(constCharPtr),
+    out(unsigned),
+    out(unsigned),
+    out(unsigned),
+    out(unsigned),
+  ],
   result: "void",
 } as const;
 export const clang_enableStackTraces = {
@@ -3060,7 +3084,7 @@ export const clang_enableStackTraces = {
   result: "void",
 } as const;
 export const clang_executeOnThread = {
-  parameters: ["function", "function", unsigned],
+  parameters: ["function", ptr("void"), unsigned],
   result: "void",
 } as const;
 
@@ -3204,7 +3228,7 @@ export const clang_getCompletionAnnotation = {
  * the completion string represents a method in the NSObject class.
  */
 export const clang_getCompletionParent = {
-  parameters: [CXCompletionString, "pointer"],
+  parameters: [CXCompletionString, ptr(CXCursorKindT)],
   result: CXString,
 } as const;
 
@@ -3377,14 +3401,14 @@ export const clang_defaultCodeCompleteOptions = {
 export const clang_codeCompleteAt = {
   parameters: [
     CXTranslationUnitT,
-    "buffer",
+    constCharPtr,
     unsigned,
     unsigned,
-    "pointer",
+    ptr(CXUnsavedFileT),
     unsigned,
     unsigned,
   ],
-  result: "pointer",
+  result: ptr(CXCodeCompleteResults),
 } as const;
 
 /**
@@ -3465,7 +3489,7 @@ export const clang_codeCompleteGetContexts = {
  * container
  */
 export const clang_codeCompleteGetContainerKind = {
-  parameters: [CXCodeCompleteResults, "buffer"],
+  parameters: [out(CXCodeCompleteResults), out(unsigned)],
   result: CXCursorKindT,
 } as const;
 
@@ -3607,7 +3631,7 @@ export const clang_EvalResult_getAsDouble = {
  */
 export const clang_EvalResult_getAsStr = {
   parameters: [CXEvalResult],
-  result: "pointer",
+  result: constCharPtr,
 } as const;
 
 /**
@@ -3630,7 +3654,7 @@ export const clang_EvalResult_dispose = {
  * via a call to {@link clang_remap_dispose}(). Can return NULL if an error occurred.
  */
 export const clang_getRemappings = {
-  parameters: ["buffer"],
+  parameters: [constCharPtr],
   result: CXRemapping,
 } as const;
 
@@ -3645,7 +3669,7 @@ export const clang_getRemappings = {
  * via a call to {@link clang_remap_dispose}(). Can return NULL if an error occurred.
  */
 export const clang_getRemappingsFromFileList = {
-  parameters: ["buffer", unsigned],
+  parameters: [constCharPtr, unsigned],
   result: CXRemapping,
 } as const;
 
@@ -3742,8 +3766,8 @@ export const clang_index_isEntityObjCContainerKind = {
  * @returns {const CXIdxObjCContainerDeclInfo *}
  */
 export const clang_index_getObjCContainerDeclInfo = {
-  parameters: ["pointer"],
-  result: "pointer",
+  parameters: [buf(CXIdxDeclInfoT)],
+  result: ptr(CXIdxObjCContainerDeclInfoT),
 } as const;
 
 /**
@@ -3751,7 +3775,7 @@ export const clang_index_getObjCContainerDeclInfo = {
  */
 export const clang_index_getObjCInterfaceDeclInfo = {
   parameters: [CXIdxDeclInfoT],
-  result: "pointer",
+  result: ptr(CXIdxObjCContainerDeclInfoT),
 } as const;
 
 /**
@@ -3759,7 +3783,7 @@ export const clang_index_getObjCInterfaceDeclInfo = {
  */
 export const clang_index_getObjCCategoryDeclInfo = {
   parameters: [CXIdxDeclInfoT],
-  result: "pointer",
+  result: ptr(CXIdxObjCContainerDeclInfoT),
 } as const;
 
 /**
@@ -3767,7 +3791,7 @@ export const clang_index_getObjCCategoryDeclInfo = {
  */
 export const clang_index_getObjCProtocolRefListInfo = {
   parameters: [CXIdxDeclInfoT],
-  result: "pointer",
+  result: ptr(CXIdxObjCProtocolRefListInfoT),
 } as const;
 
 /**
@@ -3775,7 +3799,7 @@ export const clang_index_getObjCProtocolRefListInfo = {
  */
 export const clang_index_getObjCPropertyDeclInfo = {
   parameters: [CXIdxDeclInfoT],
-  result: "pointer",
+  result: ptr(CXIdxObjCPropertyDeclInfoT),
 } as const;
 
 /**
@@ -3783,7 +3807,7 @@ export const clang_index_getObjCPropertyDeclInfo = {
  */
 export const clang_index_getIBOutletCollectionAttrInfo = {
   parameters: [CXIdxAttrInfoT],
-  result: "pointer",
+  result: ptr(CXIdxIBOutletCollectionAttrInfoT),
 } as const;
 
 /**
@@ -3791,7 +3815,7 @@ export const clang_index_getIBOutletCollectionAttrInfo = {
  */
 export const clang_index_getCXXClassDeclInfo = {
   parameters: [CXIdxDeclInfoT],
-  result: "pointer",
+  result: ptr(CXIdxCXXClassDeclInfoT),
 } as const;
 
 /**
@@ -3885,8 +3909,8 @@ export const clang_indexSourceFile = {
     IndexerCallbacks,
     unsigned,
     unsigned,
-    "buffer",
-    "buffer",
+    constCharPtr,
+    buf(constCharPtr),
     int,
     CXUnsavedFileT,
     unsigned,
@@ -3915,11 +3939,11 @@ export const clang_indexSourceFileFullArgv = {
   parameters: [
     CXIndexAction,
     CXClientDataT,
-    IndexerCallbacks,
+    buf(IndexerCallbacks),
     unsigned,
     unsigned,
-    "buffer",
-    "buffer",
+    constCharPtr,
+    buf(constCharPtr),
     int,
     CXUnsavedFileT,
     unsigned,
@@ -3968,11 +3992,11 @@ export const clang_indexTranslationUnit = {
 export const clang_indexLoc_getFileLocation = {
   parameters: [
     CXIdxLoc,
-    CXIdxClientFile,
-    CXFileT,
-    "buffer",
-    "buffer",
-    "buffer",
+    out(CXIdxClientFile),
+    out(CXFileT),
+    out(unsigned),
+    out(unsigned),
+    out(unsigned),
   ],
   result: "void",
 } as const;

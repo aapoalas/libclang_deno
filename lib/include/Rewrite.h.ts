@@ -1,4 +1,5 @@
 import {
+  constCharPtr,
   CXRewriter,
   CXSourceLocationT,
   CXSourceRangeT,
@@ -22,7 +23,7 @@ export const clang_CXRewriter_create = {
  * @param Insert CString
  */
 export const clang_CXRewriter_insertTextBefore = {
-  parameters: [CXRewriter, CXSourceLocationT, "buffer"],
+  parameters: [CXRewriter, CXSourceLocationT, constCharPtr],
   result: "void",
 } as const;
 
@@ -34,7 +35,7 @@ export const clang_CXRewriter_insertTextBefore = {
  * @param Replacement CString
  */
 export const clang_CXRewriter_replaceText = {
-  parameters: [CXRewriter, CXSourceRangeT, "buffer"],
+  parameters: [CXRewriter, CXSourceRangeT, constCharPtr],
   result: "void",
 } as const;
 

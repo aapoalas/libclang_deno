@@ -6,6 +6,11 @@ export const unsignedLong = unsigned;
 export const unsignedLongLong = "u64" as const;
 export const double = "f32" as const;
 export const time_t = "i32" as const;
+export const size_t = "usize" as const;
+/**
+ * `const char *`
+ */
+export const constCharPtr = "buffer" as const;
 export const NULLBUF = new Uint8Array();
 export const NULL = Deno.UnsafePointer.of(NULLBUF);
 /**
@@ -17,7 +22,9 @@ export const NULL = Deno.UnsafePointer.of(NULLBUF);
  */
 export const CStringArrayT = "buffer" as const;
 
-export const out = (_type: string) => "buffer" as const;
+export const out = (_type: unknown) => "buffer" as const;
+export const buf = (_type: unknown) => "buffer" as const;
+export const ptr = (_type: unknown) => "pointer" as const;
 
 /**
  * Object encapsulating information about overlaying virtual
@@ -83,36 +90,6 @@ export const CXDiagnosticT = "pointer" as const;
 export const CXDiagnosticSetT = "pointer" as const;
 
 /**
- * A cursor representing some element in the abstract syntax tree for
- * a translation unit.
- *
- * The cursor abstraction unifies the different kinds of entities in a
- * program--declaration, statements, expressions, references to declarations,
- * etc.--under a single "cursor" abstraction with a common set of operations.
- * Common operation for a cursor include: getting the physical location in
- * a source file where the cursor points, getting the name associated with a
- * cursor, and retrieving cursors for any child nodes of a particular cursor.
- *
- * Cursors can be produced in two specific ways.
- * clang_getTranslationUnitCursor() produces a cursor for a translation unit,
- * from which one can use clang_visitChildren() to explore the rest of the
- * translation unit. clang_getCursor() maps from a physical source location
- * to the entity that resides at that location, allowing one to map from the
- * source code into the AST.
- * ```cpp
- * typedef struct {
- *   enum CXCursorKind kind;
- *   int xdata;
- *   const void *data[3];
- * } CXCursor;
- * ```
- */
-export const CXCursorT = {
-  struct: ["u8", int, "pointer", "pointer", "pointer"],
-} as const;
-// export const CXCursorT = "buffer" as const;
-
-/**
  * ```cpp
  * typedef struct CXTUResourceUsageEntry {
  *   // The memory usage category.
@@ -124,7 +101,7 @@ export const CXCursorT = {
  * ``
  */
 export const CXTUResourceUsageEntryT = {
-  struct: ["u32", unsignedLong],
+  struct: [unsigned, unsignedLong],
 } as const;
 
 /**
@@ -141,9 +118,8 @@ export const CXTUResourceUsageEntryT = {
  * ```
  */
 export const CXTUResourceUsageT = {
-  struct: ["pointer", unsigned, "pointer"],
+  struct: ["pointer", unsigned, ptr(CXTUResourceUsageEntryT)],
 } as const;
-// export const CXTUResourceUsage = "buffer" as const;
 
 /**
  * Describes the kind of error that occurred (if any) in a call to
@@ -179,7 +155,7 @@ export const enum CXLoadDiag_Error {
  * Describes the kind of error that occurred (if any) in a call to
  * `clang_loadDiagnostics`.
  */
-export const CXLoadDiag_ErrorT = "u32" as const;
+export const CXLoadDiag_ErrorT = "u8" as const;
 
 /**
  * Options to control the display of diagnostics.
@@ -270,7 +246,6 @@ export const CXFileT = "pointer" as const;
 export const CXFileUniqueIDT = {
   struct: ["u64", "u64", "u64"],
 } as const;
-// export const CXFileUniqueIDT = "pointer" as const;
 
 /**
  * An "index" that consists of a set of translation units that would
@@ -311,6 +286,42 @@ export const CXTranslationUnitT = "pointer" as const;
 export const CXClientDataT = "pointer" as const;
 
 /**
+ * A character string.
+ *
+ * The {@link CXString} type is used to return strings from the interface when
+ * the ownership of that string might differ from one call to the next.
+ * Use {@link clang_getCString}() to retrieve the string data and, once finished
+ * with the string data, call {@link clang_disposeString}() to free the string.
+ * ```cpp
+ * typedef struct {
+ *   const void *data;
+ *   unsigned private_flags;
+ * } CXString;
+ * ```
+ */
+export const CXString = { struct: ["pointer", unsigned] } as const;
+
+/**
+ * Describes a version number of the form major.minor.subminor.
+ * ```cpp
+ * typedef struct CXVersion {
+ *   // The major version number, e.g., the '10' in '10.7.3'. A negative
+ *   // value indicates that there is no version number at all.
+ *   int Major;
+ *   // The minor version number, e.g., the '7' in '10.7.3'. This value
+ *   // will be negative if no minor version number was provided, e.g., for
+ *   // version '10'.
+ *   int Minor;
+ *   // The subminor version number, e.g., the '3' in '10.7.3'. This value
+ *   // will be negative if no minor or subminor version number was provided,
+ *   // e.g., in version '10' or '10.7'.
+ *   int Subminor;
+ * } CXVersion;
+ * ```
+ */
+export const CXVersion = { struct: [int, int, int] } as const;
+
+/**
  * Provides the contents of a file that has not yet been saved to disk.
  *
  * Each CXUnsavedFile instance provides the name of a file on the
@@ -332,9 +343,8 @@ export const CXClientDataT = "pointer" as const;
  * ```
  */
 export const CXUnsavedFileT = {
-  struct: ["pointer", "pointer", unsignedLong],
+  struct: [constCharPtr, constCharPtr, unsignedLong],
 } as const;
-// export const CXUnsavedFileT = "pointer" as const;
 
 /**
  * Describes the availability of a particular entity, which indicates
@@ -389,8 +399,9 @@ export const CXAvailabilityKindT = "u8" as const;
  * } CXPlatformAvailability;
  * ```
  */
-//export const CXPlatformAvailability = {struct:[CXString, CXVersion, CXVersion, CXVersion,int, CXString]} as const;
-export const CXPlatformAvailability = "buffer" as const;
+export const CXPlatformAvailabilityT = {
+  struct: [CXString, CXVersion, CXVersion, CXVersion, int, CXString],
+} as const;
 
 /**
  * A fast container representing a set of CXCursors.
@@ -399,27 +410,6 @@ export const CXPlatformAvailability = "buffer" as const;
  * ```
  */
 export const CXCursorSet = "pointer" as const;
-
-/**
- * Describes a version number of the form major.minor.subminor.
- * ```cpp
- * typedef struct CXVersion {
- *   // The major version number, e.g., the '10' in '10.7.3'. A negative
- *   // value indicates that there is no version number at all.
- *   int Major;
- *   // The minor version number, e.g., the '7' in '10.7.3'. This value
- *   // will be negative if no minor version number was provided, e.g., for
- *   // version '10'.
- *   int Minor;
- *   // The subminor version number, e.g., the '3' in '10.7.3'. This value
- *   // will be negative if no minor or subminor version number was provided,
- *   // e.g., in version '10' or '10.7'.
- *   int Subminor;
- * } CXVersion;
- * ```
- */
-export const CXVersion = { struct: [int, int, int] } as const;
-// export const CXVersion = "buffer" as const;
 
 /**
  * Describes the exception specification of a cursor.
@@ -1816,7 +1806,36 @@ export enum CXCursorKind {
    */
   CXCursor_OverloadCandidate = 700,
 }
-export const CXCursorKindT = "u16" as const;
+export const CXCursorKindT = "u32" as const;
+
+/**
+ * A cursor representing some element in the abstract syntax tree for
+ * a translation unit.
+ *
+ * The cursor abstraction unifies the different kinds of entities in a
+ * program--declaration, statements, expressions, references to declarations,
+ * etc.--under a single "cursor" abstraction with a common set of operations.
+ * Common operation for a cursor include: getting the physical location in
+ * a source file where the cursor points, getting the name associated with a
+ * cursor, and retrieving cursors for any child nodes of a particular cursor.
+ *
+ * Cursors can be produced in two specific ways.
+ * clang_getTranslationUnitCursor() produces a cursor for a translation unit,
+ * from which one can use clang_visitChildren() to explore the rest of the
+ * translation unit. clang_getCursor() maps from a physical source location
+ * to the entity that resides at that location, allowing one to map from the
+ * source code into the AST.
+ * ```cpp
+ * typedef struct {
+ *   enum CXCursorKind kind;
+ *   int xdata;
+ *   const void *data[3];
+ * } CXCursor;
+ * ```
+ */
+export const CXCursorT = {
+  struct: [CXCursorKindT, int, "pointer", "pointer", "pointer"],
+} as const;
 
 /**
  * Describe the linkage of the entity referred to by a cursor.
@@ -2072,7 +2091,6 @@ export const CXCallingConvT = "u32" as const;
 export const CXTypeT = {
   struct: [CXTypeKindT, "pointer", "pointer"],
 } as const;
-// export const CXTypeT = "buffer" as const;
 
 /**
  * Describes the kind of a template argument.
@@ -2334,7 +2352,6 @@ export const CXTokenKindT = "u8" as const;
 export const CXToken = {
   struct: [unsigned, unsigned, unsigned, unsigned, "pointer"],
 } as const;
-// export const CXToken = "pointer" as const;
 
 /**
  * A semantic string that describes a code-completion result.
@@ -2373,7 +2390,6 @@ export const CXCompletionString = "pointer" as const;
 export const CXCompletionResult = {
   struct: [int, CXCompletionString],
 } as const;
-// export const CXCompletionResult = "pointer" as const;
 
 /**
  * Describes a single piece of text within a code-completion string.
@@ -2756,7 +2772,6 @@ export enum CXVisitorResult {
 export const CXCursorAndRangeVisitor = {
   struct: ["pointer", "function"],
 } as const;
-// export const CXCursorAndRangeVisitor = "buffer" as const;
 
 export enum CXResult {
   /**
@@ -2807,7 +2822,6 @@ export const CXIdxClientASTFile = "pointer" as const;
  * ```
  */
 export const CXIdxLoc = { struct: ["pointer", "pointer", unsigned] } as const;
-// export const CXIdxLoc = "buffer" as const;
 
 /**
  * Data for ppIncludedFile callback.
@@ -2828,9 +2842,8 @@ export const CXIdxLoc = { struct: ["pointer", "pointer", unsigned] } as const;
  * ```
  */
 export const CXIdxIncludedFileInfo = {
-  struct: [CXIdxLoc, "pointer", CXFileT, int, int, int],
+  struct: [CXIdxLoc, constCharPtr, CXFileT, int, int, int],
 } as const;
-// export const CXIdxIncludedFileInfo = "buffer" as const;
 
 /**
  * Data for IndexerCallbacks#importedASTFile.
@@ -3082,7 +3095,7 @@ export const CXIdxObjCCategoryDeclInfo = "buffer" as const;
  * } CXIdxObjCPropertyDeclInfo;
  * ```
  */
-export const CXIdxObjCPropertyDeclInfo = "buffer" as const;
+export const CXIdxObjCPropertyDeclInfoT = "buffer" as const;
 
 /**
  * ```cpp
@@ -3093,7 +3106,7 @@ export const CXIdxObjCPropertyDeclInfo = "buffer" as const;
  * } CXIdxCXXClassDeclInfo;
  * ```
  */
-export const CXIdxCXXClassDeclInfo = "buffer" as const;
+export const CXIdxCXXClassDeclInfoT = "buffer" as const;
 
 /**
  * Data for IndexerCallbacks#indexEntityReference.
@@ -3359,8 +3372,9 @@ export const CXModule = "pointer" as const;
  * } CXCodeCompleteResults;
  * ```
  */
-export const CXCodeCompleteResults = { struct: ["pointer", unsigned] } as const;
-// export const CXCodeCompleteResults = "buffer" as const;
+export const CXCodeCompleteResults = {
+  struct: [ptr(CXCompletionResult), unsigned],
+} as const;
 
 /**
  * Visitor invoked for each file in a translation unit
@@ -3440,9 +3454,8 @@ export const CXFieldVisitor = "function" as const;
  * ```
  */
 export const CXSourceLocationT = {
-  struct: ["pointer", "pointer", "u32"],
+  struct: ["pointer", "pointer", unsigned],
 } as const;
-// export const CXSourceLocation = "pointer" as const;
 
 /**
  * Identifies a half-open character range in the source code.
@@ -3458,26 +3471,8 @@ export const CXSourceLocationT = {
  * ```
  */
 export const CXSourceRangeT = {
-  struct: ["pointer", "pointer", "u32", "u32"],
+  struct: ["pointer", "pointer", unsigned, unsigned],
 } as const;
-// export const CXSourceRange = "pointer" as const;
-
-/**
- * A character string.
- *
- * The {@link CXString} type is used to return strings from the interface when
- * the ownership of that string might differ from one call to the next.
- * Use {@link clang_getCString}() to retrieve the string data and, once finished
- * with the string data, call {@link clang_disposeString}() to free the string.
- * ```cpp
- * typedef struct {
- *   const void *data;
- *   unsigned private_flags;
- * } CXString;
- * ```
- */
-export const CXString = { struct: ["pointer", "u32"] } as const;
-// export const CXString = "pointer" as const;
 
 /**
  * ```cpp
@@ -3698,9 +3693,8 @@ export const CXCommentParamPassDirectionT = "u8" as const;
  * ```
  */
 export const CXSourceRangeList = {
-  struct: ["u32", "pointer"],
+  struct: [unsigned, ptr(CXSourceRangeT)],
 } as const;
-// export const CXSourceRangeListT = "pointer" as const;
 
 /**
  * A compilation database holds all information used to compile files in a

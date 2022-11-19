@@ -123,7 +123,7 @@ export class CXIndex {
       this.#pointer,
       source_filename,
       command_line_args,
-      command_line_args.arrayLength,
+      commandLineArguments.length,
       NULL,
       0,
       options,

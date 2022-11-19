@@ -28,7 +28,10 @@ export class CStringArray extends Uint8Array {
       const start = offset;
       const end = start + string.length;
       offset = end + 1; // Leave null byte
-      const result = ENCODER.encodeInto(string, stringsBuffer.subarray(start, end));
+      const result = ENCODER.encodeInto(
+        string,
+        stringsBuffer.subarray(start, end),
+      );
       if (result.read !== result.written) {
         throw new Error("Not a single byte UTF-8 string");
       }
@@ -39,7 +42,10 @@ export class CStringArray extends Uint8Array {
 
 export const cstr = (string: string): Uint8Array =>
   ENCODER.encode(`${string}\0`);
-export const cstrInto = (string: string, buffer: Uint8Array): TextEncoderEncodeIntoResult => ENCODER.encodeInto(`${string}\0`, buffer);
+export const cstrInto = (
+  string: string,
+  buffer: Uint8Array,
+): TextEncoderEncodeIntoResult => ENCODER.encodeInto(`${string}\0`, buffer);
 export const charBuffer = (string: string): Uint8Array =>
   ENCODER.encode(string);
 export const cstrArray = (strings: string[]) => {

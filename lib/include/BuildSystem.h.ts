@@ -4,9 +4,11 @@
 
 import { CXErrorCodeT } from "./ErrorCode.h.ts";
 import {
+  constCharPtr,
   CXModuleMapDescriptor,
   CXVirtualFileOverlayT,
   int,
+  out,
   unsigned,
   unsignedLongLong,
 } from "./typeDefinitions.ts";
@@ -36,11 +38,11 @@ export const clang_VirtualFileOverlay_create = {
  * The virtual path must be canonicalized (not contain "."/"..").
  * @param fileOverlay
  * @param virtualPath
- * @param realPAth
+ * @param realPath
  * @returns 0 for success, non-zero to indicate an error.
  */
 export const clang_VirtualFileOverlay_addFileMapping = {
-  parameters: [CXVirtualFileOverlayT, "buffer", "buffer"],
+  parameters: [CXVirtualFileOverlayT, constCharPtr, constCharPtr],
   result: CXErrorCodeT,
 } as const;
 
@@ -68,7 +70,12 @@ export const clang_VirtualFileOverlay_setCaseSensitivity = {
  * @returns 0 for success, non-zero to indicate an error.
  */
 export const clang_VirtualFileOverlay_writeToBuffer = {
-  parameters: [CXVirtualFileOverlayT, unsigned, "buffer", "buffer"],
+  parameters: [
+    CXVirtualFileOverlayT,
+    unsigned,
+    out(CXVirtualFileOverlayT),
+    out(unsigned),
+  ],
   result: CXErrorCodeT,
 } as const;
 
@@ -78,7 +85,10 @@ export const clang_VirtualFileOverlay_writeToBuffer = {
  *
  * @param buffer memory pointer to free.
  */
-export const clang_free = { parameters: ["buffer"], result: "void" } as const;
+export const clang_free = {
+  parameters: [CXVirtualFileOverlayT],
+  result: "void",
+} as const;
 
 /**
  * Dispose a {@link CXVirtualFileOverlayT} object.
@@ -106,7 +116,7 @@ export const clang_ModuleMapDescriptor_create = {
  * @returns 0 for success, non-zero to indicate an error.
  */
 export const clang_ModuleMapDescriptor_setFrameworkModuleName = {
-  parameters: [CXModuleMapDescriptor, "buffer"],
+  parameters: [CXModuleMapDescriptor, constCharPtr],
   result: CXErrorCodeT,
 } as const;
 
@@ -117,7 +127,7 @@ export const clang_ModuleMapDescriptor_setFrameworkModuleName = {
  * @returns 0 for success, non-zero to indicate an error.
  */
 export const clang_ModuleMapDescriptor_setUmbrellaHeader = {
-  parameters: [CXModuleMapDescriptor, "buffer"],
+  parameters: [CXModuleMapDescriptor, constCharPtr],
   result: CXErrorCodeT,
 } as const;
 
@@ -131,7 +141,12 @@ export const clang_ModuleMapDescriptor_setUmbrellaHeader = {
  * @returns 0 for success, non-zero to indicate an error.
  */
 export const clang_ModuleMapDescriptor_writeToBuffer = {
-  parameters: [CXModuleMapDescriptor, unsigned, "buffer", "buffer"],
+  parameters: [
+    CXModuleMapDescriptor,
+    unsigned,
+    out(CXModuleMapDescriptor),
+    out(unsigned),
+  ],
   result: CXErrorCodeT,
 } as const;
 
