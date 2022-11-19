@@ -1,5 +1,6 @@
 import { libclang } from "./ffi.ts";
 import { throwIfError } from "./include/ErrorCode.h.ts";
+import { clang_createTranslationUnitFromSourceFile } from "./include/Index.h.ts";
 import {
   CXAvailabilityKind,
   CXChildVisitResult,
@@ -143,6 +144,20 @@ export class CXIndex {
       this.#pointer,
       typeof path === "string" ? cstr(path) : path,
     );
+  }
+
+  createTranslationUnit(astFileNAme: string) {
+    const result = libclang.symbols.clang_createTranslationUnit2(
+      this.#pointer,
+      cstr(astFileNAme),
+      OUT,
+    );
+    throwIfError(result, "Parsing CXTranslationUnit failed");
+
+    const pointer = Number(OUT_64[0]);
+    const tu = CXTranslationUnit[CONSTRUCTOR](pointer);
+    this.translationUnits.set(astFileNAme, tu);
+    return tu;
   }
 
   dispose() {
@@ -405,6 +420,9 @@ interface CXTUResourceUsageEntry {
   bytes: number;
 }
 
+const RESOURCE_USAGE_FINALIZATION_REGISTRY = new FinalizationRegistry<
+  Uint8Array
+>((buffer) => libclang.symbols.clang_disposeCXTUResourceUsage(buffer));
 class CXTUResourceUsage {
   static #constructable = false;
   #buffer: Uint8Array;
@@ -419,6 +437,7 @@ class CXTUResourceUsage {
       throw new Error("Unexpected CXTUResourceUsage buffer size");
     }
     this.#buffer = buffer;
+    RESOURCE_USAGE_FINALIZATION_REGISTRY.register(this, buffer, this);
     const u32Buf = new Uint32Array(buffer.buffer, 8, 1);
     this.#length = u32Buf[0];
     const u64Buf = new BigUint64Array(buffer.buffer, 16, 1);
@@ -454,6 +473,7 @@ class CXTUResourceUsage {
 
   dispose(): void {
     libclang.symbols.clang_disposeCXTUResourceUsage(this.#buffer);
+    RESOURCE_USAGE_FINALIZATION_REGISTRY.unregister(this);
   }
 }
 
