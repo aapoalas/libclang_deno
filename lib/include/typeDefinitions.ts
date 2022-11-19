@@ -150,7 +150,7 @@ export const CXTUResourceUsageT = {
  * Describes the kind of error that occurred (if any) in a call to
  * `clang_loadDiagnostics`.
  */
-export enum CXLoadDiag_Error {
+export const enum CXLoadDiag_Error {
   /**
    * Indicates that no error occurred.
    */
@@ -180,7 +180,7 @@ export enum CXLoadDiag_Error {
  * Describes the kind of error that occurred (if any) in a call to
  * `clang_loadDiagnostics`.
  */
-export const CXLoadDiag_ErrorT = "u8" as const;
+export const CXLoadDiag_ErrorT = "u32" as const;
 
 /**
  * Options to control the display of diagnostics.

@@ -70,12 +70,7 @@ export const cxstringSetToStringArray = (cxstringSetPointer: Deno.PointerValue):
   const strings = [];
   for (let i = 0; i < count; i++) {
     const cxstring = new Uint8Array(Deno.UnsafePointerView.getArrayBuffer(stringsPointer, 16, i * 16));
-    const cstring = libclang.symbols.clang_getCString(cxstring);
-    if (cstring === NULL) {
-      strings.push("");
-      continue;
-    }
-    strings.push(Deno.UnsafePointerView.getCString(cstring));
+    strings.push(cxstringToString(cxstring));
   }
   libclang.symbols.clang_disposeStringSet(cxstringSetPointer);
   return strings;

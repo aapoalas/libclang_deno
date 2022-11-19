@@ -4,7 +4,7 @@ import {
   assertThrows,
 } from "https://deno.land/std@0.163.0/testing/asserts.ts";
 import { CXChildVisitResult } from "../lib/include/typeDefinitions.ts";
-import { CXIndex } from "../lib/raw/CXIndex.ts";
+import { CXDiagnosticSet, CXIndex } from "../lib/raw/CXTranslationUnit.ts";
 
 Deno.test("class CXIndex", async (t) => {
   await t.step("new CXIndex()", () => {
@@ -117,6 +117,8 @@ Deno.test("class CXTranslationUnit", async (t) => {
   await t.step("file stuff", () => {
     const index = new CXIndex();
     const tu = index.parseTranslationUnit("./test/assets/test.h");
+    const tu2 = index.parseTranslationUnit("./test/assets/test.hpp");
+    console.log("Diag count:", tu2.getNumDiagnostics());
     const file = tu.getFile("./test/assets/test.h");
     assertNotEquals(file, null);
     const contents = file!.getFileContents();
@@ -129,9 +131,11 @@ Deno.test("class CXTranslationUnit", async (t) => {
     console.log(cursor.getLanguage());
 
     cursor.visitChildren((cursor) => {
-      console.log(cursor.getCXXManglings());
+      console.log(cursor.hasAttrs());
       return CXChildVisitResult.CXChildVisit_Recurse;
     });
+
+    CXDiagnosticSet.loadDiagnostics("test-diag.foo");
 
     console.log(tu.getAllSkippedRanges());
   });

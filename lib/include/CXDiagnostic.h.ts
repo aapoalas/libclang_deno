@@ -1,6 +1,7 @@
 import {
   CXDiagnosticDisplayOptionsT,
   CXDiagnosticSetT,
+  CXDiagnosticSeverityT,
   CXDiagnosticT,
   CXLoadDiag_ErrorT,
   CXSourceLocationT,
@@ -39,7 +40,7 @@ export const clang_getDiagnosticInSet = {
  * file.
  *
  * @param file (`const char *`) The name of the file to deserialize.
- * @param error {@link CXLoadDiag_Error} A pointer to a enum value recording if there was a problem
+ * @param error (`CXLoadDiag_Error *`) {@link CXLoadDiag_Error} A pointer to a enum value recording if there was a problem
  *        deserializing the diagnostics.
  * @param errorString (`CXString *`) A pointer to a CXString for recording the error string
  *        if the file was not successfully loaded.
@@ -50,8 +51,8 @@ export const clang_getDiagnosticInSet = {
 export const clang_loadDiagnostics = {
   parameters: [
     "buffer",
-    CXLoadDiag_ErrorT,
-    CXString,
+    "buffer",
+    "buffer",
   ],
   result: CXDiagnosticSetT,
 } as const;
@@ -121,7 +122,7 @@ export const clang_defaultDiagnosticDisplayOptions = {
  */
 export const clang_getDiagnosticSeverity = {
   parameters: [CXDiagnosticT],
-  result: CXDiagnosticSetT,
+  result: CXDiagnosticSeverityT,
 } as const;
 
 /**
@@ -149,14 +150,14 @@ export const clang_getDiagnosticSpelling = {
  *
  * @param Diag The diagnostic to be queried.
  *
- * @param {CXString *} Disable If non-NULL, will be set to the option that disables this
+ * @param Disable (`CXString *`) If non-NULL, will be set to the option that disables this
  * diagnostic (if any).
  *
  * @returns A string that contains the command-line option used to enable this
  * warning, such as "-Wconversion" or "-pedantic".
  */
 export const clang_getDiagnosticOption = {
-  parameters: [CXDiagnosticT, CXString],
+  parameters: [CXDiagnosticT, "buffer"],
   result: CXString,
 } as const;
 
@@ -176,10 +177,12 @@ export const clang_getDiagnosticCategory = {
 } as const;
 
 /**
+ * @deprecated Use `clang_getDiagnosticCategoryText()` instead.
+ * 
  * Retrieve the name of a particular diagnostic category.  This
  *  is now deprecated.  Use clang_getDiagnosticCategoryText()
  *  instead.
- *
+ * 
  * @param Category A diagnostic category number, as returned by
  * `clang_getDiagnosticCategory`().
  *
@@ -218,7 +221,7 @@ export const clang_getDiagnosticNumRanges = {
  *
  * @param Diagnostic the diagnostic whose range is being extracted.
  *
- * @param Range the zero-based index specifying which range to
+ * @param Range the zero-based index specifying which range to return
  *
  * @returns the requested source range.
  */
@@ -267,7 +270,7 @@ export const clang_getDiagnosticFixIt = {
   parameters: [
     CXDiagnosticT,
     "u32",
-    CXSourceRangeT,
+    "buffer",
   ],
   result: CXString,
 } as const;

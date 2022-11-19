@@ -5,12 +5,17 @@ import {
   CXChildVisitResult,
   CXCursorKind,
   CXCursorVisitorCallbackDefinition,
+  CXDiagnosticDisplayOptions,
+  CXDiagnosticSeverity,
+  CXGlobalOptFlags,
   CXLanguageKind,
   CXLinkageKind,
+  CXLoadDiag_Error,
   CXPrintingPolicyProperty,
   CXReparse_Flags,
   CXSaveError,
   CXTLSKind,
+  CXTranslationUnit_Flags,
   CXVisibilityKind,
   NULL,
   NULLBUF,
@@ -18,18 +23,21 @@ import {
 import {
   charBufferToString,
   cstr,
+  CStringArray,
   cxstringSetToStringArray,
   cxstringToString,
 } from "../utils.ts";
-import { CXDiagnostic, CXDiagnosticSet } from "./CXDiagnostic.ts";
 
 const POINTER = Symbol("[[pointer]]");
 const BUFFER = Symbol("[[buffer]]");
+const INNER_DISPOSE = Symbol("[[dispose]]");
 
-const OUT = new Uint8Array(8);
+const OUT = new Uint8Array(16);
 const OUT_64 = new BigUint64Array(OUT.buffer);
 
-const TU_FINALIZATION_REGISTRY = new FinalizationRegistry<Deno.PointerValue>(tuPointer => libclang.symbols.clang_disposeTranslationUnit(tuPointer));
+const TU_FINALIZATION_REGISTRY = new FinalizationRegistry<Deno.PointerValue>(
+  (tuPointer) => libclang.symbols.clang_disposeTranslationUnit(tuPointer),
+);
 
 let CURRENT_TU: null | CXTranslationUnit = null;
 const INVALID_VISITOR_CALLBACK = () => CXChildVisitResult.CXChildVisit_Break;
@@ -47,6 +55,98 @@ const CX_CURSOR_VISITOR_CALLBACK = new Deno.UnsafeCallback(
   },
 );
 
+export interface GlobalOptions {
+  threadBackgroundPriorityForIndexing: boolean;
+  threadBackgroundPriorityForEditing: boolean;
+}
+
+export class CXIndex {
+  #pointer: Deno.PointerValue;
+
+  translationUnits = new Map<string, CXTranslationUnit>();
+
+  constructor(excludeDeclarationsFromPCH = false, displayDiagnostics = false) {
+    this.#pointer = libclang.symbols.clang_createIndex(
+      Number(excludeDeclarationsFromPCH),
+      Number(displayDiagnostics),
+    );
+    if (this.#pointer === NULL) {
+      throw new Error("Creating CXIndex failed: Unknown error occurred");
+    }
+  }
+
+  get options(): GlobalOptions {
+    const opts = libclang.symbols.clang_CXIndex_getGlobalOptions(this.#pointer);
+    return {
+      threadBackgroundPriorityForIndexing: (opts &
+        CXGlobalOptFlags.CXGlobalOpt_ThreadBackgroundPriorityForIndexing) ===
+        CXGlobalOptFlags.CXGlobalOpt_ThreadBackgroundPriorityForIndexing,
+      threadBackgroundPriorityForEditing: (opts &
+        CXGlobalOptFlags.CXGlobalOpt_ThreadBackgroundPriorityForEditing) ===
+        CXGlobalOptFlags.CXGlobalOpt_ThreadBackgroundPriorityForEditing,
+    };
+  }
+
+  set options(opts: GlobalOptions) {
+    libclang.symbols.clang_CXIndex_setGlobalOptions(
+      this.#pointer,
+      (opts.threadBackgroundPriorityForIndexing
+        ? CXGlobalOptFlags.CXGlobalOpt_ThreadBackgroundPriorityForIndexing
+        : CXGlobalOptFlags.CXGlobalOpt_None) |
+        (opts.threadBackgroundPriorityForEditing
+          ? CXGlobalOptFlags.CXGlobalOpt_ThreadBackgroundPriorityForEditing
+          : CXGlobalOptFlags.CXGlobalOpt_None),
+    );
+  }
+
+  parseTranslationUnit(
+    fileName: string,
+    commandLineArguments: string[] = [],
+    flags?: CXTranslationUnit_Flags[],
+  ) {
+    const source_filename = cstr(fileName);
+    const command_line_args = new CStringArray(commandLineArguments);
+    let options = 0;
+    if (flags) {
+      for (const option of flags) {
+        options |= option;
+      }
+    }
+    const result = libclang.symbols.clang_parseTranslationUnit2(
+      this.#pointer,
+      source_filename,
+      command_line_args,
+      command_line_args.arrayLength,
+      NULL,
+      0,
+      options,
+      OUT,
+    );
+
+    throwIfError(result, "Parsing CXTranslationUnit failed");
+
+    const pointer = Number(OUT_64[0]);
+    const tu = new CXTranslationUnit(pointer);
+    this.translationUnits.set(fileName, tu);
+    return tu;
+  }
+
+  setInvocationEmissionPathOption(path: null | string = null) {
+    libclang.symbols.clang_CXIndex_setInvocationEmissionPathOption(
+      this.#pointer,
+      typeof path === "string" ? cstr(path) : path,
+    );
+  }
+
+  dispose() {
+    for (const tu of this.translationUnits.values()) {
+      tu.dispose();
+    }
+    this.translationUnits.clear();
+    libclang.symbols.clang_disposeIndex(this.#pointer);
+  }
+}
+
 export interface TargetInfo {
   triple: string;
   pointerWidth: number;
@@ -63,6 +163,7 @@ export class CXTranslationUnit {
   #accessedFiles = new Map<string, CXFile>();
   #pointer: Deno.PointerValue;
   #disposed = false;
+  #suspended = false;
 
   constructor(pointer: Deno.PointerValue) {
     this.#pointer = pointer;
@@ -76,6 +177,8 @@ export class CXTranslationUnit {
   save(fileName: string): void {
     if (this.#disposed) {
       throw new Error("Cannot save disposed TranslationUnit");
+    } else if (this.#suspended) {
+      throw new Error("Cannot save suspended TranslationUnit");
     }
     const saveFileName = cstr(fileName);
     const result = libclang.symbols.clang_saveTranslationUnit(
@@ -108,6 +211,8 @@ export class CXTranslationUnit {
   suspend(): number {
     if (this.#disposed) {
       throw new Error("Cannot suspend disposed TranslationUnit");
+    } else if (this.#suspended) {
+      throw new Error("Cannot suspend suspended TranslationUnit");
     }
     return libclang.symbols.clang_suspendTranslationUnit(this.#pointer);
   }
@@ -127,11 +232,14 @@ export class CXTranslationUnit {
       options,
     );
     throwIfError(result, "Reparsing CXTranslationUnit failed");
+    this.#suspended = false;
   }
 
   getTargetInfo(): TargetInfo {
     if (this.#disposed) {
       throw new Error("Cannot get TargetInfo of disposed TranslationUnit");
+    } else if (this.#suspended) {
+      throw new Error("Cannot get TargetInfo of suspended TranslationUnit");
     }
     const targetInfo = libclang.symbols.clang_getTranslationUnitTargetInfo(
       this.#pointer,
@@ -155,6 +263,8 @@ export class CXTranslationUnit {
   getAllSkippedRanges(): null | CXSourceRangeList {
     if (this.#disposed) {
       throw new Error("Cannot get skipped ranges of disposed TranslationUnit");
+    } else if (this.#suspended) {
+      throw new Error("Cannot get skipped ranges of suspended TranslationUnit");
     }
     const listPointer = libclang.symbols.clang_getAllSkippedRanges(
       this.#pointer,
@@ -172,6 +282,8 @@ export class CXTranslationUnit {
   getDiagnostic(index: number): CXDiagnostic {
     if (this.#disposed) {
       throw new Error("Cannot get diagnostic of disposed TranslationUnit");
+    } else if (this.#suspended) {
+      throw new Error("Cannot get diagnostic of suspended TranslationUnit");
     }
     if (!Number.isFinite(index) || index < 0) {
       throw new Error("Invalid arugment, index must be unsigned integer");
@@ -186,6 +298,8 @@ export class CXTranslationUnit {
   getDiagnosticSet(): CXDiagnosticSet {
     if (this.#disposed) {
       throw new Error("Cannot get diagnostic set of disposed TranslationUnit");
+    } else if (this.#suspended) {
+      throw new Error("Cannot get diagnostic set of suspended TranslationUnit");
     }
     return new CXDiagnosticSet(
       libclang.symbols.clang_getDiagnosticSetFromTU(this.#pointer),
@@ -195,6 +309,8 @@ export class CXTranslationUnit {
   getFile(fileName: string): null | CXFile {
     if (this.#disposed) {
       throw new Error("Cannot get file from disposed TranslationUnit");
+    } else if (this.#suspended) {
+      throw new Error("Cannot get file from suspended TranslationUnit");
     }
     if (this.#accessedFiles.has(fileName)) {
       return this.#accessedFiles.get(fileName)!;
@@ -214,6 +330,10 @@ export class CXTranslationUnit {
       throw new Error(
         "Cannot get number of diagnostics from disposed TranslationUnit",
       );
+    } else if (this.#suspended) {
+      throw new Error(
+        "Cannot get number of diagnostics from suspended TranslationUnit",
+      );
     }
     return libclang.symbols.clang_getNumDiagnostics(this.#pointer);
   }
@@ -221,11 +341,17 @@ export class CXTranslationUnit {
   getCursor(): CXCursor {
     if (this.#disposed) {
       throw new Error("Cannot get cursor from disposed TranslationUnit");
+    } else if (this.#suspended) {
+      throw new Error("Cannot get cursor from suspended TranslationUnit");
     }
     const cursor: Uint8Array = libclang.symbols.clang_getTranslationUnitCursor(
       this.#pointer,
     );
     return new CXCursor(cursor, this);
+  }
+
+  getResourceUsage(): CXTUResourceUsage {
+    return new CXTUResourceUsage(libclang.symbols.clang_getCXTUResourceUsage(this.#pointer));
   }
 
   dispose(): void {
@@ -243,7 +369,17 @@ export class CXTranslationUnit {
   }
 }
 
-const INNER_DISPOSE = Symbol("[[dispose]]");
+class CXTUResourceUsage {
+  #buffer: Uint8Array;
+
+  constructor(buffer: Uint8Array) {
+    this.#buffer = buffer;
+  } 
+
+  dispose(): void {
+    libclang.symbols.clang_disposeCXTUResourceUsage(this.#buffer);
+  }
+}
 
 export class CXFile {
   #tu: Deno.PointerValue;
@@ -268,7 +404,7 @@ export class CXFile {
       this.#pointer,
       OUT,
     );
-    if (pointer === 0) {
+    if (pointer === NULL) {
       throw new Error("File not loaded");
     }
     const byteLength = Number(OUT_64[0]);
@@ -316,9 +452,13 @@ export class CXFile {
     ) > 0;
   }
 
-  getLocationForOffset(_offset: number) {
-    throw new Error(
-      "Cannot implement getLocationOffset without struct support: void",
+  getLocationForOffset(offset: number): CXSourceLocation {
+    return new CXSourceLocation(
+      libclang.symbols.clang_getLocationForOffset(
+        this.#tu,
+        this.#pointer,
+        offset,
+      ),
     );
   }
 }
@@ -332,6 +472,10 @@ export class CXCursor {
   constructor(buffer: Uint8Array, tu: CXTranslationUnit | null) {
     this.#buffer = buffer;
     this.tu = tu;
+  }
+
+  static getNullCursor(): CXCursor {
+    return new CXCursor(libclang.symbols.clang_getNullCursor(), null);
   }
 
   get kind(): CXCursorKind {
@@ -408,10 +552,6 @@ export class CXCursor {
       libclang.symbols.clang_Cursor_getTranslationUnit(this.#buffer),
       libclang.symbols.clang_getIncludedFile(this.#buffer),
     );
-  }
-
-  static getNullCursor(): CXCursor {
-    return new CXCursor(libclang.symbols.clang_getNullCursor(), null);
   }
 
   // getOverriddenCursors(): CXCursor[] {
@@ -520,17 +660,20 @@ export class CXCursor {
       definedInOut,
       isGeneratedOut,
     ) !== 0;
+    if (!isExternalSymbol) {
+      // If the symbol is not external, the out buffers will be left untouched.
+      // Thus, there's no need to call dispose functions.
+      return null;
+    }
     const language = cxstringToString(languageOut) || null;
     const definedIn = cxstringToString(definedInOut) || null;
     const isGenerated = isGeneratedOut[0] !== 0 || isGeneratedOut[1] !== 0 ||
       isGeneratedOut[2] !== 0 || isGeneratedOut[3] !== 0;
-    return isExternalSymbol
-      ? {
-        language,
-        definedIn,
-        isGenerated,
-      }
-      : null;
+    return {
+      language,
+      definedIn,
+      isGenerated,
+    };
   }
 
   isVariadic(): boolean {
@@ -624,7 +767,11 @@ class CXSourceRangeList {
     return this.#length;
   }
 
-  constructor(pointer: Deno.PointerValue, arrayPointer: Deno.PointerValue, length: number) {
+  constructor(
+    pointer: Deno.PointerValue,
+    arrayPointer: Deno.PointerValue,
+    length: number,
+  ) {
     this.#pointer = pointer;
     this.#arrayPointer = arrayPointer;
     this.#length = length;
@@ -1202,5 +1349,246 @@ class CXPrintingPolicy {
 
   dispose(): void {
     libclang.symbols.clang_PrintingPolicy_dispose(this.#pointer);
+  }
+}
+
+const DIAGNOSTIC_SET_FINALIZATION_REGISTRY = new FinalizationRegistry<
+  Deno.PointerValue
+>((pointer) => libclang.symbols.clang_disposeDiagnosticSet(pointer));
+export class CXDiagnosticSet {
+  #pointer: Deno.PointerValue;
+  #length: number;
+  #disposed = false;
+
+  constructor(pointer: Deno.PointerValue) {
+    this.#pointer = pointer;
+    DIAGNOSTIC_SET_FINALIZATION_REGISTRY.register(this, pointer, this);
+    this.#length = libclang.symbols.clang_getNumDiagnosticsInSet(this.#pointer);
+  }
+
+  get length(): number {
+    return this.#length;
+  }
+
+  at(index: number) {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot get CXDiagnostic at index from a disposed CXDiagnosticSet",
+      );
+    }
+    if (index < 0 || this.#length <= index) {
+      throw new Error("Out of bounds");
+    }
+    return new CXDiagnostic(
+      libclang.symbols.clang_getDiagnosticInSet(this.#pointer, index),
+    );
+  }
+
+  static loadDiagnostics(fileName: string) {
+    const errorStringOut = new Uint8Array(8 * 2 + 4);
+    const errorOut = errorStringOut.subarray(8 * 2);
+    const pointer = libclang.symbols.clang_loadDiagnostics(
+      cstr(fileName),
+      errorOut,
+      errorStringOut,
+    );
+    if (pointer === NULL) {
+      // Error
+      const errorNumber = errorOut[0];
+      const errorString = cxstringToString(errorStringOut);
+      if (errorNumber === CXLoadDiag_Error.CXLoadDiag_InvalidFile) {
+        throw new Error(
+          "Loading diagnostics failed: File is invalid",
+          errorString ? { cause: errorString } : undefined,
+        );
+      } else if (errorNumber === CXLoadDiag_Error.CXLoadDiag_CannotLoad) {
+        throw new Error(
+          "Loading diagnostics failed: Could not open file",
+          errorString ? { cause: errorString } : undefined,
+        );
+      } else if (errorNumber === CXLoadDiag_Error.CXLoadDiag_Unknown) {
+        throw new Error(
+          "Loading diagnostics failed: Unkown error",
+          errorString ? { cause: errorString } : undefined,
+        );
+      } else {
+        throw new Error(
+          `Loading diagnostics failed: ${
+            errorString || "Error code and string missing"
+          }`,
+        );
+      }
+    }
+    return new CXDiagnosticSet(pointer);
+  }
+
+  dispose() {
+    libclang.symbols.clang_disposeDiagnosticSet(this.#pointer);
+    this.#disposed = true;
+    DIAGNOSTIC_SET_FINALIZATION_REGISTRY.unregister(this);
+  }
+}
+
+const DIAGNOSTIC_FINALIZATION_REGISTRY = new FinalizationRegistry<
+  Deno.PointerValue
+>((pointer) => libclang.symbols.clang_disposeDiagnostic(pointer));
+export class CXDiagnostic {
+  #pointer: Deno.PointerValue;
+  #disposed = false;
+
+  constructor(pointer: Deno.PointerValue) {
+    this.#pointer = pointer;
+    DIAGNOSTIC_FINALIZATION_REGISTRY.register(this, pointer, this);
+
+    libclang.symbols.clang_getDiagnosticCategory;
+  }
+
+  getChildDiagnostics(): null | CXDiagnosticSet {
+    const pointer = libclang.symbols.clang_getChildDiagnostics(this.#pointer);
+    if (pointer === NULL) {
+      return null;
+    }
+    const diagnosticSet = new CXDiagnosticSet(pointer);
+    // "This CXDiagnosticSet does not need to be released by clang_disposeDiagnosticSet"
+    DIAGNOSTIC_FINALIZATION_REGISTRY.unregister(diagnosticSet);
+    diagnosticSet.dispose = () => {};
+    return diagnosticSet;
+  }
+
+  formatDiagnostic(options?: {
+    displaySourceLocation: boolean;
+    displayColumn: boolean;
+    displaySourceRanges: boolean;
+    displayOption: boolean;
+    displayCategoryId: boolean;
+    displayCategoryName: boolean;
+  }): string {
+    let opts: number;
+    if (!options) {
+      opts = libclang.symbols.clang_defaultDiagnosticDisplayOptions();
+    } else {
+      opts = (options.displayCategoryId
+        ? CXDiagnosticDisplayOptions.CXDiagnostic_DisplayCategoryId
+        : 0) |
+        (options.displayCategoryName
+          ? CXDiagnosticDisplayOptions.CXDiagnostic_DisplayCategoryName
+          : 0) |
+        (
+          options.displayColumn
+            ? CXDiagnosticDisplayOptions.CXDiagnostic_DisplayColumn
+            : 0
+        ) | (options.displayOption
+          ? CXDiagnosticDisplayOptions.CXDiagnostic_DisplayOption
+          : 0) |
+        (
+          options.displaySourceLocation
+            ? CXDiagnosticDisplayOptions.CXDiagnostic_DisplaySourceLocation
+            : 0
+        ) | (options.displaySourceRanges
+          ? CXDiagnosticDisplayOptions.CXDiagnostic_DisplaySourceRanges
+          : 0);
+    }
+    return cxstringToString(
+      libclang.symbols.clang_formatDiagnostic(this.#pointer, opts),
+    );
+  }
+
+  getCategory(): number {
+    if (this.#disposed) {
+      throw new Error("Cannot get category of disposed CXDiagnostic");
+    }
+    return libclang.symbols.clang_getDiagnosticCategory(this.#pointer);
+  }
+
+  /**
+   * @deprecated This is now deprecated. Use {@link getCategoryText} instead.
+   */
+  getCategoryName(): string {
+    if (this.#disposed) {
+      throw new Error("Cannot get category name of disposed CXDiagnostic");
+    }
+    return cxstringToString(libclang.symbols.clang_getDiagnosticCategoryName(
+      libclang.symbols.clang_getDiagnosticCategory(this.#pointer),
+    ));
+  }
+
+  getCategoryText(): string {
+    if (this.#disposed) {
+      throw new Error("Cannot get category text of disposed CXDiagnostic");
+    }
+    return cxstringToString(libclang.symbols.clang_getDiagnosticCategoryText(
+      this.#pointer,
+    ));
+  }
+
+  getLocation(): CXSourceLocation {
+    if (this.#disposed) {
+      throw new Error("Cannot get location of disposed CXDiagnostic");
+    }
+    return new CXSourceLocation(
+      libclang.symbols.clang_getDiagnosticLocation(this.#pointer),
+    );
+  }
+
+  getNumberOfRanges(): number {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot get number of CXSourceRanges of disposed CXDiagnostic",
+      );
+    }
+    return libclang.symbols.clang_getDiagnosticNumRanges(this.#pointer);
+  }
+
+  getOptions(): {
+    disabledBy: string;
+    enabledBy: string;
+  } {
+    if (this.#disposed) {
+      throw new Error("Cannot get options of disposed CXDiagnostic");
+    }
+    const enabledByCxstring = libclang.symbols.clang_getDiagnosticOption(
+      this.#pointer,
+      OUT,
+    );
+
+    const disabledBy = cxstringToString(OUT);
+    const enabledBy = cxstringToString(enabledByCxstring);
+    return {
+      disabledBy,
+      enabledBy,
+    };
+  }
+
+  getRange(index: number): CXSourceRange {
+    if (this.#disposed) {
+      throw new Error("Cannot get range of disposed CXDiagnostic");
+    } else if (index < 0) {
+      throw new Error("Out of bounds");
+    }
+    return new CXSourceRange(
+      libclang.symbols.clang_getDiagnosticRange(this.#pointer, index),
+    );
+  }
+
+  getSeverity(): CXDiagnosticSeverity {
+    if (this.#disposed) {
+      throw new Error("Cannot get severity of disposed CXDiagnostic");
+    }
+    return libclang.symbols.clang_getDiagnosticSeverity(this.#pointer);
+  }
+
+  getSpelling(): string {
+    if (this.#disposed) {
+      throw new Error("Cannot get spelling of disposed CXDiagnostic");
+    }
+    return cxstringToString(libclang.symbols.clang_getDiagnosticSpelling(
+      this.#pointer,
+    ));
+  }
+
+  dispose() {
+    libclang.symbols.clang_disposeDiagnostic(this.#pointer);
+    this.#disposed = true;
+    DIAGNOSTIC_FINALIZATION_REGISTRY.unregister(this);
   }
 }

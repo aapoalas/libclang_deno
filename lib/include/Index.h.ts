@@ -227,7 +227,7 @@ export const clang_getDiagnostic = {
 /**
  * Retrieve the complete set of diagnostics associated with a translation unit.
  *
- * @param Unit  the translation unit to query.
+ * @param Unit the translation unit to query.
  */
 export const clang_getDiagnosticSetFromTU = {
   parameters: [CXTranslationUnitT],
