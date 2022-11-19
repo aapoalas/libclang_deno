@@ -1,4 +1,4 @@
-import { CXString, CXStringSetT } from "./typeDefinitions.ts";
+import { CXString } from "./typeDefinitions.ts";
 
 /**
  * Retrieve the character data associated with the given string.
