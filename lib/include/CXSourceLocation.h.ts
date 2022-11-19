@@ -178,6 +178,8 @@ export const clang_getPresumedLocation = {
 } as const;
 
 /**
+ * @deprecated
+ * 
  * Legacy API to retrieve the file, line, column, and offset represented
  * by the given source location.
  *

@@ -3,7 +3,6 @@ import {
   CXDiagnosticSetT,
   CXDiagnosticSeverityT,
   CXDiagnosticT,
-  CXLoadDiag_ErrorT,
   CXSourceLocationT,
   CXSourceRangeT,
   CXString,
@@ -178,11 +177,11 @@ export const clang_getDiagnosticCategory = {
 
 /**
  * @deprecated Use `clang_getDiagnosticCategoryText()` instead.
- * 
+ *
  * Retrieve the name of a particular diagnostic category.  This
  *  is now deprecated.  Use clang_getDiagnosticCategoryText()
  *  instead.
- * 
+ *
  * @param Category A diagnostic category number, as returned by
  * `clang_getDiagnosticCategory`().
  *

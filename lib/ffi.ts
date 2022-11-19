@@ -4,6 +4,7 @@ import * as CXDiagnostic from "./include/CXDiagnostic.h.ts";
 import * as CXFile from "./include/CXFile.h.ts";
 import * as CXSourceLocation from "./include/CXSourceLocation.h.ts";
 import * as CXString from "./include/CXString.h.ts";
+import * as Documentation from "./include/Documentation.h.ts";
 import * as FatalErrorHandler from "./include/FatalErrorHandler.h.ts";
 import * as Index from "./include/Index.h.ts";
 import * as Rewrite from "./include/Rewrite.h.ts";
@@ -17,6 +18,7 @@ export const libclang = Deno.dlopen(
     ...CXFile,
     ...CXSourceLocation,
     ...CXString,
+    ...Documentation,
     ...FatalErrorHandler,
     ...Index,
     ...Rewrite,

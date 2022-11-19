@@ -126,7 +126,6 @@ export const CXCursorT = {
 export const CXTUResourceUsageEntryT = {
   struct: ["u32", unsignedLong],
 } as const;
-// export const CXTUResourceUsageEntryT = "buffer" as const;
 
 /**
  * The memory usage of a CXTranslationUnit, broken into categories.
@@ -257,7 +256,7 @@ export enum CXDiagnosticDisplayOptions {
  * The values in this enum are meant to be combined to customize the
  * behavior of `clang_formatDiagnostic`().
  */
-export const CXDiagnosticDisplayOptionsT = "u32" as const;
+export const CXDiagnosticDisplayOptionsT = "u8" as const;
 
 /**
  * A particular source file that is part of a translation unit.
@@ -522,7 +521,7 @@ export const enum CXGlobalOptFlags {
 /**
  * {@link CXGlobalOptFlags}
  */
-export const CXGlobalOptFlagsT = "u32" as const;
+export const CXGlobalOptFlagsT = "u8" as const;
 
 /**
  * Flags that control the creation of translation units.
@@ -3508,7 +3507,7 @@ export const CXComment = { struct: ["pointer", CXTranslationUnitT] } as const;
  * node can be considered block content (e. g., paragraph), inline content
  * (plain text) or neither (the root AST node).
  */
-export enum CXCommentKind {
+export const enum CXCommentKind {
   /**
    * Null comment.  No AST node is constructed at the requested location
    * because there is no text or a syntax error.
@@ -3627,7 +3626,7 @@ export const CXCommentKindT = "u8" as const;
  * The most appropriate rendering mode for an inline command, chosen on
  * command semantics in Doxygen.
  */
-export enum CXCommentInlineCommandRenderKind {
+export const enum CXCommentInlineCommandRenderKind {
   /**
    * Command argument should be rendered in a normal font.
    */

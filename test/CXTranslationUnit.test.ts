@@ -127,15 +127,13 @@ Deno.test("class CXTranslationUnit", async (t) => {
     const cursor = tu.getCursor();
     assertEquals(cursor.getBriefCommentText(), "");
     console.log(cursor.kind);
-    console.log(cursor.getAvailability());
-    console.log(cursor.getLanguage());
 
     cursor.visitChildren((cursor) => {
-      console.log(cursor.hasAttrs());
+      console.log(cursor.kind);
       return CXChildVisitResult.CXChildVisit_Recurse;
     });
 
-    CXDiagnosticSet.loadDiagnostics("test-diag.foo");
+    assertThrows(() => CXDiagnosticSet.loadDiagnostics("test-diag.foo"));
 
     console.log(tu.getAllSkippedRanges());
   });
