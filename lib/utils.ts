@@ -55,7 +55,9 @@ export const cstrToString = (cstr: Uint8Array): string =>
 export const charBufferToString = (cstr: Uint8Array): string =>
   DECODER.decode(cstr);
 
-export const cxstringSetToStringArray = (cxstringSetPointer: Deno.PointerValue): string[] => {
+export const cxstringSetToStringArray = (
+  cxstringSetPointer: Deno.PointerValue,
+): string[] => {
   if (cxstringSetPointer === NULL) {
     return [];
   }
@@ -69,7 +71,9 @@ export const cxstringSetToStringArray = (cxstringSetPointer: Deno.PointerValue):
   const stringsPointer = Number(view.getBigUint64(0));
   const strings = [];
   for (let i = 0; i < count; i++) {
-    const cxstring = new Uint8Array(Deno.UnsafePointerView.getArrayBuffer(stringsPointer, 16, i * 16));
+    const cxstring = new Uint8Array(
+      Deno.UnsafePointerView.getArrayBuffer(stringsPointer, 16, i * 16),
+    );
     strings.push(cxstringToString(cxstring));
   }
   libclang.symbols.clang_disposeStringSet(cxstringSetPointer);

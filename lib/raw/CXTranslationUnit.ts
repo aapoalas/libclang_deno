@@ -314,8 +314,8 @@ export class CXTranslationUnit {
     } else if (this.#suspended) {
       throw new Error("Cannot get diagnostic of suspended TranslationUnit");
     }
-    if (!Number.isFinite(index) || index < 0) {
-      throw new Error("Invalid arugment, index must be unsigned integer");
+    if (index < 0) {
+      throw new Error("Invalid argument, index must be unsigned integer");
     }
     const diagnostic = libclang.symbols.clang_getDiagnostic(
       this.#pointer,
@@ -438,7 +438,7 @@ class CXTUResourceUsage {
 
   at(index: number): CXTUResourceUsageEntry {
     if (index < 0 || index >= this.length) {
-      throw new Error("Out of bounds");
+      throw new Error("Invalid argument, index must be unsigned integer");
     }
     const buffer = Deno.UnsafePointerView.getArrayBuffer(
       this.#pointer,
@@ -513,11 +513,11 @@ export class CXFile {
     if (this.#disposed) {
       throw new Error("Cannot get location of disposed File");
     }
-    if (!Number.isFinite(line) || line < 0) {
-      throw new Error("Invalid arugment, line must be unsigned integer");
+    if (line < 0) {
+      throw new Error("Invalid argument, line must be unsigned integer");
     }
-    if (!Number.isFinite(column) || column < 0) {
-      throw new Error("Invalid arugment, column must be unsigned integer");
+    if (column < 0) {
+      throw new Error("Invalid argument, column must be unsigned integer");
     }
     const res = libclang.symbols.clang_getLocation(
       this.tu[POINTER],
@@ -930,7 +930,7 @@ class CXComment {
 
   getChild(index: number): CXComment {
     if (index < 0) {
-      throw new Error("Out of bounds");
+      throw new Error("Invalid argument, index must be unsigned integer");
     }
     return CXComment[CONSTRUCTOR](
       this.tu,
@@ -1006,7 +1006,9 @@ class CXComment {
   }
 
   getArgumentText(index: number) {
-    if (index < 0) throw new Error("Out of bounds");
+    if (index < 0) {
+      throw new Error("Invalid argument, index must be unsigned integer");
+    }
     if (this.#isInlineCommandContent()) {
       return libclang.symbols.clang_InlineCommandComment_getArgText(
         this.#buffer,
@@ -1135,7 +1137,7 @@ class CXComment {
     if (this.kind !== CXCommentKind.CXComment_TParamCommand) {
       throw new Error("Not TParamCommand");
     } else if (index < 0) {
-      throw new Error("Out of bounds");
+      throw new Error("Invalid argument, index must be unsigned integer");
     }
     return libclang.symbols.clang_TParamCommandComment_getIndex(
       this.#buffer,
@@ -1215,7 +1217,7 @@ class CXSourceRangeList {
 
   at(index: number): CXSourceRange {
     if (index < 0 || this.#length <= index) {
-      throw new Error("Out of bounds");
+      throw new Error("Invalid argument, index must be unsigned integer");
     }
     return CXSourceRange[CONSTRUCTOR](
       this.tu,
@@ -1948,7 +1950,7 @@ export class CXDiagnosticSet {
       );
     }
     if (index < 0 || this.#length <= index) {
-      throw new Error("Out of bounds");
+      throw new Error("Invalid argument, index must be unsigned integer");
     }
     return CXDiagnostic[CONSTRUCTOR](
       this.tu,
@@ -2152,7 +2154,7 @@ export class CXDiagnostic {
     if (this.#disposed) {
       throw new Error("Cannot get range of disposed CXDiagnostic");
     } else if (index < 0) {
-      throw new Error("Out of bounds");
+      throw new Error("Invalid argument, index must be unsigned integer");
     }
     return CXSourceRange[CONSTRUCTOR](
       this.tu,
@@ -2190,7 +2192,7 @@ export class CXDiagnostic {
     if (this.#disposed) {
       throw new Error("Cannot get FixIt of disposed CXDiagnostic");
     } else if (index < 0) {
-      throw new Error("Out of bounds");
+      throw new Error("Invalid argument, index must be unsigned integer");
     }
     const sourceRangeBuffer = new Uint8Array(8 * 3);
     const cxstring = libclang.symbols.clang_getDiagnosticFixIt(

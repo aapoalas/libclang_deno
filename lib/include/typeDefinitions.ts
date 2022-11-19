@@ -3486,7 +3486,7 @@ export const CXString = { struct: ["pointer", "u32"] } as const;
  *   unsigned Count;
  * } CXStringSet;
  * ```
- * 
+ *
  * Used always as a pointer.
  */
 export const CXStringSetT = "pointer" as const;
