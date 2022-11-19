@@ -15,9 +15,10 @@ export class CStringArray extends Uint8Array {
       // Byte length of a UTF-8 string is never bigger than 3 times its length.
       // 2 times the length would be a fairly safe guess. For command line arguments,
       // we expect that all characters should be single-byte UTF-8 characters.
-      stringsLength = string.length;
+      // Add one byte for the null byte.
+      stringsLength = string.length + 1;
     }
-    super(9 * strings.length + stringsLength);
+    super(8 * strings.length + stringsLength);
     const pointerBuffer = new BigUint64Array(this.buffer, 0, strings.length);
     const stringsBuffer = this.subarray(strings.length * 8);
     const basePointer = BigInt(Deno.UnsafePointer.of(stringsBuffer));
