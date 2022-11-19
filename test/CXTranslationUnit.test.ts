@@ -4,7 +4,7 @@ import {
   assertThrows,
 } from "https://deno.land/std@0.163.0/testing/asserts.ts";
 import { CXChildVisitResult } from "../lib/include/typeDefinitions.ts";
-import { CXDiagnosticSet, CXIndex } from "../lib/raw/CXTranslationUnit.ts";
+import { CXDiagnosticSet, CXIndex } from "../lib/mod.ts";
 
 Deno.test("class CXIndex", async (t) => {
   await t.step("new CXIndex()", () => {

@@ -1,5 +1,5 @@
-import { libclang } from "../ffi.ts";
-import { throwIfError } from "../include/ErrorCode.h.ts";
+import { libclang } from "./ffi.ts";
+import { throwIfError } from "./include/ErrorCode.h.ts";
 import {
   CXAvailabilityKind,
   CXChildVisitResult,
@@ -23,14 +23,14 @@ import {
   CXVisibilityKind,
   NULL,
   NULLBUF,
-} from "../include/typeDefinitions.ts";
+} from "./include/typeDefinitions.ts";
 import {
   charBufferToString,
   cstr,
   CStringArray,
   cxstringSetToStringArray,
   cxstringToString,
-} from "../utils.ts";
+} from "./utils.ts";
 
 const CONSTRUCTOR = Symbol("[[constructor]]");
 const POINTER = Symbol("[[pointer]]");
