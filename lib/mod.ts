@@ -160,7 +160,7 @@ export class CXIndex {
     return tu;
   }
 
-  dispose() {
+  dispose(): void {
     for (const tu of this.translationUnits.values()) {
       tu.dispose();
     }
@@ -175,7 +175,11 @@ export interface TargetInfo {
   pointerWidth: number;
 }
 
-type DependentsSet = Set<WeakRef<{ [DISPOSE](): void }>>;
+interface Dependent {
+  [DISPOSE]?(): void;
+}
+
+type DependentsSet = Set<WeakRef<Dependent>>;
 
 const TU_FINALIZATION_REGISTRY = new FinalizationRegistry<Deno.PointerValue>(
   (tuPointer) => libclang.symbols.clang_disposeTranslationUnit(tuPointer),
@@ -328,8 +332,7 @@ export class CXTranslationUnit {
       throw new Error("Cannot get diagnostic of disposed TranslationUnit");
     } else if (this.#suspended) {
       throw new Error("Cannot get diagnostic of suspended TranslationUnit");
-    }
-    if (index < 0) {
+    } else if (index < 0) {
       throw new Error("Invalid argument, index must be unsigned integer");
     }
     const diagnostic = libclang.symbols.clang_getDiagnostic(
@@ -392,18 +395,30 @@ export class CXTranslationUnit {
   }
 
   getResourceUsage(): CXTUResourceUsage {
-    return CXTUResourceUsage[CONSTRUCTOR](
+    const resourceUsage = CXTUResourceUsage[CONSTRUCTOR](
       libclang.symbols.clang_getCXTUResourceUsage(this.#pointer),
     );
+    this[REGISTER](resourceUsage);
+    return resourceUsage;
   }
 
-  dispose(): void {
-    if (this.#disposed) {
-      return;
+  [REGISTER](dependent: Dependent) {
+    this.#dependents.add(new WeakRef(dependent));
+  }
+
+  [DEREGISTER](dependent: Dependent) {
+    for (const weakRef of this.#dependents) {
+      if (weakRef.deref() == dependent) {
+        this.#dependents.delete(weakRef);
+        return;
+      }
     }
+  }
+
+  [DISPOSE]() {
     for (const dependent of this.#dependents) {
       const dep = dependent.deref();
-      if (dep) {
+      if (dep && typeof dep[DISPOSE] === "function") {
         dep[DISPOSE]();
       }
     }
@@ -412,6 +427,13 @@ export class CXTranslationUnit {
     libclang.symbols.clang_disposeTranslationUnit(this.#pointer);
     // Manually disposed: unregister from FinalizationRegistry.
     TU_FINALIZATION_REGISTRY.unregister(this);
+  }
+
+  dispose(): void {
+    if (this.#disposed) {
+      return;
+    }
+    this[DISPOSE]();
   }
 }
 
@@ -428,12 +450,12 @@ class CXTUResourceUsage {
   #buffer: Uint8Array;
   #length: number;
   #pointer: Deno.PointerValue;
+  #disposed = false;
 
   constructor(buffer: Uint8Array) {
     if (CXTUResourceUsage.#constructable !== true) {
       throw new Error("CXTUResourceUsage is not constructable");
-    }
-    if (buffer.byteLength < 3 * 8) {
+    } else if (buffer.byteLength < 3 * 8) {
       throw new Error("Unexpected CXTUResourceUsage buffer size");
     }
     this.#buffer = buffer;
@@ -471,9 +493,17 @@ class CXTUResourceUsage {
     };
   }
 
-  dispose(): void {
+  [DISPOSE]() {
     libclang.symbols.clang_disposeCXTUResourceUsage(this.#buffer);
     RESOURCE_USAGE_FINALIZATION_REGISTRY.unregister(this);
+    this.#disposed = true;
+  }
+
+  dispose(): void {
+    if (this.#disposed) {
+      return;
+    }
+    this[DISPOSE]();
   }
 }
 
@@ -491,10 +521,6 @@ export class CXFile {
     this.#pointer = pointer;
   }
 
-  [DISPOSE]() {
-    this.#disposed = true;
-  }
-
   static [CONSTRUCTOR](
     tu: CXTranslationUnit,
     pointer: Deno.PointerValue,
@@ -505,7 +531,14 @@ export class CXFile {
     return result;
   }
 
+  [DISPOSE]() {
+    this.#disposed = true;
+  }
+
   equals(other: CXFile) {
+    if (this.#disposed || other.#disposed) {
+      throw new Error("Cannot compare disposed file");
+    }
     return libclang.symbols.clang_File_isEqual(
       this.#pointer,
       other.#pointer,
@@ -514,7 +547,7 @@ export class CXFile {
 
   getFileContents(): string {
     if (this.#disposed) {
-      throw new Error("Cannot get filecontents of disposed File");
+      throw new Error("Cannot get file contents of disposed File");
     }
     const pointer = libclang.symbols.clang_getFileContents(
       this.tu[POINTER],
@@ -532,11 +565,9 @@ export class CXFile {
   getLocation(line: number, column: number): CXSourceLocation {
     if (this.#disposed) {
       throw new Error("Cannot get location of disposed File");
-    }
-    if (line < 0) {
+    } else if (line < 0) {
       throw new Error("Invalid argument, line must be unsigned integer");
-    }
-    if (column < 0) {
+    } else if (column < 0) {
       throw new Error("Invalid argument, column must be unsigned integer");
     }
     const res = libclang.symbols.clang_getLocation(
@@ -1028,8 +1059,7 @@ class CXComment {
   getArgumentText(index: number) {
     if (index < 0) {
       throw new Error("Invalid argument, index must be unsigned integer");
-    }
-    if (this.#isInlineCommandContent()) {
+    } else if (this.#isInlineCommandContent()) {
       return libclang.symbols.clang_InlineCommandComment_getArgText(
         this.#buffer,
         index,
@@ -1197,6 +1227,9 @@ class CXComment {
   }
 }
 
+const SOURCE_RANGE_LIST_FINALIZATION_REGISTRY = new FinalizationRegistry<
+  Deno.PointerValue
+>((pointer) => libclang.symbols.clang_disposeSourceRangeList(pointer));
 class CXSourceRangeList {
   static #constructable = false;
   tu: CXTranslationUnit;
@@ -1217,6 +1250,7 @@ class CXSourceRangeList {
     if (CXSourceRangeList.#constructable !== true) {
       throw new Error("CXSourceRangeList is not constructable");
     }
+    SOURCE_RANGE_LIST_FINALIZATION_REGISTRY.register(this, pointer, this);
     this.tu = tu;
     this.#pointer = pointer;
     this.#arrayPointer = arrayPointer;
@@ -1254,6 +1288,7 @@ class CXSourceRangeList {
 
   dispose(): void {
     libclang.symbols.clang_disposeSourceRangeList(this.#pointer);
+    SOURCE_RANGE_LIST_FINALIZATION_REGISTRY.unregister(this);
   }
 }
 
@@ -1561,6 +1596,7 @@ class CXType {
   }
 }
 
+const PRINTING_POLICY_FINALIZATION_REGISTRY = new FinalizationRegistry<Deno.PointerValue>(pointer => libclang.symbols.clang_PrintingPolicy_dispose(pointer));
 class CXPrintingPolicy {
   static #constructable = false;
   #pointer: Deno.PointerValue;
@@ -1569,6 +1605,7 @@ class CXPrintingPolicy {
     if (CXPrintingPolicy.#constructable !== true) {
       throw new Error("CXPrintingPolicy is not constructable");
     }
+    PRINTING_POLICY_FINALIZATION_REGISTRY.register(this, pointer, this);
     this.#pointer = pointer;
   }
 
@@ -1926,6 +1963,7 @@ class CXPrintingPolicy {
 
   dispose(): void {
     libclang.symbols.clang_PrintingPolicy_dispose(this.#pointer);
+    PRINTING_POLICY_FINALIZATION_REGISTRY.unregister(this);
   }
 }
 
@@ -1968,8 +2006,7 @@ export class CXDiagnosticSet {
       throw new Error(
         "Cannot get CXDiagnostic at index from a disposed CXDiagnosticSet",
       );
-    }
-    if (index < 0 || this.#length <= index) {
+    } else if (index < 0 || this.#length <= index) {
       throw new Error("Invalid argument, index must be unsigned integer");
     }
     return CXDiagnostic[CONSTRUCTOR](
@@ -2016,7 +2053,7 @@ export class CXDiagnosticSet {
     return CXDiagnosticSet[CONSTRUCTOR](null, pointer);
   }
 
-  dispose() {
+  dispose(): void {
     libclang.symbols.clang_disposeDiagnosticSet(this.#pointer);
     this.#disposed = true;
     DIAGNOSTIC_SET_FINALIZATION_REGISTRY.unregister(this);
@@ -2228,7 +2265,7 @@ export class CXDiagnostic {
     };
   }
 
-  dispose() {
+  dispose(): void {
     libclang.symbols.clang_disposeDiagnostic(this.#pointer);
     this.#disposed = true;
     DIAGNOSTIC_FINALIZATION_REGISTRY.unregister(this);
