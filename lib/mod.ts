@@ -2076,8 +2076,6 @@ export class CXDiagnostic {
     this.tu = tu;
     this.#pointer = pointer;
     DIAGNOSTIC_FINALIZATION_REGISTRY.register(this, pointer, this);
-
-    libclang.symbols.clang_getDiagnosticCategory;
   }
 
   static [CONSTRUCTOR](
