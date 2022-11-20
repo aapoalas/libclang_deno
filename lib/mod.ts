@@ -398,7 +398,6 @@ export class CXTranslationUnit {
     const resourceUsage = CXTUResourceUsage[CONSTRUCTOR](
       libclang.symbols.clang_getCXTUResourceUsage(this.#pointer),
     );
-    this[REGISTER](resourceUsage);
     return resourceUsage;
   }
 
@@ -493,17 +492,13 @@ class CXTUResourceUsage {
     };
   }
 
-  [DISPOSE]() {
-    libclang.symbols.clang_disposeCXTUResourceUsage(this.#buffer);
-    RESOURCE_USAGE_FINALIZATION_REGISTRY.unregister(this);
-    this.#disposed = true;
-  }
-
   dispose(): void {
     if (this.#disposed) {
       return;
     }
-    this[DISPOSE]();
+    libclang.symbols.clang_disposeCXTUResourceUsage(this.#buffer);
+    RESOURCE_USAGE_FINALIZATION_REGISTRY.unregister(this);
+    this.#disposed = true;
   }
 }
 
