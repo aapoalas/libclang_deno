@@ -2943,7 +2943,7 @@ export const clang_getCursorReferenceNameRange = {
  */
 export const clang_getToken = {
   parameters: [CXTranslationUnitT, CXSourceLocationT],
-  result: CXToken, /*pointer*/
+  result: ptr(CXToken),
 } as const;
 
 /**
@@ -3051,7 +3051,7 @@ export const clang_annotateTokens = {
  * @param NumTokens
  */
 export const clang_disposeTokens = {
-  parameters: [CXTranslationUnitT, CXToken, unsigned],
+  parameters: [CXTranslationUnitT, ptr(CXToken), unsigned],
   result: "void",
 } as const;
 
