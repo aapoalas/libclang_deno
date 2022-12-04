@@ -2,7 +2,7 @@
 
 Deno bindings to the C lang library C API. The aim of this project is to
 implement the entire C API, currently targeting `libclang.so.13`. The bindings
-are meant to be close to the original API, while adding (optional) grabage
+are meant to be close to the original API, while adding (optional) garbage
 collection, some API name prettifying (f.ex. expanding `Attr` to `Attribute`,
 `Param` to `Parameter` etc.) and of course, wrapping the raw Deno FFI API with a
 more idiomatic and (somewhat) fully typed TypeScript API.
