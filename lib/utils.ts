@@ -20,7 +20,9 @@ export class CStringArray extends Uint8Array {
     }
     super(8 * strings.length + stringsLength);
     const pointerBuffer = new BigUint64Array(this.buffer, 0, strings.length);
-    const stringsBuffer = this.subarray(strings.length * 8);
+    const stringsBuffer = new Uint8Array(this.buffer).subarray(
+      strings.length * 8,
+    );
     const basePointer = BigInt(Deno.UnsafePointer.of(stringsBuffer));
     let index = 0;
     let offset = 0;
@@ -60,7 +62,15 @@ export const cxstringToString = (cxstring: Uint8Array): string => {
     libclang.symbols.clang_disposeString(cxstring);
     return "";
   }
-  const string = Deno.UnsafePointerView.getCString(cstring);
+  let string: string;
+  try {
+    string = Deno.UnsafePointerView.getCString(cstring);
+  } catch {
+    const buf = new Uint8Array(
+      Deno.UnsafePointerView.getArrayBuffer(cstring, 1024),
+    );
+    string = cstrToString(buf.subarray(buf.indexOf(0)));
+  }
   libclang.symbols.clang_disposeString(cxstring);
   return string;
 };
@@ -79,7 +89,7 @@ export const cxstringSetToStringArray = (
   const view = new Deno.UnsafePointerView(cxstringSetPointer);
   const count = view.getUint32(8);
   if (count === 0) {
-    libclang.symbols.clang_disposeStringSet(cxstringSetPointer);
+    //libclang.symbols.clang_disposeStringSet(cxstringSetPointer);
     return [];
   }
   const stringsPointer = Number(view.getBigUint64(0));
@@ -90,7 +100,7 @@ export const cxstringSetToStringArray = (
     );
     strings.push(cxstringToString(cxstring));
   }
-  libclang.symbols.clang_disposeStringSet(cxstringSetPointer);
+  //libclang.symbols.clang_disposeStringSet(cxstringSetPointer);
   return strings;
 };
 

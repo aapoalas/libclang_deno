@@ -379,7 +379,7 @@ export const clang_parseTranslationUnit = {
     constCharPtr,
     CStringArrayT,
     int,
-    CXUnsavedFileT,
+    ptr(CXUnsavedFileT),
     unsigned,
     unsigned,
   ],
