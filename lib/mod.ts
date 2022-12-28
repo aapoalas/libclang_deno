@@ -1,5 +1,5 @@
 import { libclang } from "./ffi.ts";
-import { throwIfError } from "./include/ErrorCode.h.ts";
+import { CXErrorCode, throwIfError } from "./include/ErrorCode.h.ts";
 import {
   CX_CXXAccessSpecifier,
   CX_StorageClass,
@@ -136,20 +136,7 @@ export class CXIndex {
         options |= option;
       }
     }
-    // const result = libclang.symbols.clang_parseTranslationUnit2(
-    //   this.#pointer,
-    //   source_filename,
-    //   command_line_args,
-    //   commandLineArguments.length,
-    //   NULL,
-    //   0,
-    //   options,
-    //   OUT,
-    // );
-
-    // const pointer = Number(OUT_64[0]);
-    // throwIfError(result, "Parsing CXTranslationUnit failed");
-    const pointer = libclang.symbols.clang_parseTranslationUnit(
+    const result: CXErrorCode = libclang.symbols.clang_parseTranslationUnit2(
       this.#pointer,
       source_filename,
       command_line_args,
@@ -157,11 +144,11 @@ export class CXIndex {
       NULL,
       0,
       options,
+      OUT,
     );
 
-    if (pointer === 0) {
-      throw new Error("Parsing CXTranslationUnit failed");
-    }
+    const pointer = Number(OUT_64[0]);
+    throwIfError(result, "Parsing CXTranslationUnit failed");
 
     const tu = CXTranslationUnit[CONSTRUCTOR](pointer);
     this.translationUnits.set(fileName, tu);

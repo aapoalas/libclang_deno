@@ -16,7 +16,7 @@ export class CStringArray extends Uint8Array {
       // 2 times the length would be a fairly safe guess. For command line arguments,
       // we expect that all characters should be single-byte UTF-8 characters.
       // Add one byte for the null byte.
-      stringsLength = string.length + 1;
+      stringsLength += string.length + 1;
     }
     super(8 * strings.length + stringsLength);
     const pointerBuffer = new BigUint64Array(this.buffer, 0, strings.length);
@@ -28,15 +28,14 @@ export class CStringArray extends Uint8Array {
     let offset = 0;
     for (const string of strings) {
       const start = offset;
-      const end = start + string.length;
-      offset = end + 1; // Leave null byte
       const result = ENCODER.encodeInto(
         string,
-        stringsBuffer.subarray(start, end),
+        stringsBuffer.subarray(start),
       );
       if (result.read !== result.written) {
         throw new Error("Not a single byte UTF-8 string");
       }
+      offset = start + result.written + 1; // Leave null byte
       pointerBuffer[index++] = basePointer + BigInt(start);
     }
   }
