@@ -742,7 +742,7 @@ export class CXTranslationUnit {
     fileName: string,
     line: number,
     column: number,
-    unsavedFiles: never[] = [],
+    _unsavedFiles: never[] = [],
     flags: CXCodeComplete_Flags[],
   ) {
     const options: number = flags
