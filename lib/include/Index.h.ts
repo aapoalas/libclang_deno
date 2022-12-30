@@ -11,20 +11,18 @@ import {
   CXCodeCompleteResults,
   CXCompletionChunkKindT,
   CXCompletionResult,
-  CXCompletionString,
+  CXCompletionStringT,
   CXCursor_ExceptionSpecificationKindT,
-  CXCursorAndRangeVisitor,
-  CXCursorAndRangeVisitorBlock,
+  CXCursorAndRangeVisitorT,
   CXCursorKindT,
   CXCursorSet,
   CXCursorT,
   CXCursorVisitor,
-  CXCursorVisitorBlock,
   CXDiagnosticSetT,
   CXDiagnosticT,
-  CXEvalResult,
   CXEvalResultKindT,
-  CXFieldVisitor,
+  CXEvalResultT,
+  CXFieldVisitorT,
   CXFileT,
   CXGlobalOptFlagsT,
   CXIdxAttrInfoT,
@@ -42,7 +40,7 @@ import {
   CXIdxObjCPropertyDeclInfoT,
   CXIdxObjCProtocolRefListInfoT,
   CXInclusionVisitor,
-  CXIndexAction,
+  CXIndexActionT,
   CXIndexT,
   CXLanguageKindT,
   CXLinkageKindT,
@@ -50,7 +48,7 @@ import {
   CXPlatformAvailabilityT,
   CXPrintingPolicyPropertyT,
   CXPrintingPolicyT,
-  CXRefQualifierKind,
+  CXRefQualifierKindT,
   CXRemapping,
   CXResultT,
   CXSourceLocationT,
@@ -913,7 +911,7 @@ export const clang_getCursorPlatformAvailability = {
  * @param availability (`CXPlatformAvailability *`)
  */
 export const clang_disposeCXPlatformAvailability = {
-  parameters: [out(CXPlatformAvailabilityT)],
+  parameters: [buf(CXPlatformAvailabilityT)],
   result: "void",
 } as const;
 
@@ -2037,7 +2035,7 @@ export const clang_Type_getTemplateArgumentAsType = {
  */
 export const clang_Type_getCXXRefQualifier = {
   parameters: [CXTypeT],
-  result: CXRefQualifierKind,
+  result: CXRefQualifierKindT,
 } as const;
 
 /**
@@ -2168,10 +2166,10 @@ export const clang_visitChildren = {
  * @param parent {@link CXCursor}
  * @param {Deno.UnsafeCallback<CXCursorVisitorBlockCallbackDefinition>} block
  */
-export const clang_visitChildrenWithBlock = {
-  parameters: [CXCursorT, CXCursorVisitorBlock],
-  result: unsigned,
-} as const;
+// export const clang_visitChildrenWithBlock = {
+//   parameters: [CXCursorT, CXCursorVisitorBlock],
+//   result: unsigned,
+// } as const;
 
 /**
  * Cross-referencing in the AST
@@ -3108,7 +3106,7 @@ export const clang_executeOnThread = {
  * @returns the kind of the chunk at the index `$1`.
  */
 export const clang_getCompletionChunkKind = {
-  parameters: [CXCompletionString, unsigned],
+  parameters: [CXCompletionStringT, unsigned],
   result: CXCompletionChunkKindT,
 } as const;
 
@@ -3123,7 +3121,7 @@ export const clang_getCompletionChunkKind = {
  * @returns the text associated with the chunk at index `$1`.
  */
 export const clang_getCompletionChunkText = {
-  parameters: [CXCompletionString, unsigned],
+  parameters: [CXCompletionStringT, unsigned],
   result: CXString,
 } as const;
 
@@ -3139,15 +3137,15 @@ export const clang_getCompletionChunkText = {
  * `$1`.
  */
 export const clang_getCompletionChunkCompletionString = {
-  parameters: [CXCompletionString, unsigned],
-  result: CXCompletionString,
+  parameters: [CXCompletionStringT, unsigned],
+  result: CXCompletionStringT,
 } as const;
 
 /**
  * Retrieve the number of chunks in the given code-completion string.
  */
 export const clang_getNumCompletionChunks = {
-  parameters: [CXCompletionString],
+  parameters: [CXCompletionStringT],
   result: unsigned,
 } as const;
 
@@ -3164,7 +3162,7 @@ export const clang_getNumCompletionChunks = {
  * higher-priority (more likely) completions.
  */
 export const clang_getCompletionPriority = {
-  parameters: [CXCompletionString],
+  parameters: [CXCompletionStringT],
   result: unsigned,
 } as const;
 
@@ -3177,7 +3175,7 @@ export const clang_getCompletionPriority = {
  * @returns The availability of the completion string.
  */
 export const clang_getCompletionAvailability = {
-  parameters: [CXCompletionString],
+  parameters: [CXCompletionStringT],
   result: CXAvailabilityKindT,
 } as const;
 
@@ -3191,7 +3189,7 @@ export const clang_getCompletionAvailability = {
  * string.
  */
 export const clang_getCompletionNumAnnotations = {
-  parameters: [CXCompletionString],
+  parameters: [CXCompletionStringT],
   result: unsigned,
 } as const;
 
@@ -3207,7 +3205,7 @@ export const clang_getCompletionNumAnnotations = {
  * `$1`, or a NULL string if that annotation is not available.
  */
 export const clang_getCompletionAnnotation = {
-  parameters: [CXCompletionString, unsigned],
+  parameters: [CXCompletionStringT, unsigned],
   result: CXString,
 } as const;
 
@@ -3228,7 +3226,7 @@ export const clang_getCompletionAnnotation = {
  * the completion string represents a method in the NSObject class.
  */
 export const clang_getCompletionParent = {
-  parameters: [CXCompletionString, ptr(CXCursorKindT)],
+  parameters: [CXCompletionStringT, ptr(CXCursorKindT)],
   result: CXString,
 } as const;
 
@@ -3237,7 +3235,7 @@ export const clang_getCompletionParent = {
  * that corresponds to the given completion string.
  */
 export const clang_getCompletionBriefComment = {
-  parameters: [CXCompletionString],
+  parameters: [CXCompletionStringT],
   result: CXString,
 } as const;
 
@@ -3252,7 +3250,7 @@ export const clang_getCompletionBriefComment = {
  */
 export const clang_getCursorCompletionString = {
   parameters: [CXCursorT],
-  result: CXCompletionString,
+  result: CXCompletionStringT,
 } as const;
 
 /**
@@ -3269,7 +3267,7 @@ export const clang_getCursorCompletionString = {
  * completion_index can be applied
  */
 export const clang_getCompletionNumFixIts = {
-  parameters: [CXCodeCompleteResults, unsigned],
+  parameters: [ptr(CXCodeCompleteResults), unsigned],
   result: unsigned,
 } as const;
 
@@ -3317,7 +3315,12 @@ export const clang_getCompletionNumFixIts = {
  * before the completion at completion_index can be applied
  */
 export const clang_getCompletionFixIt = {
-  parameters: [CXCodeCompleteResults, unsigned, unsigned, CXSourceRangeT],
+  parameters: [
+    ptr(CXCodeCompleteResults),
+    unsigned,
+    unsigned,
+    buf(CXSourceRangeT),
+  ],
   result: CXString,
 } as const;
 
@@ -3419,7 +3422,7 @@ export const clang_codeCompleteAt = {
  * @param NumResults The number of results in `Results`.
  */
 export const clang_sortCodeCompletionResults = {
-  parameters: [CXCompletionResult, unsigned],
+  parameters: [ptr(CXCompletionResult), unsigned],
   result: "void",
 } as const;
 
@@ -3429,7 +3432,7 @@ export const clang_sortCodeCompletionResults = {
  * @param {CXCodeCompleteResults *} Results
  */
 export const clang_disposeCodeCompleteResults = {
-  parameters: [CXCodeCompleteResults],
+  parameters: [ptr(CXCodeCompleteResults)],
   result: "void",
 } as const;
 
@@ -3440,7 +3443,7 @@ export const clang_disposeCodeCompleteResults = {
  * @param {CXCodeCompleteResults *} Results
  */
 export const clang_codeCompleteGetNumDiagnostics = {
-  parameters: [CXCodeCompleteResults],
+  parameters: [ptr(CXCodeCompleteResults)],
   result: unsigned,
 } as const;
 
@@ -3454,7 +3457,7 @@ export const clang_codeCompleteGetNumDiagnostics = {
  * via a call to {@link clang_disposeDiagnostic}().
  */
 export const clang_codeCompleteGetDiagnostic = {
-  parameters: [CXCodeCompleteResults, unsigned],
+  parameters: [ptr(CXCodeCompleteResults), unsigned],
   result: CXDiagnosticT,
 } as const;
 
@@ -3468,7 +3471,7 @@ export const clang_codeCompleteGetDiagnostic = {
  * along with the given code completion results.
  */
 export const clang_codeCompleteGetContexts = {
-  parameters: [CXCodeCompleteResults],
+  parameters: [ptr(CXCodeCompleteResults)],
   result: unsignedLongLong,
 } as const;
 
@@ -3489,7 +3492,7 @@ export const clang_codeCompleteGetContexts = {
  * container
  */
 export const clang_codeCompleteGetContainerKind = {
-  parameters: [out(CXCodeCompleteResults), out(unsigned)],
+  parameters: [ptr(CXCodeCompleteResults), out(unsigned)],
   result: CXCursorKindT,
 } as const;
 
@@ -3503,7 +3506,7 @@ export const clang_codeCompleteGetContainerKind = {
  * @returns the USR for the container
  */
 export const clang_codeCompleteGetContainerUSR = {
-  parameters: [CXCodeCompleteResults],
+  parameters: [ptr(CXCodeCompleteResults)],
   result: CXString,
 } as const;
 
@@ -3519,7 +3522,7 @@ export const clang_codeCompleteGetContainerUSR = {
  * for an Objective-C message send.
  */
 export const clang_codeCompleteGetObjCSelector = {
-  parameters: [CXCodeCompleteResults],
+  parameters: [ptr(CXCodeCompleteResults)],
   result: CXString,
 } as const;
 
@@ -3566,14 +3569,14 @@ export const clang_getInclusions = {
  */
 export const clang_Cursor_Evaluate = {
   parameters: [CXCursorT],
-  result: CXEvalResult,
+  result: CXEvalResultT,
 } as const;
 
 /**
  * Returns the kind of the evaluated result.
  */
 export const clang_EvalResult_getKind = {
-  parameters: [CXEvalResult],
+  parameters: [CXEvalResultT],
   result: CXEvalResultKindT,
 } as const;
 
@@ -3582,7 +3585,7 @@ export const clang_EvalResult_getKind = {
  * kind is Int.
  */
 export const clang_EvalResult_getAsInt = {
-  parameters: [CXEvalResult],
+  parameters: [CXEvalResultT],
   result: int,
 } as const;
 
@@ -3592,7 +3595,7 @@ export const clang_EvalResult_getAsInt = {
  * returned with clang_EvalResult_getAsInt.
  */
 export const clang_EvalResult_getAsLongLong = {
-  parameters: [CXEvalResult],
+  parameters: [CXEvalResultT],
   result: longLong,
 } as const;
 
@@ -3601,7 +3604,7 @@ export const clang_EvalResult_getAsLongLong = {
  * result resulted in an unsigned integer.
  */
 export const clang_EvalResult_isUnsignedInt = {
-  parameters: [CXEvalResult],
+  parameters: [CXEvalResultT],
   result: unsigned,
 } as const;
 
@@ -3610,7 +3613,7 @@ export const clang_EvalResult_isUnsignedInt = {
  * the kind is Int and clang_EvalResult_isUnsignedInt is non-zero.
  */
 export const clang_EvalResult_getAsUnsigned = {
-  parameters: [CXEvalResult],
+  parameters: [CXEvalResultT],
   result: unsignedLongLong,
 } as const;
 
@@ -3619,7 +3622,7 @@ export const clang_EvalResult_getAsUnsigned = {
  * kind is double.
  */
 export const clang_EvalResult_getAsDouble = {
-  parameters: [CXEvalResult],
+  parameters: [CXEvalResultT],
   result: double,
 } as const;
 
@@ -3630,7 +3633,7 @@ export const clang_EvalResult_getAsDouble = {
  * by clang_Cursor_Evaluate.
  */
 export const clang_EvalResult_getAsStr = {
-  parameters: [CXEvalResult],
+  parameters: [CXEvalResultT],
   result: constCharPtr,
 } as const;
 
@@ -3638,7 +3641,7 @@ export const clang_EvalResult_getAsStr = {
  * Disposes the created Eval memory.
  */
 export const clang_EvalResult_dispose = {
-  parameters: [CXEvalResult],
+  parameters: [CXEvalResultT],
   result: "void",
 } as const;
 
@@ -3720,7 +3723,7 @@ export const clang_remap_dispose = {
  * @returns one of the CXResult enumerators.
  */
 export const clang_findReferencesInFile = {
-  parameters: [CXCursorT, CXFileT, CXCursorAndRangeVisitor],
+  parameters: [CXCursorT, CXFileT, CXCursorAndRangeVisitorT],
   result: CXResultT,
 } as const;
 
@@ -3737,22 +3740,22 @@ export const clang_findReferencesInFile = {
  * @returns one of the CXResult enumerators.
  */
 export const clang_findIncludesInFile = {
-  parameters: [CXTranslationUnitT, CXFileT, CXCursorAndRangeVisitor],
+  parameters: [CXTranslationUnitT, CXFileT, CXCursorAndRangeVisitorT],
   result: CXResultT,
 } as const;
 
 //  #ifdef __has_feature
 //  #if __has_feature(blocks)
 
-export const clang_findReferencesInFileWithBlock = {
-  parameters: [CXCursorT, CXFileT, CXCursorAndRangeVisitorBlock],
-  result: CXResultT,
-} as const;
+// export const clang_findReferencesInFileWithBlock = {
+//   parameters: [CXCursorT, CXFileT, CXCursorAndRangeVisitorBlockT],
+//   result: CXResultT,
+// } as const;
 
-export const clang_findIncludesInFileWithBlock = {
-  parameters: [CXTranslationUnitT, CXFileT, CXCursorAndRangeVisitorBlock],
-  result: CXResultT,
-} as const;
+// export const clang_findIncludesInFileWithBlock = {
+//   parameters: [CXTranslationUnitT, CXFileT, CXCursorAndRangeVisitorBlockT],
+//   result: CXResultT,
+// } as const;
 
 //  #endif
 //  #endif
@@ -3863,7 +3866,7 @@ export const clang_index_setClientEntity = {
  */
 export const clang_IndexAction_create = {
   parameters: [CXIndexT],
-  result: CXIndexAction,
+  result: CXIndexActionT,
 } as const;
 
 /**
@@ -3873,7 +3876,7 @@ export const clang_IndexAction_create = {
  * created within that index action have been destroyed.
  */
 export const clang_IndexAction_dispose = {
-  parameters: [CXIndexAction],
+  parameters: [CXIndexActionT],
   result: "void",
 } as const;
 
@@ -3904,7 +3907,7 @@ export const clang_IndexAction_dispose = {
  */
 export const clang_indexSourceFile = {
   parameters: [
-    CXIndexAction,
+    CXIndexActionT,
     CXClientDataT,
     IndexerCallbacks,
     unsigned,
@@ -3937,7 +3940,7 @@ export const clang_indexSourceFile = {
  */
 export const clang_indexSourceFileFullArgv = {
   parameters: [
-    CXIndexAction,
+    CXIndexActionT,
     CXClientDataT,
     buf(IndexerCallbacks),
     unsigned,
@@ -3971,7 +3974,7 @@ export const clang_indexSourceFileFullArgv = {
  */
 export const clang_indexTranslationUnit = {
   parameters: [
-    CXIndexAction,
+    CXIndexActionT,
     CXClientDataT,
     IndexerCallbacks,
     unsigned,
@@ -4029,6 +4032,6 @@ export const clang_indexLoc_getCXSourceLocation = {
  * prematurely by the visitor returning {@link CXFieldVisit_Break}.
  */
 export const clang_Type_visitFields = {
-  parameters: [CXTypeT, CXFieldVisitor, CXClientDataT],
+  parameters: [CXTypeT, CXFieldVisitorT, CXClientDataT],
   result: unsigned,
 } as const;

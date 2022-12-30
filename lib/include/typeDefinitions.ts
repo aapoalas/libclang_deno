@@ -30,12 +30,12 @@ export const ptr = (_type: unknown) => "pointer" as const;
  * Object encapsulating information about overlaying virtual
  * file/directories over the real file system.
  */
-export const CXVirtualFileOverlayT = "buffer" as const;
+export const CXVirtualFileOverlayT = "pointer" as const;
 
 /**
  * Object encapsulating information about a module.map file.
  */
-export const CXModuleMapDescriptor = "buffer" as const;
+export const CXModuleMapDescriptor = "pointer" as const;
 
 /**
  * Describes the severity of a particular diagnostic.
@@ -2179,7 +2179,7 @@ export enum CXTypeLayoutError {
   CXTypeLayoutError_Undeduced = -6,
 }
 
-export enum CXRefQualifierKindA {
+export enum CXRefQualifierKind {
   /** No ref-qualifier was provided. */
   CXRefQualifier_None = 0,
   /** An lvalue ref-qualifier was provided (`$1`. */
@@ -2187,7 +2187,7 @@ export enum CXRefQualifierKindA {
   /** An rvalue ref-qualifier was provided (`$1`. */
   CXRefQualifier_RValue,
 }
-export const CXRefQualifierKind = "u8" as const;
+export const CXRefQualifierKindT = "u8" as const;
 
 /**
  * Represents the C++ access control level to a base class for a
@@ -2366,7 +2366,7 @@ export const CXToken = {
  * with actual code,of a specific kind. See {@link CXCompletionChunkKind} for a
  * description of the different kinds of chunks.
  */
-export const CXCompletionString = "pointer" as const;
+export const CXCompletionStringT = "pointer" as const;
 
 /**
  * A single result of code completion.
@@ -2388,13 +2388,13 @@ export const CXCompletionString = "pointer" as const;
  * ```
  */
 export const CXCompletionResult = {
-  struct: [int, CXCompletionString],
+  struct: [int, CXCompletionStringT],
 } as const;
 
 /**
  * Describes a single piece of text within a code-completion string.
  *
- * Each "chunk" within a code-completion string ({@link CXCompletionString}) is
+ * Each "chunk" within a code-completion string ({@link CXCompletionStringT}) is
  * either a piece of text with a specific "kind" that describes how that text
  * should be interpreted by the client or is another completion string.
  */
@@ -2754,12 +2754,30 @@ export const CXEvalResultKindT = "u8" as const;
 /**
  * Evaluation result of a cursor
  */
-export const CXEvalResult = "pointer" as const;
+export const CXEvalResultT = "pointer" as const;
 
 export enum CXVisitorResult {
   CXVisit_Break,
   CXVisit_Continue,
 }
+export const CXVisitorResultT = unsigned;
+
+/**
+ * Identifies a half-open character range in the source code.
+ *
+ * Use clang_getRangeStart() and clang_getRangeEnd() to retrieve the
+ * starting and end locations from a source range, respectively.
+ * ```cpp
+ * typedef struct {
+ *   const void *ptr_data[2];
+ *   unsigned begin_int_data;
+ *   unsigned end_int_data;
+ * } CXSourceRange;
+ * ```
+ */
+export const CXSourceRangeT = {
+  struct: ["pointer", "pointer", unsigned, unsigned],
+} as const;
 
 /**
  * ```cpp
@@ -2769,7 +2787,11 @@ export enum CXVisitorResult {
  * } CXCursorAndRangeVisitor;
  * ```
  */
-export const CXCursorAndRangeVisitor = {
+export const CXCursorAndRangeVisitorCallbackDefinition = {
+  parameters: ["pointer", CXCursorT, CXSourceRangeT],
+  result: CXVisitorResultT,
+} as const;
+export const CXCursorAndRangeVisitorT = {
   struct: ["pointer", "function"],
 } as const;
 
@@ -3244,7 +3266,7 @@ export enum CXIndexOptFlags {
 
   /**
    * Skip a function/method body that was already parsed during an
-   * indexing session associated with a {@link CXIndexAction} object.
+   * indexing session associated with a {@link CXIndexActionT} object.
    * Bodies in system headers are always skipped.
    */
   CXIndexOpt_SkipParsedBodiesInSession = 0x10,
@@ -3299,11 +3321,11 @@ export const CXCursorVisitor = "function" as const;
  * @param parent {@link CXCursor}
  * @returns CXChildVisitResult {@link CXChildVisitResult}
  */
-export const CXCursorVisitorBlockCallbackDefinition = {
-  parameters: [CXCursorT, CXCursorT],
-  result: "u8",
-} as const;
-export const CXCursorVisitorBlock = "function" as const;
+// export const CXCursorVisitorBlockCallbackDefinition = {
+//   parameters: [CXCursorT, CXCursorT],
+//   result: "u8",
+// } as const;
+// export const CXCursorVisitorBlock = "function" as const;
 
 /**
  * Properties for the printing policy.
@@ -3377,6 +3399,24 @@ export const CXCodeCompleteResults = {
 } as const;
 
 /**
+ * Identifies a specific source location within a translation
+ * unit.
+ *
+ * Use clang_getExpansionLocation() or clang_getSpellingLocation()
+ * to map a source location to a particular file, line, and column.
+ *
+ * ```cpp
+ * typedef struct {
+ *   const void *ptr_data[2];
+ *   unsigned int_data;
+ * } CXSourceLocation;
+ * ```
+ */
+export const CXSourceLocationT = {
+  struct: ["pointer", "pointer", unsigned],
+} as const;
+
+/**
  * Visitor invoked for each file in a translation unit
  *        (used with clang_getInclusions()).
  *
@@ -3396,7 +3436,7 @@ export const CXCodeCompleteResults = {
  * ```
  */
 export const CXInclusionVisitorCallbackDefinition = {
-  parameters: [],
+  parameters: [CXFileT, ptr(CXSourceLocationT), unsigned, CXClientDataT],
   result: "void",
 } as const;
 export const CXInclusionVisitor = "function" as const;
@@ -3414,7 +3454,7 @@ export const CXRemapping = "pointer" as const;
  * typedef enum CXVisitorResult (^CXCursorAndRangeVisitorBlock)(CXCursor, CXSourceRange);
  * ```
  */
-export const CXCursorAndRangeVisitorBlock = "buffer" as const;
+// export const CXCursorAndRangeVisitorBlockT = "buffer" as const;
 
 //  #endif
 //  #endif
@@ -3423,7 +3463,7 @@ export const CXCursorAndRangeVisitorBlock = "buffer" as const;
  * An indexing action/session, to be applied to one or multiple
  * translation units.
  */
-export const CXIndexAction = "pointer" as const;
+export const CXIndexActionT = "pointer" as const;
 
 /**
  * Visitor invoked for each field found by a traversal.
@@ -3435,44 +3475,16 @@ export const CXIndexAction = "pointer" as const;
  *
  * The visitor should return one of the {@link CXVisitorResult} values
  * to direct {@link clang_Type_visitFields}.
- */
-//typedef enum CXVisitorResult (*CXFieldVisitor)(CXCursor C, CXClientData client_data);
-export const CXFieldVisitor = "function" as const;
-
-/**
- * Identifies a specific source location within a translation
- * unit.
  *
- * Use clang_getExpansionLocation() or clang_getSpellingLocation()
- * to map a source location to a particular file, line, and column.
- *
- * ```cpp
- * typedef struct {
- *   const void *ptr_data[2];
- *   unsigned int_data;
- * } CXSourceLocation;
+ * ```c
+ * typedef enum CXVisitorResult (*CXFieldVisitor)(CXCursor C, CXClientData client_data);
  * ```
  */
-export const CXSourceLocationT = {
-  struct: ["pointer", "pointer", unsigned],
+export const CXFieldVisitorCallbackDefinition = {
+  parameters: [CXCursorT, "pointer"],
+  result: CXVisitorResultT,
 } as const;
-
-/**
- * Identifies a half-open character range in the source code.
- *
- * Use clang_getRangeStart() and clang_getRangeEnd() to retrieve the
- * starting and end locations from a source range, respectively.
- * ```cpp
- * typedef struct {
- *   const void *ptr_data[2];
- *   unsigned begin_int_data;
- *   unsigned end_int_data;
- * } CXSourceRange;
- * ```
- */
-export const CXSourceRangeT = {
-  struct: ["pointer", "pointer", unsigned, unsigned],
-} as const;
+export const CXFieldVisitorT = "function" as const;
 
 /**
  * ```cpp

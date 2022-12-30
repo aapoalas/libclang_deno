@@ -4,29 +4,41 @@ import {
   CX_CXXAccessSpecifier,
   CX_StorageClass,
   CXAvailabilityKind,
+  CXCallingConv,
   CXChildVisitResult,
+  CXCodeComplete_Flags,
   CXCommentInlineCommandRenderKind,
   CXCommentKind,
   CXCommentParamPassDirection,
+  CXCompletionChunkKind,
   CXCursor_ExceptionSpecificationKind,
+  CXCursorAndRangeVisitorCallbackDefinition,
   CXCursorKind,
   CXCursorVisitorCallbackDefinition,
   CXDiagnosticDisplayOptions,
   CXDiagnosticSeverity,
+  CXEvalResultKind,
+  CXFieldVisitorCallbackDefinition,
   CXGlobalOptFlags,
+  CXInclusionVisitorCallbackDefinition,
   CXLanguageKind,
   CXLinkageKind,
   CXLoadDiag_Error,
   CXNameRefFlags,
   CXPrintingPolicyProperty,
+  CXRefQualifierKind,
   CXReparse_Flags,
+  CXResult,
   CXSaveError,
   CXTemplateArgumentKind,
   CXTLSKind,
   CXTokenKind,
   CXTranslationUnit_Flags,
-  CXTUResourceUsageKind,
+  CXTypeKind,
+  CXTypeLayoutError,
+  CXTypeNullabilityKind,
   CXVisibilityKind,
+  CXVisitorResult,
   NULL,
   NULLBUF,
 } from "./include/typeDefinitions.ts";
@@ -34,10 +46,12 @@ import {
   charBufferToString,
   cstr,
   CStringArray,
-  cstrToString,
   cxstringSetToStringArray,
   cxstringToString,
 } from "./utils.ts";
+export * from "./CompilationDatabase.ts";
+export * from "./ModuleMapDescriptor.ts";
+export * from "./VirtualFileOverlay.ts";
 
 const CONSTRUCTOR = Symbol("[[constructor]]");
 const POINTER = Symbol("[[pointer]]");
@@ -50,20 +64,99 @@ const OUT = new Uint8Array(16);
 const OUT_64 = new BigUint64Array(OUT.buffer);
 
 let CURRENT_TU: null | CXTranslationUnit = null;
-const INVALID_VISITOR_CALLBACK = () => CXChildVisitResult.CXChildVisit_Break;
-let CURRENT_VISITOR_CALLBACK: (
+
+const INVALID_CURSOR_VISITOR_CALLBACK = () =>
+  CXChildVisitResult.CXChildVisit_Break;
+let CURRENT_CURSOR_VISITOR_CALLBACK: (
   cursor: CXCursor,
   parent: CXCursor,
-) => CXChildVisitResult = INVALID_VISITOR_CALLBACK;
+) => CXChildVisitResult = INVALID_CURSOR_VISITOR_CALLBACK;
 const CX_CURSOR_VISITOR_CALLBACK = new Deno.UnsafeCallback(
   CXCursorVisitorCallbackDefinition,
   (cursor, parent, _client_data) => {
-    return CURRENT_VISITOR_CALLBACK(
+    return CURRENT_CURSOR_VISITOR_CALLBACK(
       CXCursor[CONSTRUCTOR](CURRENT_TU, cursor),
       CXCursor[CONSTRUCTOR](CURRENT_TU, parent),
     );
   },
 );
+
+const INVALID_CURSOR_AND_RANGE_VISITOR_CALLBACK = () =>
+  CXVisitorResult.CXVisit_Break;
+let CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK: (
+  cursor: CXCursor,
+  range: CXSourceRange,
+) => CXVisitorResult = INVALID_CURSOR_AND_RANGE_VISITOR_CALLBACK;
+const CX_CURSOR_AND_RANGE_VISITOR_CALLBACK = new Deno.UnsafeCallback(
+  CXCursorAndRangeVisitorCallbackDefinition,
+  (_context: Deno.PointerValue, cursor, range) => {
+    return CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK(
+      CXCursor[CONSTRUCTOR](CURRENT_TU, cursor),
+      CXSourceRange[CONSTRUCTOR](CURRENT_TU, range),
+    );
+  },
+);
+
+const INVALID_INCLUSION_VISITOR_CALLBACK = () => {};
+let CURRENT_INCLUSION_VISITOR_CALLBACK: (
+  includedFile: CXFile,
+  inclusionStack: CXSourceLocation[],
+) => void = INVALID_INCLUSION_VISITOR_CALLBACK;
+const CX_INCLUSION_VISITOR_CALLBACK = new Deno.UnsafeCallback(
+  CXInclusionVisitorCallbackDefinition,
+  (includedFilePointer, inclusionStackPointer, includeLength, _clientData) => {
+    const tu = CURRENT_TU!;
+    const includedFile = CXFile[CONSTRUCTOR](tu, includedFilePointer);
+    const inclusionStack: CXSourceLocation[] = [];
+    for (let i = 0; i < includeLength; i++) {
+      inclusionStack.push(
+        CXSourceLocation[CONSTRUCTOR](
+          tu,
+          new Uint8Array(Deno.UnsafePointerView.getArrayBuffer(
+            inclusionStackPointer,
+            3 * 8,
+            i * 3 * 8,
+          )),
+        ),
+      );
+    }
+    CURRENT_INCLUSION_VISITOR_CALLBACK(
+      includedFile,
+      inclusionStack,
+    );
+  },
+);
+
+const INVALID_FIELD_VISITOR_CALLBACK = (): CXVisitorResult =>
+  CXVisitorResult.CXVisit_Break;
+let CURRENT_FIELD_VISITOR_CALLBACK: (cursor: CXCursor) => CXVisitorResult =
+  INVALID_FIELD_VISITOR_CALLBACK;
+const CX_FIELD_VISITOR_CALLBACK = new Deno.UnsafeCallback(
+  CXFieldVisitorCallbackDefinition,
+  (cursor, _userData): CXVisitorResult => {
+    return CURRENT_FIELD_VISITOR_CALLBACK(
+      CXCursor[CONSTRUCTOR](CURRENT_TU!, cursor),
+    );
+  },
+);
+
+export const setAbortOnFatalError = (value: boolean) => {
+  if (value) {
+    libclang.symbols.clang_install_aborting_llvm_fatal_error_handler();
+  } else {
+    libclang.symbols.clang_uninstall_llvm_fatal_error_handler();
+  }
+};
+
+export const getClangVersion = (): string =>
+  cxstringToString(libclang.symbols.clang_getClangVersion());
+export const getBuildSessionTimestamp = (): bigint =>
+  BigInt(libclang.symbols.clang_getBuildSessionTimestamp());
+
+export const toggleCrashRecovery = (value: boolean) =>
+  libclang.symbols.clang_toggleCrashRecovery(Number(value));
+export const enableStackTraces = () =>
+  libclang.symbols.clang_enableStackTraces();
 
 export interface GlobalOptions {
   threadBackgroundPriorityForIndexing: boolean;
@@ -184,6 +277,21 @@ export class CXIndex {
     return tu;
   }
 
+  // createTranslationUnitFromSourceFile(
+  //  arg_0: CXIndex, arg_1: constCharPtr, arg_2: int, arg_3: constCharPtr, arg_4: unsigned, arg_5: CXUnsavedFile, arg_6: )  {
+  //    libclang.symbols.clang_createTranslationUnitFromSourceFile(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
+  // }
+  // parseTranslationUnit2FullArgv(
+  //  arg_0: CXIndex, arg_1: constCharPtr, arg_2: CStringArray, arg_3: int, arg_4: CXUnsavedFile, arg_5: unsigned, arg_6: unsigned, arg_7: out(CXTranslationUnitT), arg_8: )  {
+  //    libclang.symbols.clang_parseTranslationUnit2FullArgv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8);
+  // }
+
+  createIndexAction(): CXIndexAction {
+    return CXIndexAction[CONSTRUCTOR](
+      libclang.symbols.clang_IndexAction_create(this.#pointer),
+    );
+  }
+
   dispose(): void {
     if (this.#disposed) {
       return;
@@ -195,6 +303,47 @@ export class CXIndex {
     libclang.symbols.clang_disposeIndex(this.#pointer);
     INDEX_FINALIZATION_REGISTRY.unregister(this);
     this.#disposed = true;
+  }
+}
+
+const INDEX_ACTION_FINALIZATION_REGISTRY = new FinalizationRegistry<
+  Deno.PointerValue
+>((pointer) => libclang.symbols.clang_IndexAction_dispose(pointer));
+
+class CXIndexAction {
+  static #constructable = false;
+  #pointer: Deno.PointerValue;
+
+  constructor(
+    pointer: Deno.PointerValue,
+  ) {
+    if (CXIndexAction.#constructable !== true) {
+      throw new Error("CXIndexAction is not constructable");
+    }
+    this.#pointer = pointer;
+    INDEX_ACTION_FINALIZATION_REGISTRY.register(this, pointer, this);
+  }
+
+  static [CONSTRUCTOR](
+    pointer: Deno.PointerValue,
+  ): CXIndexAction {
+    CXIndexAction.#constructable = true;
+    const result = new CXIndexAction(pointer);
+    CXIndexAction.#constructable = false;
+    return result;
+  }
+
+  // indexSourceFile(callbacks: [], options: CXIndexOptFlags[])  {
+  //   libclang.symbols.clang_indexSourceFile(this.#pointer, NULL, new Uint8Array(), 0, options.reduce((acc, flag) => acc | flag, 0), NULL, arg_6, arg_7, arg_8, arg_9, arg_10, arg_11, arg_12);
+  // }
+
+  // indexSourceFileFullArgv(arg_0: CXIndexAction, arg_1: CXClientData, arg_2: buf(IndexerCallbacks), arg_3: unsigned, arg_4: unsigned, arg_5: constCharPtr, arg_6: string, arg_7: int, arg_8: CXUnsavedFile, arg_9: unsigned, arg_10: CXTranslationUnit, arg_11: unsigned, arg_12: asd)  { libclang.symbols.clang_indexSourceFileFullArgv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8, arg_9, arg_10, arg_11, arg_12); }
+
+  // indexTranslationUnit(arg_0: CXIndexAction, arg_1: CXClientData, arg_2: IndexerCallbacks, arg_3: unsigned, arg_4: unsigned, arg_5: CXTranslationUnit, arg_6: asd )  { libclang.symbols.clang_indexTranslationUnit(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6); }
+
+  dispose(): void {
+    libclang.symbols.clang_IndexAction_dispose(this.#pointer);
+    INDEX_ACTION_FINALIZATION_REGISTRY.unregister(this);
   }
 }
 
@@ -306,6 +455,16 @@ export class CXTranslationUnit {
     this.#suspended = false;
   }
 
+  getDefaultEditingOptions(): CXReparse_Flags {
+    return libclang.symbols.clang_defaultEditingTranslationUnitOptions();
+  }
+
+  getSpelling(): string {
+    return cxstringToString(
+      libclang.symbols.clang_getTranslationUnitSpelling(this.#pointer),
+    );
+  }
+
   getTargetInfo(): TargetInfo {
     if (this.#disposed) {
       throw new Error("Cannot get TargetInfo of disposed CXTranslationUnit");
@@ -321,6 +480,7 @@ export class CXTranslationUnit {
     const tripleCXString = libclang.symbols.clang_TargetInfo_getTriple(
       targetInfo,
     );
+    libclang.symbols.clang_TargetInfo_dispose(targetInfo);
     const triple = cxstringToString(tripleCXString);
     if (pointerWidth === -1 || triple.length === 0) {
       throw new Error("Getting TargetInfo failed: Unknown error occurred");
@@ -448,6 +608,13 @@ export class CXTranslationUnit {
     return resourceUsage;
   }
 
+  createRewriter(): CXRewriter {
+    return CXRewriter[CONSTRUCTOR](
+      this,
+      libclang.symbols.clang_CXRewriter_create(this.#pointer),
+    );
+  }
+
   annotateTokens(tokens: CXToken[]): CXCursor[] {
     if (this.#disposed) {
       throw new Error("Cannot annotate tokens of disposed CXTranslationUnit");
@@ -519,6 +686,85 @@ export class CXTranslationUnit {
     });
   }
 
+  defaultSaveOptions(): number {
+    return libclang.symbols.clang_defaultSaveOptions(this.#pointer);
+  }
+  getModuleForFile(file: CXFile): null | CXModule {
+    const result = libclang.symbols.clang_getModuleForFile(
+      this.#pointer,
+      file[POINTER],
+    );
+    if (result === NULL) {
+      return null;
+    }
+    return new CXModule(this, result);
+  }
+  //codeCompleteAt(arg_1: string, arg_2: unsigned, arg_3: unsigned, arg_4: ptr(CXUnsavedFileT), arg_5: unsigned, arg_6: unsigned, arg_7: )  { libclang.symbols.clang_codeCompleteAt(this.#pointer, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7); }
+  getInclusions(
+    callback: (file: CXFile, inclusionStack: CXSourceLocation[]) => void,
+  ): void {
+    CURRENT_TU = this;
+    CURRENT_INCLUSION_VISITOR_CALLBACK = callback;
+    try {
+      libclang.symbols.clang_getInclusions(
+        this.#pointer,
+        CX_INCLUSION_VISITOR_CALLBACK.pointer,
+        NULL,
+      );
+    } finally {
+      CURRENT_TU = null;
+      CURRENT_INCLUSION_VISITOR_CALLBACK = INVALID_INCLUSION_VISITOR_CALLBACK;
+    }
+  }
+
+  findIncludesInFile(
+    file: CXFile,
+    callback: (cursor: CXCursor, sourceRange: CXSourceRange) => CXVisitorResult,
+  ): CXResult {
+    CURRENT_TU = this;
+    CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK = callback;
+    OUT_64[1] = BigInt(CX_CURSOR_AND_RANGE_VISITOR_CALLBACK.pointer);
+    try {
+      const result = libclang.symbols.clang_findIncludesInFile(
+        this.#pointer,
+        file[POINTER],
+        OUT.subarray(0, 16),
+      );
+      return result;
+    } finally {
+      CURRENT_TU = null;
+      CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK =
+        INVALID_CURSOR_AND_RANGE_VISITOR_CALLBACK;
+    }
+  }
+
+  codeCompleteAt(
+    fileName: string,
+    line: number,
+    column: number,
+    unsavedFiles: never[] = [],
+    flags: CXCodeComplete_Flags[],
+  ) {
+    const options: number = flags
+      ? flags.reduce((acc, flag) => acc | flag, 0)
+      : libclang.symbols.clang_defaultCodeCompleteOptions();
+
+    const result = libclang.symbols.clang_codeCompleteAt(
+      this.#pointer,
+      cstr(fileName),
+      line,
+      column,
+      NULL,
+      0,
+      options,
+    );
+    if (result === NULL) {
+      return null;
+    }
+
+    return CXCodeCompleteResults[CONSTRUCTOR](this, result);
+  }
+
   [REGISTER](dependent: Dependent) {
     this.#dependents.add(new WeakRef(dependent));
   }
@@ -554,8 +800,158 @@ export class CXTranslationUnit {
   }
 }
 
+const COMPLETION_RESULTS_FINALIZATION_REGISTRY = new FinalizationRegistry<
+  Deno.PointerValue
+>((pointer) => libclang.symbols.clang_disposeCodeCompleteResults(pointer));
+
+class CXCodeCompleteResults {
+  static #constructable = false;
+  #pointer: Deno.PointerValue;
+  #resultsPointer: Deno.PointerValue;
+  #numberOfResults: number;
+  tu: CXTranslationUnit;
+  #resultsArray?: {
+    kind: CXCursorKind;
+    completionString: CXCompletionString;
+  }[];
+
+  constructor(
+    tu: CXTranslationUnit,
+    pointer: Deno.PointerValue,
+  ) {
+    if (CXCodeCompleteResults.#constructable !== true) {
+      throw new Error("CXCodeCompleteResults is not constructable");
+    }
+    this.#pointer = pointer;
+    const view = new Deno.UnsafePointerView(pointer);
+    this.#resultsPointer = view.getBigUint64();
+    this.#numberOfResults = view.getUint32(8);
+    this.tu = tu;
+    COMPLETION_RESULTS_FINALIZATION_REGISTRY.register(this, pointer, this);
+  }
+
+  get results(): {
+    kind: CXCursorKind;
+    completionString: CXCompletionString;
+  }[] {
+    if (!this.#resultsArray) {
+      this.#resultsArray = [];
+      const view = new Deno.UnsafePointerView(this.#resultsPointer);
+      for (let i = 0; i < this.#numberOfResults; i++) {
+        const kind = view.getUint32(i * 2 * 8);
+        const completionStringPointer = view.getBigUint64((i * 2 + 1) * 8);
+        this.#resultsArray.push({
+          kind,
+          completionString: CXCompletionString[CONSTRUCTOR](
+            completionStringPointer,
+          ),
+        });
+      }
+    }
+
+    return this.#resultsArray;
+  }
+
+  static [CONSTRUCTOR](
+    tu: CXTranslationUnit,
+    pointer: Deno.PointerValue,
+  ): CXCodeCompleteResults {
+    CXCodeCompleteResults.#constructable = true;
+    const result = new CXCodeCompleteResults(tu, pointer);
+    CXCodeCompleteResults.#constructable = false;
+    return result;
+  }
+
+  getNumberOfFixIts(index: number): number {
+    return libclang.symbols.clang_getCompletionNumFixIts(this.#pointer, index);
+  }
+
+  getFixIt(
+    completionIndex: number,
+    fixitIndex: number,
+    replacementRange: CXSourceRange,
+  ): string {
+    return cxstringToString(
+      libclang.symbols.clang_getCompletionFixIt(
+        this.#pointer,
+        completionIndex,
+        fixitIndex,
+        replacementRange[BUFFER],
+      ),
+    );
+  }
+
+  sortCodeCompletionResults(): void {
+    libclang.symbols.clang_sortCodeCompletionResults(
+      this.#resultsPointer,
+      this.#numberOfResults,
+    );
+    if (this.#resultsArray) {
+      // Remove cached value
+      this.#resultsArray = undefined;
+    }
+  }
+
+  disposeCodeCompleteResults(): void {
+    libclang.symbols.clang_disposeCodeCompleteResults(this.#pointer);
+  }
+
+  getNumberOfDiagnostics(): number {
+    return libclang.symbols.clang_codeCompleteGetNumDiagnostics(this.#pointer);
+  }
+
+  getDiagnostic(index: number): null | CXDiagnostic {
+    const result = libclang.symbols.clang_codeCompleteGetDiagnostic(
+      this.#pointer,
+      index,
+    );
+    if (result === NULL) {
+      return null;
+    }
+    return CXDiagnostic[CONSTRUCTOR](
+      this.tu,
+      result,
+    );
+  }
+
+  getContexts(): number | bigint {
+    return libclang.symbols.clang_codeCompleteGetContexts(this.#pointer);
+  }
+
+  getContainerKind(): {
+    kind: CXCursorKind;
+    isIncomplete: boolean;
+  } {
+    const kind = libclang.symbols.clang_codeCompleteGetContainerKind(
+      this.#pointer,
+      OUT,
+    );
+    return {
+      kind,
+      isIncomplete: (OUT[0] + OUT[1] + OUT[2] + OUT[3]) > 0,
+    };
+  }
+
+  getContainerUSR(): string {
+    return cxstringToString(
+      libclang.symbols.clang_codeCompleteGetContainerUSR(this.#pointer),
+    );
+  }
+
+  getObjCSelector(): string {
+    return cxstringToString(
+      libclang.symbols.clang_codeCompleteGetObjCSelector(this.#pointer),
+    );
+  }
+
+  dispose(): void {
+    libclang.symbols.clang_disposeCodeCompleteResults(this.#pointer);
+    COMPLETION_RESULTS_FINALIZATION_REGISTRY.unregister(this);
+  }
+}
+
 interface CXTUResourceUsageEntry {
-  kind: CXTUResourceUsageKind;
+  kind: string;
   bytes: number;
 }
 
@@ -605,7 +1001,9 @@ class CXTUResourceUsage {
     );
     const [kind, , bytes] = new Uint32Array(buffer, 0, 3);
     return {
-      kind,
+      kind: Deno.UnsafePointerView.getCString(
+        libclang.symbols.clang_getTUResourceUsageName(kind),
+      ),
       bytes,
     };
   }
@@ -642,6 +1040,10 @@ export class CXFile {
     const result = new CXFile(tu, pointer);
     CXFile.#constructable = false;
     return result;
+  }
+
+  get [POINTER]() {
+    return this.#pointer;
   }
 
   [DISPOSE]() {
@@ -765,6 +1167,31 @@ export class CXFile {
   }
 }
 
+const OVERRIDDEN_CURSORS_FINALIZATION_REGISTRY = new FinalizationRegistry<
+  {
+    pointer: Deno.PointerValue;
+    count: number;
+  }
+>(
+  (key) => {
+    key.count--;
+    if (key.count === 0) {
+      libclang.symbols.clang_disposeOverriddenCursors(key.pointer);
+    }
+  },
+);
+
+export type SemVerString = `${number}.${number}.${number}`;
+
+export interface AvailabilityEntry {
+  deprecated: SemVerString;
+  introduced: SemVerString;
+  message: string;
+  obsoleted: SemVerString;
+  platform: string;
+  unavailable: boolean;
+}
+
 export class CXCursor {
   static #constructable = false;
   tu: null | CXTranslationUnit;
@@ -797,6 +1224,38 @@ export class CXCursor {
   get kind(): CXCursorKind {
     return this.#kind ??
       (this.#kind = libclang.symbols.clang_getCursorKind(this.#buffer));
+  }
+
+  isReference(): boolean {
+    return libclang.symbols.clang_isReference(this.kind) > 0;
+  }
+
+  isExpression(): boolean {
+    return libclang.symbols.clang_isExpression(this.kind) > 0;
+  }
+
+  isStatement(): boolean {
+    return libclang.symbols.clang_isStatement(this.kind) > 0;
+  }
+
+  isAttribute(): boolean {
+    return libclang.symbols.clang_isAttribute(this.kind) > 0;
+  }
+
+  isInvalid(): boolean {
+    return libclang.symbols.clang_isInvalid(this.kind) > 0;
+  }
+
+  isTranslationUnit(): boolean {
+    return libclang.symbols.clang_isTranslationUnit(this.kind) > 0;
+  }
+
+  isPreprocessing(): boolean {
+    return libclang.symbols.clang_isPreprocessing(this.kind) > 0;
+  }
+
+  isUnexposed(): boolean {
+    return libclang.symbols.clang_isUnexposed(this.kind) > 0;
   }
 
   equals(other: CXCursor): boolean {
@@ -846,7 +1305,99 @@ export class CXCursor {
     return libclang.symbols.clang_getCursorLinkage(this.#buffer);
   }
 
-  //getPlatformAvailability() {}
+  getPlatformAvailability(): {
+    alwaysDeprecated: boolean;
+    alwaysUnavailable: boolean;
+    availability: AvailabilityEntry[];
+    deprecatedMessage: string;
+    unavailableMessage: string;
+  } {
+    // First get the number of platforms availability information is available for.
+    // At the same time get the other information.
+    const deprecatedMessageOut = new Uint8Array(32);
+    const unavailableMessageOut = deprecatedMessageOut.subarray(16);
+    const numberOfPlatforms = libclang.symbols
+      .clang_getCursorPlatformAvailability(
+        this.#buffer,
+        OUT,
+        deprecatedMessageOut,
+        OUT.subarray(4),
+        unavailableMessageOut,
+        NULLBUF,
+        0,
+      );
+    const deprecatedMessage = cxstringToString(deprecatedMessageOut);
+    const unavailableMessage = cxstringToString(unavailableMessageOut);
+    const out32 = new Uint32Array(OUT.buffer, 2);
+    const alwaysDeprecated = out32[0] > 0;
+    const alwaysUnavailable = out32[1] > 0;
+
+    const availability: AvailabilityEntry[] = [];
+    const result = {
+      alwaysDeprecated,
+      alwaysUnavailable,
+      availability,
+      deprecatedMessage,
+      unavailableMessage,
+    };
+
+    if (numberOfPlatforms === 0) {
+      return result;
+    }
+
+    // Construct a buffer large enough to accept all the availability data.
+    let availabilityBuffer = new Uint8Array(72 * numberOfPlatforms);
+    // Call the API again to populate the availability data.
+    libclang.symbols.clang_getCursorPlatformAvailability(
+      this.#buffer,
+      NULLBUF,
+      NULLBUF,
+      NULLBUF,
+      NULLBUF,
+      availabilityBuffer,
+      numberOfPlatforms,
+    );
+    // Iterate over the platforms and construct availability objects for each.
+    for (let i = 0; i < numberOfPlatforms; i++) {
+      if (i) {
+        // Move the iteration to the next availability struct.
+        availabilityBuffer = availabilityBuffer.subarray(72);
+      }
+      const platform = cxstringToString(
+        availabilityBuffer.subarray(0, 16),
+      );
+      const message = cxstringToString(
+        availabilityBuffer.subarray(72 - 16),
+      );
+      const view = new DataView(
+        availabilityBuffer.buffer,
+        16,
+        72 - 16,
+      );
+      const introduced: SemVerString = `${view.getInt32(0)}.${
+        view.getInt32(4)
+      }.${view.getInt32(8)}`;
+      const deprecated: SemVerString = `${view.getInt32(12)}.${
+        view.getInt32(16)
+      }.${view.getInt32(20)}`;
+      const obsoleted: SemVerString = `${view.getInt32(24)}.${
+        view.getInt32(28)
+      }.${view.getInt32(32)}`;
+      const unavailable = view.getInt32(36) !== 0;
+      availability.push({
+        deprecated,
+        introduced,
+        message,
+        obsoleted,
+        platform,
+        unavailable,
+      });
+      // Dispose of the struct before moving onto the next one.
+      libclang.symbols.clang_disposeCXPlatformAvailability(availabilityBuffer);
+    }
+
+    return result;
+  }
 
   getSemanticParent(): CXCursor {
     return CXCursor[CONSTRUCTOR](
@@ -873,9 +1424,32 @@ export class CXCursor {
     );
   }
 
-  // getOverriddenCursors(): CXCursor[] {
-  //   libclang.symbols.clang_getOverriddenCursors(this.#buffer, OUT, OUT_2);
-  // }
+  getOverriddenCursors(): CXCursor[] {
+    const OUT_2 = OUT.subarray(8, 12);
+    const out32 = new Uint32Array(OUT_2.buffer, 8, 1);
+    libclang.symbols.clang_getOverriddenCursors(this.#buffer, OUT, OUT_2);
+    const length = out32[0];
+    const cursors: CXCursor[] = [];
+    const overriddenCursorsPointer = Number(OUT_64[0]);
+    if (length === 0 || overriddenCursorsPointer === NULL) {
+      return cursors;
+    }
+    const key = {
+      pointer: overriddenCursorsPointer,
+      count: length,
+    };
+    for (let i = 0; i < length; i++) {
+      const buffer = new Uint8Array(Deno.UnsafePointerView.getArrayBuffer(
+        overriddenCursorsPointer,
+        8 * 4,
+        i * 8 * 4,
+      ));
+      const cursor = CXCursor[CONSTRUCTOR](this.tu, buffer);
+      OVERRIDDEN_CURSORS_FINALIZATION_REGISTRY.register(cursor, key);
+      cursors.push(cursor);
+    }
+    return cursors;
+  }
 
   isNull(): boolean {
     return libclang.symbols.clang_Cursor_isNull(this.#buffer) !== 0;
@@ -949,6 +1523,7 @@ export class CXCursor {
 
   getReceiverType(): CXType {
     return CXType[CONSTRUCTOR](
+      this.tu!,
       libclang.symbols.clang_Cursor_getReceiverType(this.#buffer),
     );
   }
@@ -1068,15 +1643,18 @@ export class CXCursor {
     callback: (cursor: CXCursor, parent: CXCursor) => CXChildVisitResult,
   ): boolean {
     CURRENT_TU = this.tu;
-    CURRENT_VISITOR_CALLBACK = callback;
-    const result = libclang.symbols.clang_visitChildren(
-      this.#buffer,
-      CX_CURSOR_VISITOR_CALLBACK.pointer,
-      NULL,
-    ) > 0;
-    CURRENT_TU = null;
-    CURRENT_VISITOR_CALLBACK = INVALID_VISITOR_CALLBACK;
-    return result;
+    CURRENT_CURSOR_VISITOR_CALLBACK = callback;
+    try {
+      const result = libclang.symbols.clang_visitChildren(
+        this.#buffer,
+        CX_CURSOR_VISITOR_CALLBACK.pointer,
+        NULL,
+      ) > 0;
+      return result;
+    } finally {
+      CURRENT_TU = null;
+      CURRENT_CURSOR_VISITOR_CALLBACK = INVALID_CURSOR_VISITOR_CALLBACK;
+    }
   }
 
   getCXXManglings(): string[] {
@@ -1213,18 +1791,21 @@ export class CXCursor {
 
   getType(): CXType {
     return CXType[CONSTRUCTOR](
+      this.tu!,
       libclang.symbols.clang_getCursorType(this.#buffer),
     );
   }
 
   getTypedefDeclarationOfUnderlyingType(): CXType {
     return CXType[CONSTRUCTOR](
+      this.tu!,
       libclang.symbols.clang_getTypedefDeclUnderlyingType(this.#buffer),
     );
   }
 
   getEnumDeclarationIntegerType(): CXType {
     return CXType[CONSTRUCTOR](
+      this.tu!,
       libclang.symbols.clang_getEnumDeclIntegerType(this.#buffer),
     );
   }
@@ -1267,6 +1848,7 @@ export class CXCursor {
 
   getTemplateArgumentType(index: number): CXType {
     return CXType[CONSTRUCTOR](
+      this.tu!,
       libclang.symbols.clang_Cursor_getTemplateArgumentType(
         this.#buffer,
         index,
@@ -1308,6 +1890,7 @@ export class CXCursor {
 
   getResultType(): CXType {
     return CXType[CONSTRUCTOR](
+      this.tu!,
       libclang.symbols.clang_getCursorResultType(this.#buffer),
     );
   }
@@ -1364,8 +1947,224 @@ export class CXCursor {
 
   getIBOutletCollectionType(): CXType {
     return CXType[CONSTRUCTOR](
+      this.tu!,
       libclang.symbols.clang_getIBOutletCollectionType(this.#buffer),
     );
+  }
+
+  isInvalidDeclaration(): boolean {
+    return libclang.symbols.clang_isInvalidDeclaration(this.#buffer) > 0;
+  }
+  hasVarDeclGlobalStorage(): boolean {
+    return libclang.symbols.clang_Cursor_hasVarDeclGlobalStorage(
+      this.#buffer,
+    ) !== 0;
+  }
+  getSpellingNameRange(pieceIndex: number): CXSourceRange {
+    return new CXSourceRange(
+      this.tu,
+      libclang.symbols.clang_Cursor_getSpellingNameRange(
+        this.#buffer,
+        pieceIndex,
+        0,
+      ),
+    );
+  }
+  getMangling(): string {
+    return cxstringToString(
+      libclang.symbols.clang_Cursor_getMangling(this.#buffer),
+    );
+  }
+  getDefinitionSpellingAndExtent(): [
+    string,
+    string,
+    number,
+    number,
+    number,
+    number,
+  ] {
+    const arg1 = OUT;
+    const arg2 = OUT.subarray(8);
+    const arg3 = OUT.subarray(12);
+    const arg4 = OUT.subarray(16);
+    const arg5 = OUT.subarray(20);
+    const arg6 = OUT.subarray(24);
+    libclang.symbols.clang_getDefinitionSpellingAndExtent(
+      this.#buffer,
+      arg1,
+      arg2,
+      arg3,
+      arg4,
+      arg5,
+      arg6,
+    );
+    const out32 = new Uint32Array(OUT, 16, 4);
+    return [
+      Deno.UnsafePointerView.getCString(OUT_64[0]),
+      Deno.UnsafePointerView.getCString(OUT_64[1]),
+      ...out32 as unknown as [number, number, number, number],
+    ];
+  }
+  getCompletionString(): null | CXCompletionString {
+    const result = libclang.symbols.clang_getCursorCompletionString(
+      this.#buffer,
+    );
+    if (result === NULL) {
+      return null;
+    }
+    return CXCompletionString[CONSTRUCTOR](
+      result,
+    );
+  }
+  Evaluate(): CXEvalResult {
+    return CXEvalResult[CONSTRUCTOR](
+      libclang.symbols.clang_Cursor_Evaluate(this.#buffer),
+    );
+  }
+  findReferencesInFile(
+    file: CXFile,
+    callback: (cursor: CXCursor, range: CXSourceRange) => CXVisitorResult,
+  ): CXResult {
+    CURRENT_TU = this.tu;
+    CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK = callback;
+    OUT_64[1] = BigInt(CX_CURSOR_AND_RANGE_VISITOR_CALLBACK.pointer);
+    try {
+      const result = libclang.symbols.clang_findReferencesInFile(
+        this.#buffer,
+        file[POINTER],
+        OUT.subarray(0, 16),
+      );
+      return result;
+    } finally {
+      CURRENT_TU = null;
+      CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK =
+        INVALID_CURSOR_AND_RANGE_VISITOR_CALLBACK;
+    }
+  }
+}
+
+class CXCompletionString {
+  static #constructable = false;
+  #pointer: Deno.PointerValue;
+
+  constructor(
+    pointer: Deno.PointerValue,
+  ) {
+    if (CXCompletionString.#constructable !== true) {
+      throw new Error("CXCompletionString is not constructable");
+    }
+    this.#pointer = pointer;
+  }
+
+  static [CONSTRUCTOR](
+    pointer: Deno.PointerValue,
+  ): CXCompletionString {
+    CXCompletionString.#constructable = true;
+    const result = new CXCompletionString(pointer);
+    CXCompletionString.#constructable = false;
+    return result;
+  }
+
+  getChunkKind(index: number): CXCompletionChunkKind {
+    return libclang.symbols.clang_getCompletionChunkKind(this.#pointer, index);
+  }
+  getChunkText(index: number): string {
+    return cxstringToString(
+      libclang.symbols.clang_getCompletionChunkText(this.#pointer, index),
+    );
+  }
+  getChunkCompletionString(arg_1: number): null | CXCompletionString {
+    const result = libclang.symbols.clang_getCompletionChunkCompletionString(
+      this.#pointer,
+      arg_1,
+    );
+    if (result === NULL) {
+      return null;
+    }
+    return CXCompletionString[CONSTRUCTOR](result);
+  }
+  getNumberOfCompletionChunks(): number {
+    return libclang.symbols.clang_getNumCompletionChunks(this.#pointer);
+  }
+  getPriority(): number {
+    return libclang.symbols.clang_getCompletionPriority(this.#pointer);
+  }
+  getAvailability(): CXAvailabilityKind {
+    return libclang.symbols.clang_getCompletionAvailability(this.#pointer);
+  }
+  getNumberOfAnnotations(): number {
+    return libclang.symbols.clang_getCompletionNumAnnotations(this.#pointer);
+  }
+  getAnnotation(arg_1: number): string {
+    return cxstringToString(
+      libclang.symbols.clang_getCompletionAnnotation(this.#pointer, arg_1),
+    );
+  }
+  getParent(): string {
+    return cxstringToString(
+      libclang.symbols.clang_getCompletionParent(this.#pointer, NULL),
+    );
+  }
+  getBriefComment(): string {
+    return cxstringToString(
+      libclang.symbols.clang_getCompletionBriefComment(this.#pointer),
+    );
+  }
+}
+
+const EVAL_RESULT_FINALIZATION_REGISTRY = new FinalizationRegistry<
+  Deno.PointerValue
+>((pointer) => libclang.symbols.clang_EvalResult_dispose(pointer));
+
+class CXEvalResult {
+  static #constructable = false;
+  #pointer: Deno.PointerValue;
+
+  constructor(
+    pointer: Deno.PointerValue,
+  ) {
+    if (CXEvalResult.#constructable !== true) {
+      throw new Error("CXEvalResult is not constructable");
+    }
+    this.#pointer = pointer;
+    EVAL_RESULT_FINALIZATION_REGISTRY.register(this, pointer, this);
+  }
+
+  static [CONSTRUCTOR](
+    pointer: Deno.PointerValue,
+  ): CXEvalResult {
+    CXEvalResult.#constructable = true;
+    const result = new CXEvalResult(pointer);
+    CXEvalResult.#constructable = false;
+    return result;
+  }
+
+  getKind(): CXEvalResultKind {
+    return libclang.symbols.clang_EvalResult_getKind(this.#pointer);
+  }
+  getAsInt(): number {
+    return libclang.symbols.clang_EvalResult_getAsInt(this.#pointer);
+  }
+  getAsLongLong(): number | bigint {
+    return libclang.symbols.clang_EvalResult_getAsLongLong(this.#pointer);
+  }
+  isUnsignedInt(): number {
+    return libclang.symbols.clang_EvalResult_isUnsignedInt(this.#pointer);
+  }
+  getAsUnsigned(): number | bigint {
+    return libclang.symbols.clang_EvalResult_getAsUnsigned(this.#pointer);
+  }
+  getAsDouble(): number {
+    return libclang.symbols.clang_EvalResult_getAsDouble(this.#pointer);
+  }
+  getAsStr(): string {
+    return Deno.UnsafePointerView.getCString(
+      libclang.symbols.clang_EvalResult_getAsStr(this.#pointer),
+    );
+  }
+  dispose(): void {
+    libclang.symbols.clang_EvalResult_dispose(this.#pointer);
+    EVAL_RESULT_FINALIZATION_REGISTRY.unregister(this);
   }
 }
 
@@ -1390,6 +2189,12 @@ class CXModule {
     const result = new CXModule(tu, pointer);
     CXModule.#constructable = false;
     return result;
+  }
+
+  getName(): string {
+    return cxstringToString(
+      libclang.symbols.clang_Module_getName(this.#pointer),
+    );
   }
 
   getASTFile(): CXFile {
@@ -2098,19 +2903,228 @@ export class CXSourceLocation {
 class CXType {
   static #constructable = false;
   #buffer: Uint8Array;
+  #kind?: CXTypeKind;
+  tu: CXTranslationUnit;
 
-  constructor(buffer: Uint8Array) {
+  constructor(tu: CXTranslationUnit, buffer: Uint8Array) {
     if (CXType.#constructable !== true) {
       throw new Error("CXType is not constructable");
     }
     this.#buffer = buffer;
+    this.tu = tu;
   }
 
-  static [CONSTRUCTOR](buffer: Uint8Array): CXType {
+  static [CONSTRUCTOR](tu: CXTranslationUnit, buffer: Uint8Array): CXType {
     CXType.#constructable = true;
-    const result = new CXType(buffer);
+    const result = new CXType(tu, buffer);
     CXType.#constructable = false;
     return result;
+  }
+
+  get kind(): CXTypeKind {
+    if (this.#kind === undefined) {
+      this.#kind = new DataView(this.#buffer).getUint32(0);
+    }
+
+    return this.#kind;
+  }
+
+  equals(other: CXType) {
+    libclang.symbols.clang_equalTypes(this.#buffer, other.#buffer);
+  }
+
+  getSpelling(): string {
+    return cxstringToString(
+      libclang.symbols.clang_getTypeSpelling(this.#buffer),
+    );
+  }
+
+  getCanonicalType(): CXType {
+    return CXType[CONSTRUCTOR](
+      this.tu,
+      libclang.symbols.clang_getCanonicalType(this.#buffer),
+    );
+  }
+
+  isConstQualifiedType(): boolean {
+    return libclang.symbols.clang_isConstQualifiedType(this.#buffer) > 0;
+  }
+  isVolatileQualifiedType(): boolean {
+    return libclang.symbols.clang_isVolatileQualifiedType(this.#buffer) > 0;
+  }
+  isRestrictQualifiedType(): boolean {
+    return libclang.symbols.clang_isRestrictQualifiedType(this.#buffer) > 0;
+  }
+  getAddressSpace(): number {
+    return libclang.symbols.clang_getAddressSpace(this.#buffer);
+  }
+  getTypedefName(): string {
+    return cxstringToString(
+      libclang.symbols.clang_getTypedefName(this.#buffer),
+    );
+  }
+  getPointeeType(): CXType {
+    return CXType[CONSTRUCTOR](
+      this.tu,
+      libclang.symbols.clang_getPointeeType(this.#buffer),
+    );
+  }
+  getTypeDeclaration(): CXCursor {
+    return CXCursor[CONSTRUCTOR](
+      this.tu,
+      libclang.symbols.clang_getTypeDeclaration(this.#buffer),
+    );
+  }
+  getObjCEncoding(): string {
+    return cxstringToString(
+      libclang.symbols.clang_Type_getObjCEncoding(this.#buffer),
+    );
+  }
+  getTypeKindSpelling(): string {
+    return cxstringToString(
+      libclang.symbols.clang_getTypeKindSpelling(this.kind),
+    );
+  }
+  getFunctionTypeCallingConvention(): CXCallingConv {
+    return libclang.symbols.clang_getFunctionTypeCallingConv(this.#buffer);
+  }
+  getResultType(): CXType {
+    return CXType[CONSTRUCTOR](
+      this.tu,
+      libclang.symbols.clang_getResultType(this.#buffer),
+    );
+  }
+  getExceptionSpecificationType(): CXCursor_ExceptionSpecificationKind {
+    return libclang.symbols.clang_getExceptionSpecificationType(this.#buffer);
+  }
+  getNumberOfArgumentTypes(): number {
+    return libclang.symbols.clang_getNumArgTypes(this.#buffer);
+  }
+  getArgumentType(index: number): CXType {
+    return CXType[CONSTRUCTOR](
+      this.tu,
+      libclang.symbols.clang_getArgType(this.#buffer, index),
+    );
+  }
+  getObjCObjectBaseType(): CXType {
+    return CXType[CONSTRUCTOR](
+      this.tu,
+      libclang.symbols.clang_Type_getObjCObjectBaseType(this.#buffer),
+    );
+  }
+  getNumberOfObjCProtocolRefs(): number {
+    return libclang.symbols.clang_Type_getNumObjCProtocolRefs(this.#buffer);
+  }
+  getObjCProtocolDecl(index: number): CXCursor {
+    return CXCursor[CONSTRUCTOR](
+      this.tu,
+      libclang.symbols.clang_Type_getObjCProtocolDecl(this.#buffer, index),
+    );
+  }
+  getNumberOfObjCTypeArguments(): number {
+    return libclang.symbols.clang_Type_getNumObjCTypeArgs(this.#buffer);
+  }
+  getObjCTypeArgument(index: number): CXType {
+    return CXType[CONSTRUCTOR](
+      this.tu,
+      libclang.symbols.clang_Type_getObjCTypeArg(this.#buffer, index),
+    );
+  }
+  isFunctionTypeVariadic(): boolean {
+    return libclang.symbols.clang_isFunctionTypeVariadic(this.#buffer) > 0;
+  }
+  isPODType(): boolean {
+    return libclang.symbols.clang_isPODType(this.#buffer) > 0;
+  }
+  getElementType(): CXType {
+    return CXType[CONSTRUCTOR](
+      this.tu,
+      libclang.symbols.clang_getElementType(this.#buffer),
+    );
+  }
+  getNumberOfElements(): number {
+    return Number(libclang.symbols.clang_getNumElements(this.#buffer));
+  }
+  getArrayElementType(): CXType {
+    return CXType[CONSTRUCTOR](
+      this.tu,
+      libclang.symbols.clang_getArrayElementType(this.#buffer),
+    );
+  }
+  getArraySize(): number {
+    return Number(libclang.symbols.clang_getArraySize(this.#buffer));
+  }
+  getNamedType(): CXType {
+    return CXType[CONSTRUCTOR](
+      this.tu,
+      libclang.symbols.clang_Type_getNamedType(this.#buffer),
+    );
+  }
+  isTransparentTagTypedef(): boolean {
+    return libclang.symbols.clang_Type_isTransparentTagTypedef(this.#buffer) >
+      0;
+  }
+  getNullability(): CXTypeNullabilityKind {
+    return libclang.symbols.clang_Type_getNullability(this.#buffer);
+  }
+  getAlignOf(): number {
+    return Number(libclang.symbols.clang_Type_getAlignOf(this.#buffer));
+  }
+  getClassType(): CXType {
+    return CXType[CONSTRUCTOR](
+      this.tu,
+      libclang.symbols.clang_Type_getClassType(this.#buffer),
+    );
+  }
+  getSizeOf() {
+    return Number(libclang.symbols.clang_Type_getSizeOf(this.#buffer));
+  }
+  getOffsetOf(fieldName: string): number | CXTypeLayoutError {
+    return Number(
+      libclang.symbols.clang_Type_getOffsetOf(this.#buffer, cstr(fieldName)),
+    );
+  }
+  getModifiedType(): CXType {
+    return CXType[CONSTRUCTOR](
+      this.tu,
+      libclang.symbols.clang_Type_getModifiedType(this.#buffer),
+    );
+  }
+  getValueType(): CXType {
+    return CXType[CONSTRUCTOR](
+      this.tu,
+      libclang.symbols.clang_Type_getValueType(this.#buffer),
+    );
+  }
+  getNumberOfTemplateArguments(): number {
+    return libclang.symbols.clang_Type_getNumTemplateArguments(this.#buffer);
+  }
+  getTemplateArgumentAsType(index: number): CXType {
+    return CXType[CONSTRUCTOR](
+      this.tu,
+      libclang.symbols.clang_Type_getTemplateArgumentAsType(
+        this.#buffer,
+        index,
+      ),
+    );
+  }
+  getCXXRefQualifier(): CXRefQualifierKind {
+    return libclang.symbols.clang_Type_getCXXRefQualifier(this.#buffer);
+  }
+  visitFields(callback: (cursor: CXCursor) => CXVisitorResult): boolean {
+    CURRENT_TU = this.tu;
+    CURRENT_FIELD_VISITOR_CALLBACK = callback;
+    try {
+      const result = libclang.symbols.clang_Type_visitFields(
+        this.#buffer,
+        CX_FIELD_VISITOR_CALLBACK.pointer,
+        NULL,
+      );
+      return result > 0;
+    } finally {
+      CURRENT_FIELD_VISITOR_CALLBACK = INVALID_FIELD_VISITOR_CALLBACK;
+      CURRENT_TU = null;
+    }
   }
 }
 
@@ -3204,5 +4218,63 @@ class CXToken {
     disposeToken(this.#pointer);
     TOKEN_FINALIZATION_REGISTRY.unregister(this);
     this.#disposed = true;
+  }
+}
+
+const REWRITER_FINALIZATION_REGISTRY = new FinalizationRegistry<
+  Deno.PointerValue
+>((pointer) => libclang.symbols.clang_CXRewriter_dispose(pointer));
+
+class CXRewriter {
+  static #constructable = false;
+  tu: CXTranslationUnit;
+  #pointer: Deno.PointerValue;
+
+  constructor(
+    tu: CXTranslationUnit,
+    pointer: Deno.PointerValue,
+  ) {
+    if (CXRewriter.#constructable !== true) {
+      throw new Error("CXRewriter is not constructable");
+    }
+    this.tu = tu;
+    this.#pointer = pointer;
+    REWRITER_FINALIZATION_REGISTRY.register(this, pointer, this);
+  }
+
+  static [CONSTRUCTOR](
+    tu: CXTranslationUnit,
+    pointer: Deno.PointerValue,
+  ): CXRewriter {
+    CXRewriter.#constructable = true;
+    const result = new CXRewriter(tu, pointer);
+    CXRewriter.#constructable = false;
+    return result;
+  }
+
+  replaceText(
+    range: CXSourceRange,
+    replacement: string,
+  ): void {
+    libclang.symbols.clang_CXRewriter_replaceText(
+      this.#pointer,
+      range[BUFFER],
+      cstr(replacement),
+    );
+  }
+  removeText(range: CXSourceRange): void {
+    libclang.symbols.clang_CXRewriter_removeText(this.#pointer, range[BUFFER]);
+  }
+  overwriteChangedFiles(): boolean {
+    return libclang.symbols.clang_CXRewriter_overwriteChangedFiles(
+      this.#pointer,
+    ) > 0;
+  }
+  writeMainFileToStdOut(): void {
+    libclang.symbols.clang_CXRewriter_writeMainFileToStdOut(this.#pointer);
+  }
+  dispose(): void {
+    libclang.symbols.clang_CXRewriter_dispose(this.#pointer);
+    REWRITER_FINALIZATION_REGISTRY.unregister(this);
   }
 }
