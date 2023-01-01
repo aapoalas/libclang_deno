@@ -1,20 +1,26 @@
 import {
+  dirname,
+  fromFileUrl,
+  join,
+} from "https://deno.land/std@0.170.0/path/mod.ts";
+import {
   CXChildVisitResult,
   CXCommentInlineCommandRenderKind,
   CXCommentKind,
   CXCursorKind,
-  CXTranslationUnit_Flags,
   CXTypeKind,
 } from "../lib/include/typeDefinitions.ts";
 import * as libclang from "../lib/mod.ts";
 
 const index = new libclang.CXIndex(false, true);
 
+const includeDirectory = join(dirname(fromFileUrl(import.meta.url)), "include");
+
 const includePaths = [
-  "-I/home/valmet/libclang-deno/include/",
+  `-I${includeDirectory}`,
 ];
 
-const FILE_NAME = "/home/valmet/libclang-deno/include/clang-c/CXString.h";
+const FILE_NAME = join(includeDirectory, "clang-c/CXString.h");
 
 const tu = index.parseTranslationUnit(
   FILE_NAME,
@@ -22,7 +28,7 @@ const tu = index.parseTranslationUnit(
   [],
 );
 const tu2 = index.parseTranslationUnit(
-  "/home/valmet/libclang-deno/include/clang-c/CXErrorCode.h",
+  join(includeDirectory, "clang-c/CXErrorCode.h"),
 );
 
 const typeMappingFunctions = new Map<CXTypeKind, Function>();
