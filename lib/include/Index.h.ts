@@ -54,8 +54,8 @@ import {
   CXSourceLocationT,
   CXSourceRangeList,
   CXSourceRangeT,
-  CXString,
   CXStringSetT,
+  CXStringT,
   CXTargetInfoT,
   CXTemplateArgumentKindT,
   CXTLSKindT,
@@ -258,7 +258,7 @@ export const clang_getDiagnosticSetFromTU = {
  */
 export const clang_getTranslationUnitSpelling = {
   parameters: [CXTranslationUnitT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -649,7 +649,7 @@ export const clang_TargetInfo_dispose = {
  */
 export const clang_TargetInfo_getTriple = {
   parameters: [CXTargetInfoT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -897,9 +897,9 @@ export const clang_getCursorPlatformAvailability = {
   parameters: [
     CXCursorT,
     out(int),
-    out(CXString),
+    out(CXStringT),
     out(int),
-    out(CXString),
+    out(CXStringT),
     out(CXPlatformAvailabilityT),
     int,
   ],
@@ -1241,7 +1241,7 @@ export const clang_getCursorType = {
  */
 export const clang_getTypeSpelling = {
   parameters: [CXTypeT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -1549,7 +1549,7 @@ export const clang_getAddressSpace = {
  */
 export const clang_getTypedefName = {
   parameters: [CXTypeT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -1629,7 +1629,7 @@ export const clang_getTypeDeclaration = {
  */
 export const clang_getDeclObjCTypeEncoding = {
   parameters: [CXCursorT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -1638,7 +1638,7 @@ export const clang_getDeclObjCTypeEncoding = {
  */
 export const clang_Type_getObjCEncoding = {
   parameters: [CXTypeT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -1647,7 +1647,7 @@ export const clang_Type_getObjCEncoding = {
  */
 export const clang_getTypeKindSpelling = {
   parameters: [CXTypeKindT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -2191,7 +2191,7 @@ export const clang_visitChildren = {
  */
 export const clang_getCursorUSR = {
   parameters: [CXCursorT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -2200,7 +2200,7 @@ export const clang_getCursorUSR = {
  */
 export const clang_constructUSR_ObjCClass = {
   parameters: [constCharPtr],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -2210,7 +2210,7 @@ export const clang_constructUSR_ObjCClass = {
  */
 export const clang_constructUSR_ObjCCategory = {
   parameters: [constCharPtr, constCharPtr],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -2219,7 +2219,7 @@ export const clang_constructUSR_ObjCCategory = {
  */
 export const clang_constructUSR_ObjCProtocol = {
   parameters: [constCharPtr],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -2229,8 +2229,8 @@ export const clang_constructUSR_ObjCProtocol = {
  * @param classUSR
  */
 export const clang_constructUSR_ObjCIvar = {
-  parameters: [constCharPtr, CXString],
-  result: CXString,
+  parameters: [constCharPtr, CXStringT],
+  result: CXStringT,
 } as const;
 
 /**
@@ -2241,8 +2241,8 @@ export const clang_constructUSR_ObjCIvar = {
  * @param classUSR
  */
 export const clang_constructUSR_ObjCMethod = {
-  parameters: [constCharPtr, unsigned, CXString],
-  result: CXString,
+  parameters: [constCharPtr, unsigned, CXStringT],
+  result: CXStringT,
 } as const;
 
 /**
@@ -2252,8 +2252,8 @@ export const clang_constructUSR_ObjCMethod = {
  * @param classUSR
  */
 export const clang_constructUSR_ObjCProperty = {
-  parameters: [constCharPtr, CXString],
-  result: CXString,
+  parameters: [constCharPtr, CXStringT],
+  result: CXStringT,
 } as const;
 
 /**
@@ -2261,7 +2261,7 @@ export const clang_constructUSR_ObjCProperty = {
  */
 export const clang_getCursorSpelling = {
   parameters: [CXCursorT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -2333,7 +2333,7 @@ export const clang_PrintingPolicy_dispose = {
  */
 export const clang_getCursorPrettyPrinted = {
   parameters: [CXCursorT, CXPrintingPolicyT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -2345,7 +2345,7 @@ export const clang_getCursorPrettyPrinted = {
  */
 export const clang_getCursorDisplayName = {
   parameters: [CXCursorT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /** For a cursor that is a reference, retrieve a cursor representing the
@@ -2493,7 +2493,7 @@ export const clang_Cursor_getObjCPropertyAttributes = {
  */
 export const clang_Cursor_getObjCPropertyGetterName = {
   parameters: [CXCursorT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -2502,7 +2502,7 @@ export const clang_Cursor_getObjCPropertyGetterName = {
  */
 export const clang_Cursor_getObjCPropertySetterName = {
   parameters: [CXCursorT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -2550,7 +2550,7 @@ export const clang_Cursor_isVariadic = {
  * non-zero if the 'generated_declaration' is set in the attribute.
  */
 export const clang_Cursor_isExternalSymbol = {
-  parameters: [CXCursorT, out(CXString), out(CXString), out(unsigned)],
+  parameters: [CXCursorT, out(CXStringT), out(CXStringT), out(unsigned)],
   result: unsigned,
 } as const;
 
@@ -2570,7 +2570,7 @@ export const clang_Cursor_getCommentRange = {
  */
 export const clang_Cursor_getRawCommentText = {
   parameters: [CXCursorT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -2580,7 +2580,7 @@ export const clang_Cursor_getRawCommentText = {
  */
 export const clang_Cursor_getBriefCommentText = {
   parameters: [CXCursorT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /** Name Mangling API Functions
@@ -2591,7 +2591,7 @@ export const clang_Cursor_getBriefCommentText = {
  */
 export const clang_Cursor_getMangling = {
   parameters: [CXCursorT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -2660,7 +2660,7 @@ export const clang_Module_getParent = {
  */
 export const clang_Module_getName = {
   parameters: [CXModule],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -2670,7 +2670,7 @@ export const clang_Module_getName = {
  */
 export const clang_Module_getFullName = {
   parameters: [CXModule],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -2960,7 +2960,7 @@ export const clang_getTokenKind = {
  */
 export const clang_getTokenSpelling = {
   parameters: [CXTranslationUnitT, CXToken],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -3063,7 +3063,7 @@ export const clang_disposeTokens = {
 /** for debug/testing */
 export const clang_getCursorKindSpelling = {
   parameters: [CXCursorKindT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 export const clang_getDefinitionSpellingAndExtent = {
   parameters: [
@@ -3122,7 +3122,7 @@ export const clang_getCompletionChunkKind = {
  */
 export const clang_getCompletionChunkText = {
   parameters: [CXCompletionStringT, unsigned],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -3206,7 +3206,7 @@ export const clang_getCompletionNumAnnotations = {
  */
 export const clang_getCompletionAnnotation = {
   parameters: [CXCompletionStringT, unsigned],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -3227,7 +3227,7 @@ export const clang_getCompletionAnnotation = {
  */
 export const clang_getCompletionParent = {
   parameters: [CXCompletionStringT, ptr(CXCursorKindT)],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -3236,7 +3236,7 @@ export const clang_getCompletionParent = {
  */
 export const clang_getCompletionBriefComment = {
   parameters: [CXCompletionStringT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -3321,7 +3321,7 @@ export const clang_getCompletionFixIt = {
     unsigned,
     buf(CXSourceRangeT),
   ],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -3507,7 +3507,7 @@ export const clang_codeCompleteGetContainerKind = {
  */
 export const clang_codeCompleteGetContainerUSR = {
   parameters: [ptr(CXCodeCompleteResults)],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -3523,7 +3523,7 @@ export const clang_codeCompleteGetContainerUSR = {
  */
 export const clang_codeCompleteGetObjCSelector = {
   parameters: [ptr(CXCodeCompleteResults)],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -3536,7 +3536,7 @@ export const clang_codeCompleteGetObjCSelector = {
  */
 export const clang_getClangVersion = {
   parameters: [],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -3693,7 +3693,7 @@ export const clang_remap_getNumFiles = {
  * is associated with.
  */
 export const clang_remap_getFilenames = {
-  parameters: [CXRemapping, unsigned, CXString, CXString],
+  parameters: [CXRemapping, unsigned, CXStringT, CXStringT],
   result: "void",
 } as const;
 

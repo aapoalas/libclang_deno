@@ -7,12 +7,12 @@
  */
 
 import {
-  CXComment,
   CXCommentInlineCommandRenderKindT,
   CXCommentKindT,
   CXCommentParamPassDirectionT,
+  CXCommentT,
   CXCursorT,
-  CXString,
+  CXStringT,
   unsigned,
 } from "./typeDefinitions.ts";
 
@@ -23,7 +23,7 @@ import {
  */
 export const clang_Cursor_getParsedComment = {
   parameters: [CXCursorT],
-  result: CXComment,
+  result: CXCommentT,
 } as const;
 
 /**
@@ -32,7 +32,7 @@ export const clang_Cursor_getParsedComment = {
  * @returns the type of the AST node.
  */
 export const clang_Comment_getKind = {
-  parameters: [CXComment],
+  parameters: [CXCommentT],
   result: CXCommentKindT,
 } as const;
 
@@ -42,7 +42,7 @@ export const clang_Comment_getKind = {
  * @returns number of children of the AST node.
  */
 export const clang_Comment_getNumChildren = {
-  parameters: [CXComment],
+  parameters: [CXCommentT],
   result: unsigned,
 } as const;
 
@@ -54,8 +54,8 @@ export const clang_Comment_getNumChildren = {
  * @returns the specified child of the AST node.
  */
 export const clang_Comment_getChild = {
-  parameters: [CXComment, unsigned],
-  result: CXComment,
+  parameters: [CXCommentT, unsigned],
+  result: CXCommentT,
 } as const;
 
 /**
@@ -68,7 +68,7 @@ export const clang_Comment_getChild = {
  * @returns non-zero if `$1` is whitespace.
  */
 export const clang_Comment_isWhitespace = {
-  parameters: [CXComment],
+  parameters: [CXCommentT],
   result: unsigned,
 } as const;
 
@@ -78,7 +78,7 @@ export const clang_Comment_isWhitespace = {
  * do not count.
  */
 export const clang_InlineContentComment_hasTrailingNewline = {
-  parameters: [CXComment],
+  parameters: [CXCommentT],
   result: unsigned,
 } as const;
 
@@ -88,8 +88,8 @@ export const clang_InlineContentComment_hasTrailingNewline = {
  * @returns text contained in the AST node.
  */
 export const clang_TextComment_getText = {
-  parameters: [CXComment],
-  result: CXString,
+  parameters: [CXCommentT],
+  result: CXStringT,
 } as const;
 
 /**
@@ -98,8 +98,8 @@ export const clang_TextComment_getText = {
  * @returns name of the inline command.
  */
 export const clang_InlineCommandComment_getCommandName = {
-  parameters: [CXComment],
-  result: CXString,
+  parameters: [CXCommentT],
+  result: CXStringT,
 } as const;
 
 /**
@@ -109,7 +109,7 @@ export const clang_InlineCommandComment_getCommandName = {
  * semantics in Doxygen.
  */
 export const clang_InlineCommandComment_getRenderKind = {
-  parameters: [CXComment],
+  parameters: [CXCommentT],
   result: CXCommentInlineCommandRenderKindT,
 } as const;
 
@@ -119,7 +119,7 @@ export const clang_InlineCommandComment_getRenderKind = {
  * @returns number of command arguments.
  */
 export const clang_InlineCommandComment_getNumArgs = {
-  parameters: [CXComment],
+  parameters: [CXCommentT],
   result: unsigned,
 } as const;
 
@@ -131,8 +131,8 @@ export const clang_InlineCommandComment_getNumArgs = {
  * @returns text of the specified argument.
  */
 export const clang_InlineCommandComment_getArgText = {
-  parameters: [CXComment, unsigned],
-  result: CXString,
+  parameters: [CXCommentT, unsigned],
+  result: CXStringT,
 } as const;
 
 /**
@@ -142,8 +142,8 @@ export const clang_InlineCommandComment_getArgText = {
  * @returns HTML tag name.
  */
 export const clang_HTMLTagComment_getTagName = {
-  parameters: [CXComment],
-  result: CXString,
+  parameters: [CXCommentT],
+  result: CXStringT,
 } as const;
 
 /**
@@ -152,7 +152,7 @@ export const clang_HTMLTagComment_getTagName = {
  * @returns non-zero if tag is self-closing (for example, &lt;br /&gt;).
  */
 export const clang_HTMLStartTagComment_isSelfClosing = {
-  parameters: [CXComment],
+  parameters: [CXCommentT],
   result: unsigned,
 } as const;
 
@@ -162,7 +162,7 @@ export const clang_HTMLStartTagComment_isSelfClosing = {
  * @returns number of attributes (name-value pairs) attached to the start tag.
  */
 export const clang_HTMLStartTag_getNumAttrs = {
-  parameters: [CXComment],
+  parameters: [CXCommentT],
   result: unsigned,
 } as const;
 
@@ -174,8 +174,8 @@ export const clang_HTMLStartTag_getNumAttrs = {
  * @returns name of the specified attribute.
  */
 export const clang_HTMLStartTag_getAttrName = {
-  parameters: [CXComment, unsigned],
-  result: CXString,
+  parameters: [CXCommentT, unsigned],
+  result: CXStringT,
 } as const;
 
 /**
@@ -186,8 +186,8 @@ export const clang_HTMLStartTag_getAttrName = {
  * @returns value of the specified attribute.
  */
 export const clang_HTMLStartTag_getAttrValue = {
-  parameters: [CXComment, unsigned],
-  result: CXString,
+  parameters: [CXCommentT, unsigned],
+  result: CXStringT,
 } as const;
 
 /**
@@ -196,8 +196,8 @@ export const clang_HTMLStartTag_getAttrValue = {
  * @returns name of the block command.
  */
 export const clang_BlockCommandComment_getCommandName = {
-  parameters: [CXComment],
-  result: CXString,
+  parameters: [CXCommentT],
+  result: CXStringT,
 } as const;
 
 /**
@@ -206,7 +206,7 @@ export const clang_BlockCommandComment_getCommandName = {
  * @returns number of word-like arguments.
  */
 export const clang_BlockCommandComment_getNumArgs = {
-  parameters: [CXComment],
+  parameters: [CXCommentT],
   result: unsigned,
 } as const;
 
@@ -218,8 +218,8 @@ export const clang_BlockCommandComment_getNumArgs = {
  * @returns text of the specified word-like argument.
  */
 export const clang_BlockCommandComment_getArgText = {
-  parameters: [CXComment, unsigned],
-  result: CXString,
+  parameters: [CXCommentT, unsigned],
+  result: CXStringT,
 } as const;
 
 /**
@@ -229,8 +229,8 @@ export const clang_BlockCommandComment_getArgText = {
  * @returns paragraph argument of the block command.
  */
 export const clang_BlockCommandComment_getParagraph = {
-  parameters: [CXComment],
-  result: CXComment,
+  parameters: [CXCommentT],
+  result: CXCommentT,
 } as const;
 
 /**
@@ -239,8 +239,8 @@ export const clang_BlockCommandComment_getParagraph = {
  * @returns parameter name.
  */
 export const clang_ParamCommandComment_getParamName = {
-  parameters: [CXComment],
-  result: CXString,
+  parameters: [CXCommentT],
+  result: CXStringT,
 } as const;
 
 /**
@@ -251,7 +251,7 @@ export const clang_ParamCommandComment_getParamName = {
  * function will return a meaningful value.
  */
 export const clang_ParamCommandComment_isParamIndexValid = {
-  parameters: [CXComment],
+  parameters: [CXCommentT],
   result: unsigned,
 } as const;
 
@@ -261,7 +261,7 @@ export const clang_ParamCommandComment_isParamIndexValid = {
  * @returns zero-based parameter index in function prototype.
  */
 export const clang_ParamCommandComment_getParamIndex = {
-  parameters: [CXComment],
+  parameters: [CXCommentT],
   result: unsigned,
 } as const;
 
@@ -272,7 +272,7 @@ export const clang_ParamCommandComment_getParamIndex = {
  * the comment.
  */
 export const clang_ParamCommandComment_isDirectionExplicit = {
-  parameters: [CXComment],
+  parameters: [CXCommentT],
   result: unsigned,
 } as const;
 
@@ -282,7 +282,7 @@ export const clang_ParamCommandComment_isDirectionExplicit = {
  * @returns parameter passing direction.
  */
 export const clang_ParamCommandComment_getDirection = {
-  parameters: [CXComment],
+  parameters: [CXCommentT],
   result: CXCommentParamPassDirectionT,
 } as const;
 
@@ -292,8 +292,8 @@ export const clang_ParamCommandComment_getDirection = {
  * @returns template parameter name.
  */
 export const clang_TParamCommandComment_getParamName = {
-  parameters: [CXComment],
-  result: CXString,
+  parameters: [CXCommentT],
+  result: CXStringT,
 } as const;
 
 /**
@@ -306,7 +306,7 @@ export const clang_TParamCommandComment_getParamName = {
  * value.
  */
 export const clang_TParamCommandComment_isParamPositionValid = {
-  parameters: [CXComment],
+  parameters: [CXCommentT],
   result: unsigned,
 } as const;
 
@@ -324,7 +324,7 @@ export const clang_TParamCommandComment_isParamPositionValid = {
  * for T nesting depth is 1.
  */
 export const clang_TParamCommandComment_getDepth = {
-  parameters: [CXComment],
+  parameters: [CXCommentT],
   result: unsigned,
 } as const;
 
@@ -347,7 +347,7 @@ export const clang_TParamCommandComment_getDepth = {
  * at depth 1 T's index is 0.
  */
 export const clang_TParamCommandComment_getIndex = {
-  parameters: [CXComment, unsigned],
+  parameters: [CXCommentT, unsigned],
   result: unsigned,
 } as const;
 
@@ -357,8 +357,8 @@ export const clang_TParamCommandComment_getIndex = {
  * @returns text contained in the AST node.
  */
 export const clang_VerbatimBlockLineComment_getText = {
-  parameters: [CXComment],
-  result: CXString,
+  parameters: [CXCommentT],
+  result: CXStringT,
 } as const;
 
 /**
@@ -367,8 +367,8 @@ export const clang_VerbatimBlockLineComment_getText = {
  * @returns text contained in the AST node.
  */
 export const clang_VerbatimLineComment_getText = {
-  parameters: [CXComment],
-  result: CXString,
+  parameters: [CXCommentT],
+  result: CXStringT,
 } as const;
 
 /**
@@ -380,8 +380,8 @@ export const clang_VerbatimLineComment_getText = {
  * @returns string containing an HTML tag.
  */
 export const clang_HTMLTagComment_getAsString = {
-  parameters: [CXComment],
-  result: CXString,
+  parameters: [CXCommentT],
+  result: CXStringT,
 } as const;
 
 /**
@@ -416,8 +416,8 @@ export const clang_HTMLTagComment_getAsString = {
  * @returns string containing an HTML fragment.
  */
 export const clang_FullComment_getAsHTML = {
-  parameters: [CXComment],
-  result: CXString,
+  parameters: [CXCommentT],
+  result: CXStringT,
 } as const;
 
 /**
@@ -431,6 +431,6 @@ export const clang_FullComment_getAsHTML = {
  * @returns string containing an XML document.
  */
 export const clang_FullComment_getAsXML = {
-  parameters: [CXComment],
-  result: CXString,
+  parameters: [CXCommentT],
+  result: CXStringT,
 } as const;

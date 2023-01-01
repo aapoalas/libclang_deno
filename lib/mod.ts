@@ -65,12 +65,14 @@ const OUT_64 = new BigUint64Array(OUT.buffer);
 
 let CURRENT_TU: null | CXTranslationUnit = null;
 
-const INVALID_CURSOR_VISITOR_CALLBACK = () =>
-  CXChildVisitResult.CXChildVisit_Break;
 let CURRENT_CURSOR_VISITOR_CALLBACK: (
   cursor: CXCursor,
   parent: CXCursor,
-) => CXChildVisitResult = INVALID_CURSOR_VISITOR_CALLBACK;
+) => CXChildVisitResult = () => {
+  // Take advantage of Deno internally handling throwing callback functions by explicitly returning
+  // 0, which happens to be the `CXChildVisitResult.CXChildVisit_Break` value.
+  throw new Error("Invalid CXCursorVisitor callback");
+};
 const CX_CURSOR_VISITOR_CALLBACK = new Deno.UnsafeCallback(
   CXCursorVisitorCallbackDefinition,
   (cursor, parent, _client_data) => {
@@ -81,12 +83,14 @@ const CX_CURSOR_VISITOR_CALLBACK = new Deno.UnsafeCallback(
   },
 );
 
-const INVALID_CURSOR_AND_RANGE_VISITOR_CALLBACK = () =>
-  CXVisitorResult.CXVisit_Break;
 let CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK: (
   cursor: CXCursor,
   range: CXSourceRange,
-) => CXVisitorResult = INVALID_CURSOR_AND_RANGE_VISITOR_CALLBACK;
+) => CXVisitorResult = () => {
+  // Take advantage of Deno internally handling throwing callback functions by explicitly returning
+  // 0, which happens to be the `CXVisitorResult.CXVisit_Break` value.
+  throw new Error("Invalid CXCursorAndRangeVisitor callback");
+};
 const CX_CURSOR_AND_RANGE_VISITOR_CALLBACK = new Deno.UnsafeCallback(
   CXCursorAndRangeVisitorCallbackDefinition,
   (_context: Deno.PointerValue, cursor, range) => {
@@ -97,11 +101,12 @@ const CX_CURSOR_AND_RANGE_VISITOR_CALLBACK = new Deno.UnsafeCallback(
   },
 );
 
-const INVALID_INCLUSION_VISITOR_CALLBACK = () => {};
 let CURRENT_INCLUSION_VISITOR_CALLBACK: (
   includedFile: CXFile,
   inclusionStack: CXSourceLocation[],
-) => void = INVALID_INCLUSION_VISITOR_CALLBACK;
+) => void = () => {
+  throw new Error("Invalid CXInclusionVisitor callback");
+};
 const CX_INCLUSION_VISITOR_CALLBACK = new Deno.UnsafeCallback(
   CXInclusionVisitorCallbackDefinition,
   (includedFilePointer, inclusionStackPointer, includeLength, _clientData) => {
@@ -699,10 +704,12 @@ export class CXTranslationUnit {
     }
     return new CXModule(this, result);
   }
-  //codeCompleteAt(arg_1: string, arg_2: unsigned, arg_3: unsigned, arg_4: ptr(CXUnsavedFileT), arg_5: unsigned, arg_6: unsigned, arg_7: )  { libclang.symbols.clang_codeCompleteAt(this.#pointer, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7); }
+
   getInclusions(
     callback: (file: CXFile, inclusionStack: CXSourceLocation[]) => void,
   ): void {
+    const savedTu = CURRENT_TU;
+    const savedCallback = CURRENT_INCLUSION_VISITOR_CALLBACK;
     CURRENT_TU = this;
     CURRENT_INCLUSION_VISITOR_CALLBACK = callback;
     try {
@@ -712,8 +719,8 @@ export class CXTranslationUnit {
         NULL,
       );
     } finally {
-      CURRENT_TU = null;
-      CURRENT_INCLUSION_VISITOR_CALLBACK = INVALID_INCLUSION_VISITOR_CALLBACK;
+      CURRENT_TU = savedTu;
+      CURRENT_INCLUSION_VISITOR_CALLBACK = savedCallback;
     }
   }
 
@@ -721,6 +728,8 @@ export class CXTranslationUnit {
     file: CXFile,
     callback: (cursor: CXCursor, sourceRange: CXSourceRange) => CXVisitorResult,
   ): CXResult {
+    const savedTu = CURRENT_TU;
+    const savedCallback = CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK;
     CURRENT_TU = this;
     CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK = callback;
     OUT_64[1] = BigInt(CX_CURSOR_AND_RANGE_VISITOR_CALLBACK.pointer);
@@ -732,9 +741,8 @@ export class CXTranslationUnit {
       );
       return result;
     } finally {
-      CURRENT_TU = null;
-      CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK =
-        INVALID_CURSOR_AND_RANGE_VISITOR_CALLBACK;
+      CURRENT_TU = savedTu;
+      CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK = savedCallback;
     }
   }
 
@@ -778,7 +786,7 @@ export class CXTranslationUnit {
     }
   }
 
-  [DISPOSE]() {
+  [DISPOSE](): void {
     for (const dependent of this.#dependents) {
       const dep = dependent.deref();
       if (dep && typeof dep[DISPOSE] === "function") {
@@ -1046,7 +1054,7 @@ export class CXFile {
     return this.#pointer;
   }
 
-  [DISPOSE]() {
+  [DISPOSE](): void {
     this.#disposed = true;
   }
 
@@ -1328,7 +1336,7 @@ export class CXCursor {
       );
     const deprecatedMessage = cxstringToString(deprecatedMessageOut);
     const unavailableMessage = cxstringToString(unavailableMessageOut);
-    const out32 = new Uint32Array(OUT.buffer, 2);
+    const out32 = new Uint32Array(OUT.buffer, 0, 2);
     const alwaysDeprecated = out32[0] > 0;
     const alwaysUnavailable = out32[1] > 0;
 
@@ -1374,16 +1382,16 @@ export class CXCursor {
         16,
         72 - 16,
       );
-      const introduced: SemVerString = `${view.getInt32(0)}.${
+      const introduced: SemVerString = `${view.getInt32(0, true)}.${
         view.getInt32(4)
       }.${view.getInt32(8)}`;
-      const deprecated: SemVerString = `${view.getInt32(12)}.${
+      const deprecated: SemVerString = `${view.getInt32(12, true)}.${
         view.getInt32(16)
       }.${view.getInt32(20)}`;
-      const obsoleted: SemVerString = `${view.getInt32(24)}.${
+      const obsoleted: SemVerString = `${view.getInt32(24, true)}.${
         view.getInt32(28)
       }.${view.getInt32(32)}`;
-      const unavailable = view.getInt32(36) !== 0;
+      const unavailable = view.getInt32(36, true) !== 0;
       availability.push({
         deprecated,
         introduced,
@@ -1642,6 +1650,8 @@ export class CXCursor {
   visitChildren(
     callback: (cursor: CXCursor, parent: CXCursor) => CXChildVisitResult,
   ): boolean {
+    const savedTu = CURRENT_TU;
+    const savedCallback = CURRENT_CURSOR_VISITOR_CALLBACK;
     CURRENT_TU = this.tu;
     CURRENT_CURSOR_VISITOR_CALLBACK = callback;
     try {
@@ -1652,8 +1662,8 @@ export class CXCursor {
       ) > 0;
       return result;
     } finally {
-      CURRENT_TU = null;
-      CURRENT_CURSOR_VISITOR_CALLBACK = INVALID_CURSOR_VISITOR_CALLBACK;
+      CURRENT_TU = savedTu;
+      CURRENT_CURSOR_VISITOR_CALLBACK = savedCallback;
     }
   }
 
@@ -2025,6 +2035,8 @@ export class CXCursor {
     file: CXFile,
     callback: (cursor: CXCursor, range: CXSourceRange) => CXVisitorResult,
   ): CXResult {
+    const savedTu = CURRENT_TU;
+    const savedCallback = CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK;
     CURRENT_TU = this.tu;
     CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK = callback;
     OUT_64[1] = BigInt(CX_CURSOR_AND_RANGE_VISITOR_CALLBACK.pointer);
@@ -2036,9 +2048,8 @@ export class CXCursor {
       );
       return result;
     } finally {
-      CURRENT_TU = null;
-      CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK =
-        INVALID_CURSOR_AND_RANGE_VISITOR_CALLBACK;
+      CURRENT_TU = savedTu;
+      CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK = savedCallback;
     }
   }
 }
@@ -2248,11 +2259,13 @@ class CXModule {
   }
 }
 
-class CXComment {
+export class CXComment {
   static #constructable = false;
   tu: null | CXTranslationUnit;
   #buffer: Uint8Array;
   #kind?: number;
+  #childCount?: number;
+  #argCount?: number;
 
   constructor(tu: null | CXTranslationUnit, buffer: Uint8Array) {
     if (CXComment.#constructable !== true) {
@@ -2286,13 +2299,51 @@ class CXComment {
       kind === CXCommentKind.CXComment_Paragraph;
   }
 
+  getKindSpelling(): string {
+    switch (this.kind) {
+      case CXCommentKind.CXComment_Null:
+        return "CXComment_Null";
+      case CXCommentKind.CXComment_Text:
+        return "CXComment_Text";
+      case CXCommentKind.CXComment_InlineCommand:
+        return "CXComment_InlineCommand";
+      case CXCommentKind.CXComment_HTMLStartTag:
+        return "CXComment_HTMLStartTag";
+      case CXCommentKind.CXComment_HTMLEndTag:
+        return "CXComment_HTMLEndTag";
+      case CXCommentKind.CXComment_Paragraph:
+        return "CXComment_Paragraph";
+      case CXCommentKind.CXComment_BlockCommand:
+        return "CXComment_BlockCommand";
+      case CXCommentKind.CXComment_ParamCommand:
+        return "CXComment_ParamCommand";
+      case CXCommentKind.CXComment_TParamCommand:
+        return "CXComment_TParamCommand";
+      case CXCommentKind.CXComment_VerbatimBlockCommand:
+        return "CXComment_VerbatimBlockCommand";
+      case CXCommentKind.CXComment_VerbatimBlockLine:
+        return "CXComment_VerbatimBlockLine";
+      case CXCommentKind.CXComment_VerbatimLine:
+        return "CXComment_VerbatimLine";
+      case CXCommentKind.CXComment_FullComment:
+        return "CXComment_FullComment";
+    }
+    throw new Error("Invalid CXComment, unknown kind");
+  }
+
   getNumberOfChildren(): number {
-    return libclang.symbols.clang_Comment_getNumChildren(this.#buffer);
+    return this.#childCount ??
+      (this.#childCount = libclang.symbols.clang_Comment_getNumChildren(
+        this.#buffer,
+      ));
   }
 
   getChild(index: number): CXComment {
-    if (index < 0) {
-      throw new Error("Invalid argument, index must be unsigned integer");
+    const length = this.getNumberOfChildren();
+    if (index < 0 || length <= index) {
+      throw new Error(
+        "Invalid argument, index must be unsigned integer within bounds",
+      );
     }
     return CXComment[CONSTRUCTOR](
       this.tu,
@@ -2357,33 +2408,50 @@ class CXComment {
 
   getNumberOfArguments(): number {
     if (this.#isInlineCommandContent()) {
-      return libclang.symbols.clang_InlineCommandComment_getNumArgs(
-        this.#buffer,
-      );
+      return this.#argCount ??
+        (this.#argCount = libclang.symbols
+          .clang_InlineCommandComment_getNumArgs(
+            this.#buffer,
+          ));
     } else {
-      return libclang.symbols.clang_BlockCommandComment_getNumArgs(
-        this.#buffer,
-      );
+      return this.#argCount ??
+        (this.#argCount = libclang.symbols.clang_BlockCommandComment_getNumArgs(
+          this.#buffer,
+        ));
     }
   }
 
-  getArgumentText(index: number) {
-    if (index < 0) {
-      throw new Error("Invalid argument, index must be unsigned integer");
+  getArgumentText(index: number): string {
+    const length = this.getNumberOfArguments();
+    if (index < 0 || length <= index) {
+      throw new Error(
+        "Invalid argument, index must be unsigned integer within bounds",
+      );
     } else if (this.#isInlineCommandContent()) {
-      return libclang.symbols.clang_InlineCommandComment_getArgText(
-        this.#buffer,
-        index,
+      return cxstringToString(
+        libclang.symbols.clang_InlineCommandComment_getArgText(
+          this.#buffer,
+          index,
+        ),
       );
     } else {
-      return libclang.symbols.clang_BlockCommandComment_getArgText(
-        this.#buffer,
-        index,
+      return cxstringToString(
+        libclang.symbols.clang_BlockCommandComment_getArgText(
+          this.#buffer,
+          index,
+        ),
       );
     }
   }
 
   getTagName(): string {
+    const kind = this.kind;
+    if (
+      kind !== CXCommentKind.CXComment_HTMLEndTag &&
+      kind !== CXCommentKind.CXComment_HTMLStartTag
+    ) {
+      throw new Error("Not HTMLTagComment");
+    }
     return cxstringToString(
       libclang.symbols.clang_HTMLTagComment_getTagName(this.#buffer),
     );
@@ -2395,9 +2463,9 @@ class CXComment {
     ) !== 0;
   }
 
-  getAttributes(): null | Record<string, string> {
+  getAttributes(): Record<string, string> {
     if (this.kind !== CXCommentKind.CXComment_HTMLStartTag) {
-      return null;
+      throw new Error("Not HTMLStartTag");
     }
     const attributes: Record<string, string> = {};
     const count = libclang.symbols.clang_HTMLStartTag_getNumAttrs(this.#buffer);
@@ -2413,7 +2481,7 @@ class CXComment {
     return attributes;
   }
 
-  getParagraph() {
+  getParagraph(): CXComment {
     const kind = this.kind;
     if (
       kind !== CXCommentKind.CXComment_BlockCommand &&
@@ -2536,6 +2604,47 @@ class CXComment {
       libclang.symbols.clang_FullComment_getAsXML(this.#buffer),
     );
   }
+
+  #innerVisitChildren(
+    callback: (
+      comment: CXComment,
+      parent: CXComment,
+      index: number,
+      children: CXComment[],
+    ) => CXChildVisitResult,
+  ): CXChildVisitResult {
+    const length = this.getNumberOfChildren();
+    const children = Array.from({ length }, (_, i) => this.getChild(i));
+    for (let i = 0; i < length; i++) {
+      const child = children[i];
+      const result = callback(child, this, i, children);
+      switch (result) {
+        case CXChildVisitResult.CXChildVisit_Break:
+          return CXChildVisitResult.CXChildVisit_Break;
+        case CXChildVisitResult.CXChildVisit_Continue:
+          continue;
+        case CXChildVisitResult.CXChildVisit_Recurse: {
+          const recurseResult = child.#innerVisitChildren(callback);
+          if (recurseResult === CXChildVisitResult.CXChildVisit_Break) {
+            return CXChildVisitResult.CXChildVisit_Break;
+          }
+        }
+      }
+    }
+    return CXChildVisitResult.CXChildVisit_Continue;
+  }
+
+  visitChildren(
+    callback: (
+      comment: CXComment,
+      parent: CXComment,
+      index: number,
+      children: CXComment[],
+    ) => CXChildVisitResult,
+  ): boolean {
+    return this.#innerVisitChildren(callback) ===
+      CXChildVisitResult.CXChildVisit_Break;
+  }
 }
 
 const SOURCE_RANGE_LIST_FINALIZATION_REGISTRY = new FinalizationRegistry<
@@ -2634,7 +2743,7 @@ export class CXSourceRange {
     return result;
   }
 
-  static getNullRange() {
+  static getNullRange(): CXSourceRange {
     return CXSourceRange[CONSTRUCTOR](
       null,
       libclang.symbols.clang_getNullRange(),
@@ -2923,7 +3032,7 @@ class CXType {
 
   get kind(): CXTypeKind {
     if (this.#kind === undefined) {
-      this.#kind = new DataView(this.#buffer).getUint32(0);
+      this.#kind = new DataView(this.#buffer.buffer).getUint32(0, true);
     }
 
     return this.#kind;
@@ -2980,7 +3089,7 @@ class CXType {
       libclang.symbols.clang_Type_getObjCEncoding(this.#buffer),
     );
   }
-  getTypeKindSpelling(): string {
+  getKindSpelling(): string {
     return cxstringToString(
       libclang.symbols.clang_getTypeKindSpelling(this.kind),
     );
@@ -3076,7 +3185,7 @@ class CXType {
       libclang.symbols.clang_Type_getClassType(this.#buffer),
     );
   }
-  getSizeOf() {
+  getSizeOf(): number {
     return Number(libclang.symbols.clang_Type_getSizeOf(this.#buffer));
   }
   getOffsetOf(fieldName: string): number | CXTypeLayoutError {
@@ -3112,6 +3221,8 @@ class CXType {
     return libclang.symbols.clang_Type_getCXXRefQualifier(this.#buffer);
   }
   visitFields(callback: (cursor: CXCursor) => CXVisitorResult): boolean {
+    const savedTu = CURRENT_TU;
+    const savedCallback = CURRENT_FIELD_VISITOR_CALLBACK;
     CURRENT_TU = this.tu;
     CURRENT_FIELD_VISITOR_CALLBACK = callback;
     try {
@@ -3122,8 +3233,8 @@ class CXType {
       );
       return result > 0;
     } finally {
-      CURRENT_FIELD_VISITOR_CALLBACK = INVALID_FIELD_VISITOR_CALLBACK;
-      CURRENT_TU = null;
+      CURRENT_TU = savedTu;
+      CURRENT_FIELD_VISITOR_CALLBACK = savedCallback;
     }
   }
 }
@@ -4211,7 +4322,7 @@ class CXToken {
     );
   }
 
-  dispose() {
+  dispose(): void {
     if (this.#disposed) {
       return;
     }

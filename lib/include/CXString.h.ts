@@ -1,7 +1,7 @@
 import {
   constCharPtr,
-  CXString,
   CXStringSetT,
+  CXStringT,
   ptr,
 } from "./typeDefinitions.ts";
 
@@ -11,7 +11,7 @@ import {
  * @returns {const char *}
  */
 export const clang_getCString = {
-  parameters: [CXString],
+  parameters: [CXStringT],
   result: constCharPtr,
 } as const;
 
@@ -20,7 +20,7 @@ export const clang_getCString = {
  * @param string
  */
 export const clang_disposeString = {
-  parameters: [CXString],
+  parameters: [CXStringT],
   result: "void",
 } as const;
 

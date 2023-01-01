@@ -4,7 +4,7 @@ import {
   CXCompilationDatabase_ErrorT,
   CXCompileCommand,
   CXCompileCommands,
-  CXString,
+  CXStringT,
   out,
   unsigned,
 } from "./typeDefinitions.ts";
@@ -86,7 +86,7 @@ export const clang_CompileCommands_getCommand = {
  */
 export const clang_CompileCommand_getDirectory = {
   parameters: [CXCompileCommand],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -94,7 +94,7 @@ export const clang_CompileCommand_getDirectory = {
  */
 export const clang_CompileCommand_getFilename = {
   parameters: [CXCompileCommand],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -113,7 +113,7 @@ export const clang_CompileCommand_getNumArgs = {
  */
 export const clang_CompileCommand_getArg = {
   parameters: [CXCompileCommand, unsigned],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -129,7 +129,7 @@ export const clang_CompileCommand_getNumMappedSources = {
  */
 export const clang_CompileCommand_getMappedSourcePath = {
   parameters: [CXCompileCommand, unsigned],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -137,5 +137,5 @@ export const clang_CompileCommand_getMappedSourcePath = {
  */
 export const clang_CompileCommand_getMappedSourceContent = {
   parameters: [CXCompileCommand, unsigned],
-  result: CXString,
+  result: CXStringT,
 } as const;

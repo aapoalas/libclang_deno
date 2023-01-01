@@ -288,7 +288,7 @@ export const CXClientDataT = "pointer" as const;
 /**
  * A character string.
  *
- * The {@link CXString} type is used to return strings from the interface when
+ * The {@link CXStringT} type is used to return strings from the interface when
  * the ownership of that string might differ from one call to the next.
  * Use {@link clang_getCString}() to retrieve the string data and, once finished
  * with the string data, call {@link clang_disposeString}() to free the string.
@@ -299,7 +299,12 @@ export const CXClientDataT = "pointer" as const;
  * } CXString;
  * ```
  */
-export const CXString = { struct: ["pointer", unsigned] } as const;
+export const CXStringT = {
+  struct: [
+    /** data: */ "pointer",
+    /** private_flags: */ unsigned,
+  ],
+} as const;
 
 /**
  * Describes a version number of the form major.minor.subminor.
@@ -400,7 +405,7 @@ export const CXAvailabilityKindT = "u8" as const;
  * ```
  */
 export const CXPlatformAvailabilityT = {
-  struct: [CXString, CXVersion, CXVersion, CXVersion, int, CXString],
+  struct: [CXStringT, CXVersion, CXVersion, CXVersion, int, CXStringT],
 } as const;
 
 /**
@@ -3507,10 +3512,10 @@ export const CXStringSetT = "pointer" as const;
  * } CXComment;
  * ```
  */
-export const CXComment = { struct: ["pointer", CXTranslationUnitT] } as const;
+export const CXCommentT = { struct: ["pointer", CXTranslationUnitT] } as const;
 
 /**
- * Describes the type of the comment AST node ({@link CXComment}).  A comment
+ * Describes the type of the comment AST node ({@link CXCommentT}).  A comment
  * node can be considered block content (e. g., paragraph), inline content
  * (plain text) or neither (the root AST node).
  */
@@ -3529,7 +3534,7 @@ export const enum CXCommentKind {
   /**
    * A command with word-like arguments that is considered inline content.
    *
-   * For example: \`$1`.
+   * For example: `\\c command`.
    */
   CXComment_InlineCommand = 2,
 
@@ -3538,9 +3543,9 @@ export const enum CXCommentKind {
    * inline content.
    *
    * For example:
-   * \verbatim
+   * ```
    * <br> <br /> <a href="http://example.org/">
-   * \endverbatim
+   * ```
    */
   CXComment_HTMLStartTag = 3,
 
@@ -3548,9 +3553,9 @@ export const enum CXCommentKind {
    * HTML end tag.  Considered inline content.
    *
    * For example:
-   * \verbatim
+   * ```
    * </a>
-   * \endverbatim
+   * ```
    */
   CXComment_HTMLEndTag = 4,
 
@@ -3567,7 +3572,7 @@ export const enum CXCommentKind {
    *
    * Paragraph argument is also a child of the block command.
    *
-   * For example: \has 0 word-like arguments and a paragraph argument.
+   * For example: `\has 0 word-like arguments and a paragraph argument`.
    *
    * AST nodes of special kinds that parser knows about (e. g., \\param
    * command) have their own node kinds.
@@ -3578,7 +3583,7 @@ export const enum CXCommentKind {
    * A \\param or \\arg command that describes the function parameter
    * (name, passing direction, description).
    *
-   * For example: \\param [in] ParamName description.
+   * For example: `\\param [in] ParamName description`.
    */
   CXComment_ParamCommand = 7,
 
@@ -3586,7 +3591,7 @@ export const enum CXCommentKind {
    * A \\tparam command that describes a template parameter (name and
    * description).
    *
-   * For example: \\tparam T description.
+   * For example: `\\tparam T description.`
    */
   CXComment_TParamCommand = 8,
 
@@ -3596,9 +3601,11 @@ export const enum CXCommentKind {
    * text ({@link CXComment_VerbatimBlockLine} child nodes).
    *
    * For example:
+   * ```
    * \\verbatim
    * aaa
    * \\endverbatim
+   * ```
    */
   CXComment_VerbatimBlockCommand = 9,
 
@@ -3623,7 +3630,7 @@ export const enum CXCommentKind {
 /**
  * {@link CXCommentKind}
  *
- * Describes the type of the comment AST node ({@link CXComment}).  A comment
+ * Describes the type of the comment AST node ({@link CXCommentT}).  A comment
  * node can be considered block content (e. g., paragraph), inline content
  * (plain text) or neither (the root AST node).
  */
@@ -3640,17 +3647,17 @@ export const enum CXCommentInlineCommandRenderKind {
   CXCommentInlineCommandRenderKind_Normal,
 
   /**
-   * Command argument should be rendered in a bold font.
+   * Command argument should be rendered in a **bold** font.
    */
   CXCommentInlineCommandRenderKind_Bold,
 
   /**
-   * Command argument should be rendered in a monospaced font.
+   * Command argument should be rendered in a `monospaced` font.
    */
   CXCommentInlineCommandRenderKind_Monospaced,
 
   /**
-   * Command argument should be rendered emphasized (typically italic
+   * Command argument should be rendered emphasized (typically *italic*
    * font).
    */
   CXCommentInlineCommandRenderKind_Emphasized,

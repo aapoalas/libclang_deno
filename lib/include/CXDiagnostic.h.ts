@@ -7,7 +7,7 @@ import {
   CXLoadDiag_ErrorT,
   CXSourceLocationT,
   CXSourceRangeT,
-  CXString,
+  CXStringT,
   out,
   unsigned,
 } from "./typeDefinitions.ts";
@@ -55,7 +55,7 @@ export const clang_loadDiagnostics = {
   parameters: [
     constCharPtr,
     out(CXLoadDiag_ErrorT),
-    out(CXString),
+    out(CXStringT),
   ],
   result: CXDiagnosticSetT,
 } as const;
@@ -104,7 +104,7 @@ export const clang_disposeDiagnostic = {
  */
 export const clang_formatDiagnostic = {
   parameters: [CXDiagnosticT, CXDiagnosticDisplayOptionsT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -144,7 +144,7 @@ export const clang_getDiagnosticLocation = {
  */
 export const clang_getDiagnosticSpelling = {
   parameters: [CXDiagnosticT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -160,8 +160,8 @@ export const clang_getDiagnosticSpelling = {
  * warning, such as "-Wconversion" or "-pedantic".
  */
 export const clang_getDiagnosticOption = {
-  parameters: [CXDiagnosticT, out(CXString)],
-  result: CXString,
+  parameters: [CXDiagnosticT, out(CXStringT)],
+  result: CXStringT,
 } as const;
 
 /**
@@ -193,7 +193,7 @@ export const clang_getDiagnosticCategory = {
  */
 export const clang_getDiagnosticCategoryName = {
   parameters: [unsigned],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -203,7 +203,7 @@ export const clang_getDiagnosticCategoryName = {
  */
 export const clang_getDiagnosticCategoryText = {
   parameters: [CXDiagnosticT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -275,5 +275,5 @@ export const clang_getDiagnosticFixIt = {
     unsigned,
     out(CXSourceRangeT),
   ],
-  result: CXString,
+  result: CXStringT,
 } as const;

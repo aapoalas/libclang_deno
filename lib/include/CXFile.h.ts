@@ -1,7 +1,7 @@
 import {
   CXFileT,
   CXFileUniqueIDT,
-  CXString,
+  CXStringT,
   time_t,
 } from "./typeDefinitions.ts";
 
@@ -10,7 +10,7 @@ import {
  */
 export const clang_getFileName = {
   parameters: [CXFileT],
-  result: CXString,
+  result: CXStringT,
 } as const;
 
 /**
@@ -49,5 +49,5 @@ export const clang_File_isEqual = {
  */
 export const clang_File_tryGetRealPathName = {
   parameters: [CXFileT],
-  result: CXString,
+  result: CXStringT,
 } as const;
