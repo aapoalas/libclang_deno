@@ -121,7 +121,7 @@ Deno.test("class CXTranslationUnit", async (t) => {
     console.log("Diag count:", tu2.getNumDiagnostics());
     const file = tu.getFile("./test/assets/test.h");
     assertNotEquals(file, null);
-    const contents = file!.getFileContents();
+    const contents = file!.getContents();
     assertEquals(contents.startsWith("// my_class.h"), true);
     assertEquals(contents.length, 171);
     const cursor = tu.getCursor();
