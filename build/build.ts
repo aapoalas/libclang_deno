@@ -21,6 +21,9 @@ const tu = index.parseTranslationUnit(
   [...includePaths],
   [],
 );
+const tu2 = index.parseTranslationUnit(
+  "/home/valmet/libclang-deno/include/clang-c/CXErrorCode.h",
+);
 
 const typeMappingFunctions = new Map<CXTypeKind, Function>();
 
@@ -42,8 +45,6 @@ typeMappingFunctions.set(
 );
 
 const cursor = tu.getCursor();
-
-console.log(cursor.getKindSpelling(), cursor.getSpelling());
 
 const structDecls: libclang.CXCursor[] = [];
 
@@ -149,9 +150,26 @@ const structData = structDecls.map((struct) => {
 
   struct.visitChildren((cursor) => {
     if (cursor.kind === CXCursorKind.CXCursor_FieldDecl) {
+      const typeObj = cursor.getType();
+      let type: string;
+      console.log(
+        typeObj.getSpelling(),
+        typeObj.getSizeOf(),
+        typeObj.getNullability(),
+      );
+      if (typeObj.kind === CXTypeKind.CXType_Pointer) {
+        const pointeeType = typeObj.getPointeeType();
+        if (pointeeType.kind === CXTypeKind.CXType_Typedef) {
+          type = `ptr(${pointeeType.getTypedefName()})`;
+        } else {
+          type = `ptr(${pointeeType.getKindSpelling()})`;
+        }
+      } else {
+        type = typeObj.getKindSpelling();
+      }
       fields.push({
         name: cursor.getDisplayName(),
-        type: cursor.getType().getKindSpelling(),
+        type,
         offset: cursor.getOffsetOfField() / 8,
         comment: cursor.getRawCommentText(),
       });
@@ -188,6 +206,24 @@ ${
 });
 
 Deno.writeTextFileSync("test_out.ts", results.join("\n"));
+
+const tu2Cursor = tu2.getCursor();
+
+tu2Cursor.visitChildren((child) => {
+  console.log(child.getKindSpelling(), child.getSpelling());
+  if (child.kind === CXCursorKind.CXCursor_EnumDecl) {
+    console.log(child.getEnumDeclarationIntegerType().getSpelling());
+  } else if (child.kind === CXCursorKind.CXCursor_EnumConstantDecl) {
+    console.log(
+      child.getSpelling(),
+      child.getEnumConstantDeclarationValue(),
+      child.getEnumConstantDeclarationUnsignedValue(),
+    );
+  } else if (child.kind === CXCursorKind.CXCursor_IntegerLiteral) {
+    console.log(child.getType().getSpelling());
+  }
+  return CXChildVisitResult.CXChildVisit_Recurse;
+});
 
 // typedefs.map((typedef) =>
 //   {
