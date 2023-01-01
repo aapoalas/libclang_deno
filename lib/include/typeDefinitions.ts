@@ -3501,7 +3501,9 @@ export const CXFieldVisitorT = "function" as const;
  *
  * Used always as a pointer.
  */
-export const CXStringSetT = "pointer" as const;
+export const CXStringSetT = {
+  struct: [ptr(CXStringT), unsigned],
+} as const;
 
 /**
  * A parsed comment.
