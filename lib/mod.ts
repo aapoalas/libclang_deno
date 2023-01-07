@@ -702,7 +702,7 @@ export class CXTranslationUnit {
     if (result === NULL) {
       return null;
     }
-    return new CXModule(this, result);
+    return CXModule[CONSTRUCTOR](this, result);
   }
 
   getInclusions(
@@ -1971,7 +1971,7 @@ export class CXCursor {
     ) !== 0;
   }
   getSpellingNameRange(pieceIndex: number): CXSourceRange {
-    return new CXSourceRange(
+    return CXSourceRange[CONSTRUCTOR](
       this.tu,
       libclang.symbols.clang_Cursor_getSpellingNameRange(
         this.#buffer,
@@ -3238,6 +3238,8 @@ class CXType {
     }
   }
 }
+
+export type { CXType };
 
 const PRINTING_POLICY_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue

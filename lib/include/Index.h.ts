@@ -2601,7 +2601,7 @@ export const clang_Cursor_getMangling = {
  */
 export const clang_Cursor_getCXXManglings = {
   parameters: [CXCursorT],
-  result: CXStringSetT,
+  result: ptr(CXStringSetT),
 } as const;
 
 /**
@@ -2611,7 +2611,7 @@ export const clang_Cursor_getCXXManglings = {
  */
 export const clang_Cursor_getObjCManglings = {
   parameters: [CXCursorT],
-  result: CXStringSetT,
+  result: ptr(CXStringSetT),
 } as const;
 
 /**
