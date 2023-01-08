@@ -970,9 +970,9 @@ CINDEX_LINKAGE
 const char *clang_getTUResourceUsageName(enum CXTUResourceUsageKind kind);
 
 typedef struct CXTUResourceUsageEntry {
-  /* The memory usage category. */
+  /** The memory usage category. */
   enum CXTUResourceUsageKind kind;
-  /* Amount of resources used.
+  /** Amount of resources used.
       The units will depend on the resource kind. */
   unsigned long amount;
 } CXTUResourceUsageEntry;
@@ -981,13 +981,13 @@ typedef struct CXTUResourceUsageEntry {
  * The memory usage of a CXTranslationUnit, broken into categories.
  */
 typedef struct CXTUResourceUsage {
-  /* Private data member, used for queries. */
+  /** Private data member, used for queries. */
   void *data;
 
-  /* The number of entries in the 'entries' array. */
+  /** The number of entries in the 'entries' array. */
   unsigned numEntries;
 
-  /* An array of key-value pairs, representing the breakdown of memory
+  /** An array of key-value pairs, representing the breakdown of memory
             usage. */
   CXTUResourceUsageEntry *entries;
 
@@ -1474,7 +1474,7 @@ enum CXCursorKind {
    */
   CXCursor_SizeOfPackExpr = 143,
 
-  /* Represents a C++ lambda expression that produces a local function
+  /** Represents a C++ lambda expression that produces a local function
    * object.
    *
    * \code
@@ -2731,7 +2731,7 @@ enum CXTypeKind {
    */
   CXType_Elaborated = 119,
 
-  /* OpenCL PipeType. */
+  /** OpenCL PipeType. */
   CXType_Pipe = 120,
 
   /* OpenCL builtin types. */
@@ -2929,7 +2929,7 @@ enum CXTemplateArgumentKind {
   CXTemplateArgumentKind_TemplateExpansion,
   CXTemplateArgumentKind_Expression,
   CXTemplateArgumentKind_Pack,
-  /* Indicates an error case, preventing the kind from being deduced. */
+  /** Indicates an error case, preventing the kind from being deduced. */
   CXTemplateArgumentKind_Invalid
 };
 

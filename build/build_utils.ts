@@ -2,13 +2,18 @@ import {
   CXChildVisitResult,
   CXCommentInlineCommandRenderKind,
   CXCommentKind,
+  CXCommentParamPassDirection,
   CXCursorKind,
   CXTypeKind,
   CXTypeLayoutError,
   CXVisitorResult,
 } from "../lib/include/typeDefinitions.ts";
-import { CXComment, type CXType, enableStackTraces } from "../lib/mod.ts";
-import { func } from "../out/typeDefinitions.ts";
+import {
+  CXComment,
+  CXCursor,
+  CXPrintingPolicy,
+  type CXType,
+} from "../lib/mod.ts";
 
 export interface PlainType {
   kind: "plain";
@@ -29,13 +34,14 @@ export interface PlainType {
     | "usize"
     | "isize"
     // Only null pointer appears here
-    | "pointer";
+    | "pointer"
+    | "buffer";
   comment: null | string;
 }
 
 export interface EnumValue {
   name: string;
-  value: number;
+  value: null | string | number;
   comment: null | string;
 }
 
@@ -180,6 +186,103 @@ export const anyTypeToString = (type: AnyType): string => {
   }
 };
 
+const toEnumType = (
+  typeMemory: Map<string, AnyType>,
+  name: string,
+  typeDeclaration: CXCursor,
+) => {
+  const enumType = typeDeclaration.getEnumDeclarationIntegerType();
+  const values: EnumValue[] = [];
+  const isUnsignedInt = enumType.kind === CXTypeKind.CXType_Bool ||
+    enumType.kind === CXTypeKind.CXType_Char_U ||
+    enumType.kind === CXTypeKind.CXType_UChar ||
+    enumType.kind === CXTypeKind.CXType_UShort ||
+    enumType.kind === CXTypeKind.CXType_UInt ||
+    enumType.kind === CXTypeKind.CXType_ULong ||
+    enumType.kind === CXTypeKind.CXType_ULongLong;
+  const result: EnumType = {
+    kind: "enum",
+    name,
+    reprName: `${name}T`,
+    type: toAnyType(typeMemory, enumType),
+    values,
+    comment: commentToJSDcoString(
+      typeDeclaration.getParsedComment(),
+      typeDeclaration.getRawCommentText(),
+    ),
+  };
+  let previousRawComment = "";
+  typeDeclaration.visitChildren((child, parent) => {
+    if (child.kind === CXCursorKind.CXCursor_EnumConstantDecl) {
+      const rawComment = child.getRawCommentText();
+      let comment: string | null;
+      if (rawComment === previousRawComment) {
+        // "Inherited" comment, do not duplicate it
+        comment = null;
+      } else {
+        previousRawComment = rawComment;
+        comment = commentToJSDcoString(
+          child.getParsedComment(),
+          rawComment,
+        );
+      }
+      values.push({
+        comment,
+        name: child.getSpelling(),
+        value: null,
+      });
+    } else if (child.kind === CXCursorKind.CXCursor_IntegerLiteral) {
+      const last = values.at(-1)!;
+      last.value = Number(
+        isUnsignedInt
+          ? parent.getEnumConstantDeclarationUnsignedValue()
+          : parent.getEnumConstantDeclarationValue(),
+      );
+    } else if (child.kind === CXCursorKind.CXCursor_DeclRefExpr) {
+      const last = values.at(-1)!;
+      last.value = child.getSpelling();
+    } else {
+      const last = values.at(-1)!;
+      const policy = parent.getPrintingPolicy();
+      policy.includeNewlines = false;
+      const prettyPrintedParent = parent.getPrettyPrinted(policy);
+      policy.dispose();
+      const assignmentPrefix = `${last.name} = `;
+      if (!prettyPrintedParent.startsWith(assignmentPrefix)) {
+        last.value = Number(
+          isUnsignedInt
+            ? parent.getEnumConstantDeclarationUnsignedValue()
+            : parent.getEnumConstantDeclarationValue(),
+        );
+      } else {
+        last.value = prettyPrintedParent.substring(assignmentPrefix.length);
+      }
+    }
+    return CXChildVisitResult.CXChildVisit_Recurse;
+  });
+  let maxHexadecimalLength = 0;
+  if (
+    values.length > 3 &&
+    values.every((value) => {
+      const isHexadecimalReady = typeof value.value === "number" &&
+        (value.value === 0 ||
+          Number.isInteger(Math.log(value.value) / Math.log(2)));
+      if (isHexadecimalReady) {
+        maxHexadecimalLength = value.value!.toString(16).length;
+      }
+      return isHexadecimalReady;
+    })
+  ) {
+    // Enum of powers of two, use hexadecimal formatting
+    for (const value of values) {
+      value.value = `0x${
+        value.value!.toString(16).padStart(maxHexadecimalLength, "0")
+      }`;
+    }
+  }
+  return result;
+};
+
 export const toAnyType = (
   typeMemory: Map<string, AnyType>,
   type: CXType,
@@ -188,41 +291,11 @@ export const toAnyType = (
   if (typekind === CXTypeKind.CXType_Elaborated) {
     const typeDeclaration = type.getTypeDeclaration();
     if (typeDeclaration.kind === CXCursorKind.CXCursor_EnumDecl) {
-      const values: EnumValue[] = [];
       const name = type.getSpelling().substring(5); // drop `enum ` prefix
       if (typeMemory.has(name)) {
         return typeMemory.get(name)!;
       }
-      const enumType = typeDeclaration.getEnumDeclarationIntegerType();
-      const isUnsignedInt = type.kind === CXTypeKind.CXType_Bool ||
-        type.kind === CXTypeKind.CXType_Char_U ||
-        type.kind === CXTypeKind.CXType_UChar ||
-        type.kind === CXTypeKind.CXType_UShort ||
-        type.kind === CXTypeKind.CXType_UInt ||
-        type.kind === CXTypeKind.CXType_ULong ||
-        type.kind === CXTypeKind.CXType_ULongLong;
-      const result: EnumType = {
-        kind: "enum",
-        name,
-        reprName: `${name}T`,
-        type: toAnyType(typeMemory, enumType),
-        values,
-        comment: commentToJSDcoString(typeDeclaration.getParsedComment()),
-      };
-      typeDeclaration.visitChildren((child) => {
-        if (child.kind === CXCursorKind.CXCursor_EnumConstantDecl) {
-          values.push({
-            comment: commentToJSDcoString(child.getParsedComment()),
-            name: child.getSpelling(),
-            value: Number(
-              isUnsignedInt
-                ? child.getEnumConstantDeclarationUnsignedValue()
-                : child.getEnumConstantDeclarationValue(),
-            ),
-          });
-        }
-        return CXChildVisitResult.CXChildVisit_Continue;
-      });
+      const result = toEnumType(typeMemory, name, typeDeclaration);
       typeMemory.set(name, result);
       return result;
     } else if (typeDeclaration.kind === CXCursorKind.CXCursor_StructDecl) {
@@ -247,7 +320,10 @@ export const toAnyType = (
         name,
         size,
         reprName: `${name}T`,
-        comment: commentToJSDcoString(structDeclaration.getParsedComment()),
+        comment: commentToJSDcoString(
+          structDeclaration.getParsedComment(),
+          structDeclaration.getRawCommentText(),
+        ),
       };
       type.visitFields((fieldCursor) => {
         if (fieldCursor.kind !== CXCursorKind.CXCursor_FieldDecl) {
@@ -262,7 +338,10 @@ export const toAnyType = (
           const baseName = fieldCursor.getDisplayName();
           const baseOffset = fieldCursor.getOffsetOfField() / 8;
           const elementSize = elementType.getSizeOf();
-          const comment = commentToJSDcoString(fieldCursor.getParsedComment());
+          const comment = commentToJSDcoString(
+            fieldCursor.getParsedComment(),
+            fieldCursor.getRawCommentText(),
+          );
           for (let i = 0; i < length; i++) {
             fields.push({
               name: `${baseName}[${i}]`,
@@ -279,8 +358,15 @@ export const toAnyType = (
           type: toAnyType(typeMemory, fieldType),
           offset: fieldCursor.getOffsetOfField() / 8,
           size: fieldType.getSizeOf(),
-          comment: commentToJSDcoString(fieldCursor.getParsedComment()),
+          comment: commentToJSDcoString(
+            fieldCursor.getParsedComment(),
+            fieldCursor.getRawCommentText(),
+          ),
         };
+        if (field.type.kind === "pointer") {
+          // Never use `buf()` in struct fields as it doesn't really make much sense to do so.
+          field.type.useBuffer = false;
+        }
         fields.push(field);
         return CXVisitorResult.CXVisit_Continue;
       });
@@ -291,9 +377,11 @@ export const toAnyType = (
       throw new Error("Unknown elaborated type");
     }
   } else if (typekind === CXTypeKind.CXType_FunctionProto) {
+    const typeDeclaration = type.getTypeDeclaration();
     const result: FunctionType = {
       comment: commentToJSDcoString(
-        type.getTypeDeclaration().getParsedComment(),
+        typeDeclaration.getParsedComment(),
+        typeDeclaration.getRawCommentText(),
       ),
       kind: "function",
       name: type.getSpelling(),
@@ -321,9 +409,19 @@ export const toAnyType = (
       const cstringResult: TypeReference = {
         comment: null,
         kind: "ref",
-        name: "cstring",
+        name: "cstringT",
         reprName: "cstringT",
       };
+      if (!typeMemory.has("cstringT")) {
+        typeMemory.set("cstringT", {
+          kind: "plain",
+          comment: `/**
+ * \`const char *\`, C string
+ */`,
+          name: "cstringT",
+          type: "buffer",
+        });
+      }
       return cstringResult;
     } else if (
       pointee.kind === CXTypeKind.CXType_Pointer &&
@@ -333,9 +431,19 @@ export const toAnyType = (
       const cstringArrayResult: TypeReference = {
         comment: null,
         kind: "ref",
-        name: "cstringArray",
+        name: "cstringArrayT",
         reprName: "cstringArrayT",
       };
+      if (!typeMemory.has("cstringArrayT")) {
+        typeMemory.set("cstringArrayT", {
+          kind: "plain",
+          comment: `/**
+ * \`char **\`, C string array
+ */`,
+          name: "cstringArrayT",
+          type: "buffer",
+        });
+      }
       return cstringArrayResult;
     }
 
@@ -348,7 +456,7 @@ export const toAnyType = (
       comment: null,
       useBuffer: pointeeAnyType.kind === "struct" ||
         pointeeAnyType.kind === "plain" && pointeeAnyType.type !== "void" ||
-        pointeeAnyType.kind === "ref" || pointeeAnyType.kind === "pointer" ||
+        pointeeAnyType.kind === "pointer" || pointeeAnyType.kind === "ref" ||
         pointeeAnyType.kind === "enum",
     };
     return result;
@@ -374,8 +482,6 @@ export const toAnyType = (
   } else if (
     typekind === CXTypeKind.CXType_Enum
   ) {
-    const typeDeclaration = type.getTypeDeclaration();
-    const values: EnumValue[] = [];
     let name = type.getSpelling();
     if (name.startsWith("enum ")) {
       name = name.substring("enum ".length);
@@ -383,36 +489,8 @@ export const toAnyType = (
     if (typeMemory.has(name)) {
       return typeMemory.get(name)!;
     }
-    const enumType = typeDeclaration.getEnumDeclarationIntegerType();
-    const isUnsignedInt = type.kind === CXTypeKind.CXType_Bool ||
-      type.kind === CXTypeKind.CXType_Char_U ||
-      type.kind === CXTypeKind.CXType_UChar ||
-      type.kind === CXTypeKind.CXType_UShort ||
-      type.kind === CXTypeKind.CXType_UInt ||
-      type.kind === CXTypeKind.CXType_ULong ||
-      type.kind === CXTypeKind.CXType_ULongLong;
-    const result: EnumType = {
-      kind: "enum",
-      name,
-      reprName: `${name}T`,
-      type: toAnyType(typeMemory, enumType),
-      values,
-      comment: commentToJSDcoString(typeDeclaration.getParsedComment()),
-    };
-    typeDeclaration.visitChildren((child) => {
-      if (child.kind === CXCursorKind.CXCursor_EnumConstantDecl) {
-        values.push({
-          comment: commentToJSDcoString(child.getParsedComment()),
-          name: child.getSpelling(),
-          value: Number(
-            isUnsignedInt
-              ? child.getEnumConstantDeclarationUnsignedValue()
-              : child.getEnumConstantDeclarationValue(),
-          ),
-        });
-      }
-      return CXChildVisitResult.CXChildVisit_Continue;
-    });
+    const typeDeclaration = type.getTypeDeclaration();
+    const result = toEnumType(typeMemory, name, typeDeclaration);
     typeMemory.set(name, result);
     return result;
   } else if (
@@ -538,66 +616,86 @@ const getPlainTypeInfo = (
   }
 };
 
-const paragraphToJSDoc = (paragraph: CXComment): string => {
-  const parts: string[] = [];
+const paragraphToJSDoc = (
+  paragraph: CXComment,
+  fullCommentText: string,
+): string => {
+  const lines: string[] = [];
+
   paragraph.visitChildren((child) => {
+    if (lines.at(-1) === "\n") {
+      lines.pop();
+      lines.push("\n *");
+    }
     if (child.kind === CXCommentKind.CXComment_Paragraph) {
       throw new Error("Did not expect recursive paragraphs");
     } else if (child.kind === CXCommentKind.CXComment_Text) {
-      parts.push(child.getText());
+      const text = child.getText();
+      if (text.length === 1 && text !== " ") {
+        // Escaped item
+        lines.push(`\\${text}`);
+      } else {
+        lines.push(child.getText());
+      }
     } else if (child.kind === CXCommentKind.CXComment_InlineCommand) {
+      const command = child.getCommandName();
       const style = child.getRenderKind();
-      for (let i = 0; i < child.getNumberOfArguments(); i++) {
+      const argCount = child.getNumberOfArguments();
+      let part = lines.pop();
+      if (
+        command !== "c" && command !== "p" && command !== "e" &&
+        command !== "em"
+      ) {
+        if (fullCommentText.includes(`\\${command}`)) {
+          part = `${part || " * "}\\${command}`;
+        } else {
+          part = `${part || " * "}@${command}`;
+        }
+      } else if (!part) {
+        part = " *";
+      }
+      for (let i = 0; i < argCount; i++) {
         const argText = child.getArgumentText(i);
         switch (style) {
           case CXCommentInlineCommandRenderKind
             .CXCommentInlineCommandRenderKind_Normal:
-            parts.push(argText);
+            part = `${part}${argText}`;
             break;
           case CXCommentInlineCommandRenderKind
             .CXCommentInlineCommandRenderKind_Bold:
-            parts.push(`**${argText}**`);
+            part = `${part}**${argText}**`;
             break;
           case CXCommentInlineCommandRenderKind
             .CXCommentInlineCommandRenderKind_Monospaced:
-            parts.push(`\`${argText}\``);
+            part = `${part}\`${argText}\``;
             break;
           case CXCommentInlineCommandRenderKind
             .CXCommentInlineCommandRenderKind_Emphasized:
-            parts.push(`*${argText}*`);
+            part = `${part}*${argText}*`;
             break;
           default:
             continue;
         }
+        if (argText.endsWith(")") && !part.endsWith(")")) {
+          part = `${part.substring(0, part.length - 2)}${part.at(-1)})`;
+        }
       }
+      lines.push(part);
+    }
+    if (child.hasTrailingNewline()) {
+      lines.push("\n");
     }
 
     return CXChildVisitResult.CXChildVisit_Continue;
   });
 
-  const plainText = parts.join("");
-  if (plainText.length <= 78) {
-    return ` *${plainText}`;
-  }
-  const lines: string[] = [];
-  let previousLinebreakIndex = 0;
-  let linebreakIndex = plainText.lastIndexOf(" ", 79);
-  do {
-    lines.push(
-      ` *${plainText.substring(previousLinebreakIndex, linebreakIndex)}`,
-    );
-    const lastPossibleNextLinebreakIndex = linebreakIndex + 78;
-    if (plainText.length < lastPossibleNextLinebreakIndex) {
-      lines.push(` *${plainText.substring(linebreakIndex)}`);
-      break;
-    }
-    previousLinebreakIndex = linebreakIndex;
-    linebreakIndex = plainText.lastIndexOf(" ", lastPossibleNextLinebreakIndex);
-  } while (linebreakIndex !== -1);
-  return lines.join("\n");
+  return ` *${lines.join("")}`;
 };
 
-const verbatimBlockCommandToJSDoc = (blockCommand: CXComment): string => {
+const verbatimBlockCommandToJSDoc = (
+  blockCommand: CXComment,
+  _fullCommentText: string,
+): string => {
   // Default to C++ as the comment language: It could be anything really but C++ works for both C and C++ that we're mostly interested in.
   const lines: string[] = [];
   const command = blockCommand.getCommandName();
@@ -629,7 +727,10 @@ const verbatimBlockCommandToJSDoc = (blockCommand: CXComment): string => {
   return lines.join("\n");
 };
 
-const blockCommandToJSDoc = (blockCommand: CXComment): string => {
+const blockCommandToJSDoc = (
+  blockCommand: CXComment,
+  fullCommentText: string,
+): string => {
   let command = blockCommand.getCommandName();
   if (command === "return") {
     // Fix failures
@@ -639,7 +740,9 @@ const blockCommandToJSDoc = (blockCommand: CXComment): string => {
   blockCommand.visitChildren((comment) => {
     if (comment.kind === CXCommentKind.CXComment_Paragraph) {
       const previous = lines.pop();
-      lines.push(`${previous}${paragraphToJSDoc(comment).substring(2)}`);
+      lines.push(
+        `${previous}${paragraphToJSDoc(comment, fullCommentText).substring(2)}`,
+      );
     } else {
       throw new Error(
         "Unexpected line in BlockCommand: " + comment.getKindSpelling(),
@@ -650,7 +753,10 @@ const blockCommandToJSDoc = (blockCommand: CXComment): string => {
   return lines.join("\n");
 };
 
-const paramCommandToJSDoc = (paramCommand: CXComment): string => {
+const paramCommandToJSDoc = (
+  paramCommand: CXComment,
+  fullCommentText: string,
+): string => {
   const lines: string[] = [];
   const command = paramCommand.getCommandName();
   const params: string[] = [`@${command}`];
@@ -658,11 +764,32 @@ const paramCommandToJSDoc = (paramCommand: CXComment): string => {
   for (let i = 0; i < paramsCount; i++) {
     params.push(paramCommand.getArgumentText(i));
   }
+  if (paramCommand.isDirectionExplicit()) {
+    const direction = paramCommand.getDirection();
+    if (
+      direction === CXCommentParamPassDirection.CXCommentParamPassDirection_In
+    ) {
+      params.push("[in]");
+    } else if (
+      direction === CXCommentParamPassDirection.CXCommentParamPassDirection_Out
+    ) {
+      params.push("[out]");
+    } else if (
+      direction ===
+        CXCommentParamPassDirection.CXCommentParamPassDirection_InOut
+    ) {
+      params.push("[in,out]");
+    } else {
+      throw new Error("Unknown param comment direction value");
+    }
+  }
   lines.push(` * ${params.join(" ")}`);
   paramCommand.visitChildren((comment) => {
     if (comment.kind === CXCommentKind.CXComment_Paragraph) {
       const previous = lines.pop();
-      lines.push(`${previous}${paragraphToJSDoc(comment).substring(2)}`);
+      lines.push(
+        `${previous}${paragraphToJSDoc(comment, fullCommentText).substring(2)}`,
+      );
     } else {
       throw new Error(
         "Unexpected line in ParamCommand: " + comment.getKindSpelling(),
@@ -673,7 +800,10 @@ const paramCommandToJSDoc = (paramCommand: CXComment): string => {
   return lines.join("\n");
 };
 
-export const commentToJSDcoString = (comment: CXComment): null | string => {
+export const commentToJSDcoString = (
+  comment: CXComment,
+  fullCommentText: string,
+): null | string => {
   if (comment.kind === CXCommentKind.CXComment_Null) {
     return null;
   }
@@ -682,12 +812,11 @@ export const commentToJSDcoString = (comment: CXComment): null | string => {
     if (child.kind === CXCommentKind.CXComment_Text) {
       lines.push(` * ${child.getText()}`);
     } else if (child.kind === CXCommentKind.CXComment_Paragraph) {
-      const paragraphContent = paragraphToJSDoc(child);
+      const paragraphContent = paragraphToJSDoc(child, fullCommentText);
       if (paragraphContent === " *" || paragraphContent === " * ") {
         return CXChildVisitResult.CXChildVisit_Continue;
       }
-      lines.push(paragraphContent);
-      lines.push(" *");
+      lines.push(paragraphContent.replaceAll(/([ ]+)/g, " "), " *");
     } else if (child.kind === CXCommentKind.CXComment_InlineCommand) {
       throw new Error("Did not expect main level inline command");
     } else if (child.kind === CXCommentKind.CXComment_VerbatimLine) {
@@ -700,17 +829,11 @@ export const commentToJSDcoString = (comment: CXComment): null | string => {
         lines.push(`${previous}\\\\${commandName} ${child.getText()}`);
       }
     } else if (child.kind === CXCommentKind.CXComment_VerbatimBlockCommand) {
-      lines.push(verbatimBlockCommandToJSDoc(child));
+      lines.push(verbatimBlockCommandToJSDoc(child, fullCommentText));
     } else if (child.kind === CXCommentKind.CXComment_BlockCommand) {
-      lines.push(blockCommandToJSDoc(child));
+      lines.push(blockCommandToJSDoc(child, fullCommentText), " *");
     } else if (child.kind === CXCommentKind.CXComment_ParamCommand) {
-      lines.push(paramCommandToJSDoc(child));
-    } else {
-      console.log(
-        child.getKindSpelling(),
-        child.getNumberOfArguments(),
-        child.getNumberOfChildren(),
-      );
+      lines.push(paramCommandToJSDoc(child, fullCommentText));
     }
     return CXChildVisitResult.CXChildVisit_Continue;
   });
