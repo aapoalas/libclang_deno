@@ -3,7 +3,6 @@ import {
   fromFileUrl,
   join,
 } from "https://deno.land/std@0.170.0/path/mod.ts";
-import { format } from "https://deno.land/std@0.170.0/path/win32.ts";
 import {
   CXChildVisitResult,
   CXCursorKind,
@@ -16,11 +15,12 @@ import {
   commentToJSDcoString,
   FunctionParameter,
   FunctionType,
+  structFieldToDeinlineString,
   toAnyType,
 } from "./build_utils.ts";
 
 const formatSync = (filePath: string) => {
-  const command = new Deno.Command("deno", {
+  new Deno.Command("deno", {
     args: ["fmt", filePath],
   }).outputSync();
 };
@@ -229,6 +229,9 @@ export const cstringT = "buffer" as const;
  * \`char **\`, C string array
  */
 export const cstringArrayT = "buffer" as const;
+
+export const NULLBUF = new Uint8Array();
+export const NULL = Deno.UnsafePointer.of(NULLBUF);
 `,
 ];
 
@@ -279,7 +282,7 @@ for (const [name, anyType] of TYPE_MEMORY) {
     results.push(
       `${
         anyType.comment ? `${anyType.comment}\n` : ""
-      }export const ${anyType.name}Declaration = {
+      }export const ${anyType.name}CallbackDefinition = {
   parameters: [
 ${
         anyType.parameters.map((param) =>
@@ -308,7 +311,7 @@ ${
 ${
         anyType.fields.map((field) => {
           return `${field.comment ? `    ${field.comment}\n    ` : "    "} ${
-            anyTypeToString(field.type)
+            structFieldToDeinlineString(results, anyType, field)
           }, // ${field.name}, offset ${field.offset}, size ${field.size}`;
         }).join("\n")
       }

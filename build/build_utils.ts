@@ -8,6 +8,7 @@ import {
   CXVisitorResult,
 } from "../lib/include/typeDefinitions.ts";
 import { CXComment, type CXType, enableStackTraces } from "../lib/mod.ts";
+import { func } from "../out/typeDefinitions.ts";
 
 export interface PlainType {
   kind: "plain";
@@ -101,6 +102,44 @@ export type AnyType =
   | StructType
   | PointerType
   | TypeReference;
+
+export const structFieldToDeinlineString = (
+  results: string[],
+  struct: StructType,
+  field: StructField,
+) => {
+  if (field.type.kind !== "pointer" || field.type.pointee.kind !== "function") {
+    return anyTypeToString(field.type);
+  }
+
+  const functionsCount =
+    struct.fields.filter((structField) =>
+      structField.type.kind === "pointer" &&
+      structField.type.pointee.kind === "function"
+    ).length;
+
+  const fieldNamePart = functionsCount > 1
+    ? `${field.name.replaceAll(/^(\w)|_(\w)/g, (_, m) => m.toUpperCase())}`
+    : "";
+
+  // De-inline functions in structs
+  const functionName = `${struct.name}${fieldNamePart}CallbackDefinition`;
+  results.push(
+    `export const ${functionName} = ${
+      anyTypeToString(field.type.pointee)
+    } as const;`,
+  );
+
+  return `func(${
+    anyTypeToString({
+      kind: "ref",
+      comment: null,
+      name: functionName,
+      // @ts-expect-error Callback definition names do not end with T.
+      reprName: functionName,
+    })
+  })`;
+};
 
 export const anyTypeToString = (type: AnyType): string => {
   if (type.kind === "plain") {
@@ -309,7 +348,8 @@ export const toAnyType = (
       comment: null,
       useBuffer: pointeeAnyType.kind === "struct" ||
         pointeeAnyType.kind === "plain" && pointeeAnyType.type !== "void" ||
-        pointeeAnyType.kind === "ref" || pointeeAnyType.kind === "pointer",
+        pointeeAnyType.kind === "ref" || pointeeAnyType.kind === "pointer" ||
+        pointeeAnyType.kind === "enum",
     };
     return result;
   } else if (typekind === CXTypeKind.CXType_Typedef) {
