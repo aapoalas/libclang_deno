@@ -2,6 +2,7 @@
  * Build system utilities
  */
 
+import { charBuffer } from "../utils.ts";
 import { CXErrorCodeT } from "./ErrorCode.h.ts";
 import {
   buf,
@@ -73,7 +74,7 @@ export const clang_VirtualFileOverlay_writeToBuffer = {
   parameters: [
     CXVirtualFileOverlayT,
     unsigned,
-    buf(CXVirtualFileOverlayT),
+    buf(charBuffer),
     buf(unsigned),
   ],
   result: CXErrorCodeT,
