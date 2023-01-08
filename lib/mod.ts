@@ -192,13 +192,33 @@ export const getClangVersion = (): string =>
 export const getBuildSessionTimestamp = (): bigint =>
   BigInt(libclang.symbols.clang_getBuildSessionTimestamp());
 
-export const toggleCrashRecovery = (value: boolean) =>
-  libclang.symbols.clang_toggleCrashRecovery(Number(value));
+/**
+ * Enable/disable crash recovery.
+ *
+ * @param isEnabled Flag to indicate if crash recovery is enabled.
+ */
+export const toggleCrashRecovery = (isEnabled: boolean) =>
+  libclang.symbols.clang_toggleCrashRecovery(Number(isEnabled));
+/** for debug/testing */
 export const enableStackTraces = () =>
   libclang.symbols.clang_enableStackTraces();
 
 export interface GlobalOptions {
+  /**
+   * Used to indicate that threads that libclang creates for indexing
+   * purposes should use background priority.
+   *
+   * Affects {@link CXIndexAction#indexSourceFile}, {@link CXIndexAction#indexTranslationUnit},
+   * {@link CXIndex#parseTranslationUnit}, {@link CXTranslationUnit#save}.
+   */
   threadBackgroundPriorityForIndexing: boolean;
+  /**
+   * Used to indicate that threads that libclang creates for editing
+   * purposes should use background priority.
+   *
+   * Affects {@link CXIndex#reparseTranslationUnit}, {@link CXTranslationUnit#codeCompleteAt},
+   * {@link CXTranslationUnit#annotateTokens}
+   */
   threadBackgroundPriorityForEditing: boolean;
 }
 
@@ -222,6 +242,11 @@ export class CXIndex {
     INDEX_FINALIZATION_REGISTRY.register(this, this.#pointer, this);
   }
 
+  /**
+   * Gets the general options associated with a CXIndex.
+   *
+   * @returns Object of options associated with the given CXIndex object.
+   */
   get options(): GlobalOptions {
     if (this.#disposed) {
       throw new Error("Cannot set options of disposed CXIndex");
@@ -237,6 +262,9 @@ export class CXIndex {
     };
   }
 
+  /**
+   * Sets general options associated with a CXIndex.
+   */
   set options(opts: GlobalOptions) {
     if (this.#disposed) {
       throw new Error("Cannot get options of disposed CXIndex");
@@ -252,11 +280,30 @@ export class CXIndex {
     );
   }
 
+  /**
+   * Parse the given source file and return the translation unit corresponding
+   * to that file. An error is thrown if something went wrong in the parsing.
+   *
+   * This routine is the main entry point for the Clang C API, providing the
+   * ability to parse a source file into a translation unit that can then be
+   * queried by other functions in the API. This routine accepts a set of
+   * command-line arguments so that the compilation can be configured in the same
+   * way that the compiler is configured on the command line.
+   *
+   * @param fileName The name of the source file to load.
+   * @param commandLineArguments The command-line arguments that would be
+   * passed to the `clang` executable if it were being invoked out-of-process.
+   * These command-line options will be parsed and will affect how the translation
+   * unit is parsed. Note that the following options are ignored: '-c',
+   * '-emit-ast', '-fsyntax-only' (which is the default), and '-o <output file>'.
+   * @param flags An array of CXTranslationUnit_XXX flags that affects how the translation unit
+   * is managed but not its compilation.
+   */
   parseTranslationUnit(
     fileName: string,
     commandLineArguments: string[] = [],
     flags?: CXTranslationUnit_Flags[],
-  ) {
+  ): CXTranslationUnit {
     if (this.#disposed) {
       throw new Error("Cannot parse translation unit of disposed CXIndex");
     }
@@ -287,7 +334,30 @@ export class CXIndex {
     return tu;
   }
 
-  setInvocationEmissionPathOption(path: null | string = null) {
+  /**
+   * Returns the set of flags that is suitable for parsing a translation
+   * unit that is being edited.
+   *
+   * The set of flags returned provide options for {@link parseTranslationUnit}
+   * to indicate that the translation unit is likely to be reparsed many times,
+   * either explicitly (via {@link CXTranslationUnit#reparse}) or implicitly
+   * (e.g., by code completion (`clang_codeCompletionAt()`)). The returned flag
+   * set contains an unspecified set of optimizations (e.g., the precompiled
+   * preamble) geared toward improving the performance of these routines. The
+   * set of optimizations enabled may change from one version to the next.
+   */
+  static getDefaultEditingOptions(): CXReparse_Flags {
+    return libclang.symbols.clang_defaultEditingTranslationUnitOptions();
+  }
+
+  /**
+   * Sets the invocation emission path option in a CXIndex.
+   *
+   * The invocation emission path specifies a path which will contain log
+   * files for certain libclang invocations. A null value (default) implies that
+   * libclang invocations are not logged.
+   */
+  setInvocationEmissionPathOption(path: null | string = null): void {
     if (this.#disposed) {
       throw new Error(
         "Cannot set invocation emission path option of disposed CXIndex",
@@ -299,7 +369,13 @@ export class CXIndex {
     );
   }
 
-  createTranslationUnit(astFileNAme: string) {
+  /**
+   * Create a translation unit from an AST file (`-emit-ast).`
+   * An error is thrown if something went wrong in the parsing.
+   *
+   * @param astFileName AST file
+   */
+  createTranslationUnit(astFileNAme: string): CXTranslationUnit {
     if (this.#disposed) {
       throw new Error("Cannot create translation unit in disposed CXIndex");
     }
@@ -325,12 +401,22 @@ export class CXIndex {
   //    libclang.symbols.clang_parseTranslationUnit2FullArgv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8);
   // }
 
+  /**
+   * An indexing action/session, to be applied to one or multiple
+   * translation units.
+   */
   createIndexAction(): CXIndexAction {
     return CXIndexAction[CONSTRUCTOR](
       libclang.symbols.clang_IndexAction_create(this.#pointer),
     );
   }
 
+  /**
+   * Destroy the given index.
+   *
+   * Destroying the index will destroy all the translation units created
+   * within that index.
+   */
   dispose(): void {
     if (this.#disposed) {
       return;
@@ -380,12 +466,21 @@ class CXIndexAction {
 
   // indexTranslationUnit(arg_0: CXIndexAction, arg_1: CXClientData, arg_2: IndexerCallbacks, arg_3: unsigned, arg_4: unsigned, arg_5: CXTranslationUnit, arg_6: asd )  { libclang.symbols.clang_indexTranslationUnit(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6); }
 
+  /**
+   * Destroy the given index action.
+   *
+   * The index action must not be destroyed until all of the translation units
+   * created within that index action have been destroyed.
+   */
   dispose(): void {
     libclang.symbols.clang_IndexAction_dispose(this.#pointer);
     INDEX_ACTION_FINALIZATION_REGISTRY.unregister(this);
   }
 }
 
+/**
+ * Target information for a given translation unit.
+ */
 export interface TargetInfo {
   triple: string;
   pointerWidth: number;
@@ -401,11 +496,7 @@ const TU_FINALIZATION_REGISTRY = new FinalizationRegistry<Deno.PointerValue>(
   (tuPointer) => libclang.symbols.clang_disposeTranslationUnit(tuPointer),
 );
 /**
- * A single translation unit, which resides in an index.
- *
- * ```cpp
- * typedef struct CXTranslationUnitImpl *CXTranslationUnit;
- * ```
+ * A single translation unit, which resides in a {@link CXIndex}.
  */
 export class CXTranslationUnit {
   static #constructable = false;
@@ -433,6 +524,19 @@ export class CXTranslationUnit {
     return this.#pointer;
   }
 
+  /**
+   * Saves the translation unit into a serialized representation of
+   * that translation unit on disk. An error will be thrown if the saving failed.
+   *
+   * Any translation unit that was parsed without error can be saved
+   * into a file. The translation unit can then be deserialized into a
+   * new {@link CXTranslationUnit} with {@link CXIndex#createTranslationUnit} or,
+   * if it is an incomplete translation unit that corresponds to a
+   * header, used as a precompiled header when parsing other translation
+   * units.
+   *
+   * @param fileName The file to which the translation unit will be saved.
+   */
   save(fileName: string): void {
     if (this.#disposed) {
       throw new Error("Cannot save disposed CXTranslationUnit");
@@ -467,6 +571,16 @@ export class CXTranslationUnit {
     }
   }
 
+  /**
+   * Suspend the translation unit in order to free memory associated with it.
+   *
+   * A suspended translation unit uses significantly less memory but on the other
+   * side does not support any other calls than {@link reparse} to resume it or
+   * {@link dispose} to dispose it completely.
+   *
+   * Any {@link CXCursor}s, {@link CXSourceLocation}s, {@link CXSourceRange}s etc.
+   * created from the translation unit will become invalid upon suspending.
+   */
   suspend(): number {
     if (this.#disposed) {
       throw new Error("Cannot suspend disposed CXTranslationUnit");
@@ -476,6 +590,30 @@ export class CXTranslationUnit {
     return libclang.symbols.clang_suspendTranslationUnit(this.#pointer);
   }
 
+  /**
+   * Reparse the source files that produced this translation unit. This can
+   * only be called on a translation unit that was originally built from source
+   * files. An error based on the `CXErrorCode` is thrown if reparsing failed.
+   * If an error is thrown, then the translation unit can no longer be used for
+   * anything.
+   *
+   * This routine can be used to re-parse the source files that originally
+   * created the translation unit, for example because those source files
+   * have changed (either on disk or as passed via `unsaved_files`). The
+   * source code will be reparsed with the same command-line options as it
+   * was originally parsed.
+   *
+   * Reparsing a translation unit invalidates all cursors and source locations
+   * that refer into that translation unit. This makes reparsing a translation
+   * unit semantically equivalent to destroying the translation unit and then
+   * creating a new translation unit with the same command-line arguments.
+   * However, it may be more efficient to reparse a translation
+   * unit using this routine.
+   *
+   * @param options A bitset of options composed of the flags in CXReparse_Flags.
+   * A default set of options recommended for most uses based on the translation unit
+   * is used as a default.
+   */
   reparse(
     options: CXReparse_Flags = libclang.symbols.clang_defaultReparseOptions(
       this.#pointer,
@@ -492,10 +630,6 @@ export class CXTranslationUnit {
     );
     throwIfError(result, "Reparsing CXTranslationUnit failed");
     this.#suspended = false;
-  }
-
-  getDefaultEditingOptions(): CXReparse_Flags {
-    return libclang.symbols.clang_defaultEditingTranslationUnitOptions();
   }
 
   getSpelling(): string {
