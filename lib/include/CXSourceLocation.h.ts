@@ -127,10 +127,10 @@ export const clang_Range_isNull = {
 export const clang_getExpansionLocation = {
   parameters: [
     CXSourceLocationT,
-    out(CXFileT),
-    out(unsigned),
-    out(unsigned),
-    out(unsigned),
+    buf(CXFileT),
+    buf(unsigned),
+    buf(unsigned),
+    buf(unsigned),
   ],
   result: "void",
 } as const;
@@ -178,9 +178,9 @@ export const clang_getExpansionLocation = {
 export const clang_getPresumedLocation = {
   parameters: [
     CXSourceLocationT,
-    out(CXFileT),
-    out(unsigned),
-    out(unsigned),
+    buf(CXFileT),
+    buf(unsigned),
+    buf(unsigned),
   ],
   result: "void",
 } as const;
@@ -204,10 +204,10 @@ export const clang_getPresumedLocation = {
 export const clang_getInstantiationLocation = {
   parameters: [
     CXSourceLocationT,
-    out(CXFileT),
-    out(unsigned),
-    out(unsigned),
-    out(unsigned),
+    buf(CXFileT),
+    buf(unsigned),
+    buf(unsigned),
+    buf(unsigned),
   ],
   result: "void",
 } as const;
@@ -237,10 +237,10 @@ export const clang_getInstantiationLocation = {
 export const clang_getSpellingLocation = {
   parameters: [
     CXSourceLocationT,
-    out(CXFileT),
-    out(unsigned),
-    out(unsigned),
-    out(unsigned),
+    buf(CXFileT),
+    buf(unsigned),
+    buf(unsigned),
+    buf(unsigned),
   ],
   result: "void",
 } as const;
@@ -271,10 +271,10 @@ export const clang_getSpellingLocation = {
 export const clang_getFileLocation = {
   parameters: [
     CXSourceLocationT,
-    out(CXFileT),
-    out(unsigned),
-    out(unsigned),
-    out(unsigned),
+    buf(CXFileT),
+    buf(unsigned),
+    buf(unsigned),
+    buf(unsigned),
   ],
   result: "void",
 } as const;

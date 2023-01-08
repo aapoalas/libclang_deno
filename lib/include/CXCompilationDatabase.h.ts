@@ -23,7 +23,7 @@ import {
  * @param {CXCompilationDatabase_ErrorT *} ErrorCode out pointer
  */
 export const clang_CompilationDatabase_fromDirectory = {
-  parameters: [constCharPtr, out(CXCompilationDatabase_ErrorT)],
+  parameters: [constCharPtr, buf(CXCompilationDatabase_ErrorT)],
   result: CXCompilationDatabase,
 } as const;
 

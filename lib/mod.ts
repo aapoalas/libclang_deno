@@ -1072,7 +1072,7 @@ export class CXFile {
     return cxstringToString(libclang.symbols.clang_getFileName(this.#pointer));
   }
 
-  getTime(): number {
+  getTime(): number | bigint {
     return libclang.symbols.clang_getFileTime(this.#pointer);
   }
 

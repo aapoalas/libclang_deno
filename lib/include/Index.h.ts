@@ -167,7 +167,7 @@ export const clang_getFile = {
  * @returns a pointer to the buffer in memory that holds the contents of file, or a NULL pointer when the file is not loaded.
  */
 export const clang_getFileContents = {
-  parameters: [CXTranslationUnitT, CXFileT, out(size_t)],
+  parameters: [CXTranslationUnitT, CXFileT, buf(size_t)],
   result: constCharPtr,
 } as const;
 /**
@@ -337,7 +337,7 @@ export const clang_createTranslationUnit = {
  * @returns Zero on success, otherwise returns an error code.
  */
 export const clang_createTranslationUnit2 = {
-  parameters: [CXIndexT, constCharPtr, out(CXTranslationUnitT)],
+  parameters: [CXIndexT, constCharPtr, buf(CXTranslationUnitT)],
   result: CXErrorCodeT,
 } as const;
 
@@ -437,7 +437,7 @@ export const clang_parseTranslationUnit2 = {
     ptr(CXUnsavedFileT),
     unsigned,
     unsigned,
-    out(CXTranslationUnitT),
+    buf(CXTranslationUnitT),
   ],
   result: CXErrorCodeT,
 } as const;
@@ -464,7 +464,7 @@ export const clang_parseTranslationUnit2FullArgv = {
     CXUnsavedFileT,
     unsigned,
     unsigned,
-    out(CXTranslationUnitT),
+    buf(CXTranslationUnitT),
   ],
   result: CXErrorCodeT,
 } as const;
@@ -896,11 +896,11 @@ export const clang_getCursorAvailability = {
 export const clang_getCursorPlatformAvailability = {
   parameters: [
     CXCursorT,
-    out(int),
-    out(CXStringT),
-    out(int),
-    out(CXStringT),
-    out(CXPlatformAvailabilityT),
+    buf(int),
+    buf(CXStringT),
+    buf(int),
+    buf(CXStringT),
+    buf(CXPlatformAvailabilityT),
     int,
   ],
   result: int,
@@ -1140,7 +1140,7 @@ export const clang_getCursorLexicalParent = {
  * array pointed to by `overridden`.
  */
 export const clang_getOverriddenCursors = {
-  parameters: [CXCursorT, out(out(CXCursorT)), out(unsigned)],
+  parameters: [CXCursorT, buf(buf(CXCursorT)), buf(unsigned)],
   result: "void",
 } as const;
 
@@ -2550,7 +2550,7 @@ export const clang_Cursor_isVariadic = {
  * non-zero if the 'generated_declaration' is set in the attribute.
  */
 export const clang_Cursor_isExternalSymbol = {
-  parameters: [CXCursorT, out(CXStringT), out(CXStringT), out(unsigned)],
+  parameters: [CXCursorT, buf(CXStringT), buf(CXStringT), buf(unsigned)],
   result: unsigned,
 } as const;
 
@@ -2999,8 +2999,8 @@ export const clang_tokenize = {
   parameters: [
     CXTranslationUnitT,
     CXSourceRangeT,
-    out(out(CXToken)),
-    out(unsigned),
+    buf(buf(CXToken)),
+    buf(unsigned),
   ],
   result: "void",
 } as const;
@@ -3068,12 +3068,12 @@ export const clang_getCursorKindSpelling = {
 export const clang_getDefinitionSpellingAndExtent = {
   parameters: [
     CXCursorT,
-    out(constCharPtr),
-    out(constCharPtr),
-    out(unsigned),
-    out(unsigned),
-    out(unsigned),
-    out(unsigned),
+    buf(constCharPtr),
+    buf(constCharPtr),
+    buf(unsigned),
+    buf(unsigned),
+    buf(unsigned),
+    buf(unsigned),
   ],
   result: "void",
 } as const;
@@ -3492,7 +3492,7 @@ export const clang_codeCompleteGetContexts = {
  * container
  */
 export const clang_codeCompleteGetContainerKind = {
-  parameters: [ptr(CXCodeCompleteResults), out(unsigned)],
+  parameters: [ptr(CXCodeCompleteResults), buf(unsigned)],
   result: CXCursorKindT,
 } as const;
 
@@ -3995,11 +3995,11 @@ export const clang_indexTranslationUnit = {
 export const clang_indexLoc_getFileLocation = {
   parameters: [
     CXIdxLoc,
-    out(CXIdxClientFile),
-    out(CXFileT),
-    out(unsigned),
-    out(unsigned),
-    out(unsigned),
+    buf(CXIdxClientFile),
+    buf(CXFileT),
+    buf(unsigned),
+    buf(unsigned),
+    buf(unsigned),
   ],
   result: "void",
 } as const;

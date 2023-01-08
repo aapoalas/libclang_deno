@@ -4,11 +4,11 @@
 
 import { CXErrorCodeT } from "./ErrorCode.h.ts";
 import {
+  buf,
   constCharPtr,
   CXModuleMapDescriptor,
   CXVirtualFileOverlayT,
   int,
-  out,
   unsigned,
   unsignedLongLong,
 } from "./typeDefinitions.ts";
@@ -73,8 +73,8 @@ export const clang_VirtualFileOverlay_writeToBuffer = {
   parameters: [
     CXVirtualFileOverlayT,
     unsigned,
-    out(CXVirtualFileOverlayT),
-    out(unsigned),
+    buf(CXVirtualFileOverlayT),
+    buf(unsigned),
   ],
   result: CXErrorCodeT,
 } as const;
@@ -144,8 +144,8 @@ export const clang_ModuleMapDescriptor_writeToBuffer = {
   parameters: [
     CXModuleMapDescriptor,
     unsigned,
-    out(CXModuleMapDescriptor),
-    out(unsigned),
+    buf(CXModuleMapDescriptor),
+    buf(unsigned),
   ],
   result: CXErrorCodeT,
 } as const;

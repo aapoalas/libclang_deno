@@ -54,8 +54,8 @@ export const clang_getDiagnosticInSet = {
 export const clang_loadDiagnostics = {
   parameters: [
     constCharPtr,
-    out(CXLoadDiag_ErrorT),
-    out(CXStringT),
+    buf(CXLoadDiag_ErrorT),
+    buf(CXStringT),
   ],
   result: CXDiagnosticSetT,
 } as const;
@@ -160,7 +160,7 @@ export const clang_getDiagnosticSpelling = {
  * warning, such as "-Wconversion" or "-pedantic".
  */
 export const clang_getDiagnosticOption = {
-  parameters: [CXDiagnosticT, out(CXStringT)],
+  parameters: [CXDiagnosticT, buf(CXStringT)],
   result: CXStringT,
 } as const;
 
@@ -273,7 +273,7 @@ export const clang_getDiagnosticFixIt = {
   parameters: [
     CXDiagnosticT,
     unsigned,
-    out(CXSourceRangeT),
+    buf(CXSourceRangeT),
   ],
   result: CXStringT,
 } as const;

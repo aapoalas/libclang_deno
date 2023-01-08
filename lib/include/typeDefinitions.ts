@@ -1,3 +1,6 @@
+export const ptr = (_type: unknown) => "pointer" as const;
+export const buf = (_type: unknown) => "buffer" as const;
+
 export const int = "i32" as const;
 export const long = int;
 export const longLong = "i64" as const;
@@ -5,7 +8,7 @@ export const unsigned = "u32" as const;
 export const unsignedLong = "u64" as const;
 export const unsignedLongLong = unsignedLong;
 export const double = "f32" as const;
-export const time_t = "i32" as const;
+export const time_t = "i64" as const;
 export const size_t = "usize" as const;
 /**
  * `const char *`
@@ -21,10 +24,6 @@ export const NULL = Deno.UnsafePointer.of(NULLBUF);
  * ```
  */
 export const CStringArrayT = "buffer" as const;
-
-export const out = (_type: unknown) => "buffer" as const;
-export const buf = (_type: unknown) => "buffer" as const;
-export const ptr = (_type: unknown) => "pointer" as const;
 
 /**
  * Object encapsulating information about overlaying virtual
