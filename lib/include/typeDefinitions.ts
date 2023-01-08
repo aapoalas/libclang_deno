@@ -334,6 +334,7 @@ export const enum CXGlobalOptFlags {
    * background priority.
    */
   CXGlobalOpt_ThreadBackgroundPriorityForAll =
+    CXGlobalOpt_ThreadBackgroundPriorityForIndexing |
     CXGlobalOpt_ThreadBackgroundPriorityForEditing,
 }
 export const CXGlobalOptFlagsT = unsignedInt;
@@ -2019,27 +2020,27 @@ export const enum CXTypeLayoutError {
   /**
    * Type is of kind CXType_Invalid.
    */
-  CXTypeLayoutError_Invalid = -9223372036854776000,
+  CXTypeLayoutError_Invalid = -1,
   /**
    * The type is an incomplete Type.
    */
-  CXTypeLayoutError_Incomplete = -9223372036854776000,
+  CXTypeLayoutError_Incomplete = -2,
   /**
    * The type is a dependent Type.
    */
-  CXTypeLayoutError_Dependent = -9223372036854776000,
+  CXTypeLayoutError_Dependent = -3,
   /**
    * The type is not a constant size type.
    */
-  CXTypeLayoutError_NotConstantSize = -9223372036854776000,
+  CXTypeLayoutError_NotConstantSize = -4,
   /**
    * The Field name is not valid for this record.
    */
-  CXTypeLayoutError_InvalidFieldName = -9223372036854776000,
+  CXTypeLayoutError_InvalidFieldName = -5,
   /**
    * The type is undeduced.
    */
-  CXTypeLayoutError_Undeduced = -9223372036854776000,
+  CXTypeLayoutError_Undeduced = -6,
 }
 /**
  * List the possible error codes for `clang_Type_getSizeOf,` `clang_Type_getAlignOf,` `clang_Type_getOffsetOf` and
@@ -2510,115 +2511,115 @@ export const enum CXCompletionContext {
   /**
    * Completions for any possible type should be included in the results.
    */
-  CXCompletionContext_AnyType = -1,
+  CXCompletionContext_AnyType = 1 << 0,
   /**
    * Completions for any possible value (variables, function calls, etc.)
    * should be included in the results.
    */
-  CXCompletionContext_AnyValue = -1,
+  CXCompletionContext_AnyValue = 1 << 1,
   /**
    * Completions for values that resolve to an Objective-C object should
    * be included in the results.
    */
-  CXCompletionContext_ObjCObjectValue = -1,
+  CXCompletionContext_ObjCObjectValue = 1 << 2,
   /**
    * Completions for values that resolve to an Objective-C selector
    * should be included in the results.
    */
-  CXCompletionContext_ObjCSelectorValue = -1,
+  CXCompletionContext_ObjCSelectorValue = 1 << 3,
   /**
    * Completions for values that resolve to a C++ class type should be
    * included in the results.
    */
-  CXCompletionContext_CXXClassTypeValue = -1,
+  CXCompletionContext_CXXClassTypeValue = 1 << 4,
   /**
    * Completions for fields of the member being accessed using the dot
    * operator should be included in the results.
    */
-  CXCompletionContext_DotMemberAccess = -1,
+  CXCompletionContext_DotMemberAccess = 1 << 5,
   /**
    * Completions for fields of the member being accessed using the arrow
    * operator should be included in the results.
    */
-  CXCompletionContext_ArrowMemberAccess = -1,
+  CXCompletionContext_ArrowMemberAccess = 1 << 6,
   /**
    * Completions for properties of the Objective-C object being accessed
    * using the dot operator should be included in the results.
    */
-  CXCompletionContext_ObjCPropertyAccess = -1,
+  CXCompletionContext_ObjCPropertyAccess = 1 << 7,
   /**
    * Completions for enum tags should be included in the results.
    */
-  CXCompletionContext_EnumTag = -1,
+  CXCompletionContext_EnumTag = 1 << 8,
   /**
    * Completions for union tags should be included in the results.
    */
-  CXCompletionContext_UnionTag = -1,
+  CXCompletionContext_UnionTag = 1 << 9,
   /**
    * Completions for struct tags should be included in the results.
    */
-  CXCompletionContext_StructTag = -1,
+  CXCompletionContext_StructTag = 1 << 10,
   /**
    * Completions for C++ class names should be included in the results.
    */
-  CXCompletionContext_ClassTag = -1,
+  CXCompletionContext_ClassTag = 1 << 11,
   /**
    * Completions for C++ namespaces and namespace aliases should be
    * included in the results.
    */
-  CXCompletionContext_Namespace = -1,
+  CXCompletionContext_Namespace = 1 << 12,
   /**
    * Completions for C++ nested name specifiers should be included in
    * the results.
    */
-  CXCompletionContext_NestedNameSpecifier = -1,
+  CXCompletionContext_NestedNameSpecifier = 1 << 13,
   /**
    * Completions for Objective-C interfaces (classes) should be included
    * in the results.
    */
-  CXCompletionContext_ObjCInterface = -1,
+  CXCompletionContext_ObjCInterface = 1 << 14,
   /**
    * Completions for Objective-C protocols should be included in
    * the results.
    */
-  CXCompletionContext_ObjCProtocol = -1,
+  CXCompletionContext_ObjCProtocol = 1 << 15,
   /**
    * Completions for Objective-C categories should be included in
    * the results.
    */
-  CXCompletionContext_ObjCCategory = -1,
+  CXCompletionContext_ObjCCategory = 1 << 16,
   /**
    * Completions for Objective-C instance messages should be included
    * in the results.
    */
-  CXCompletionContext_ObjCInstanceMessage = -1,
+  CXCompletionContext_ObjCInstanceMessage = 1 << 17,
   /**
    * Completions for Objective-C class messages should be included in
    * the results.
    */
-  CXCompletionContext_ObjCClassMessage = -1,
+  CXCompletionContext_ObjCClassMessage = 1 << 18,
   /**
    * Completions for Objective-C selector names should be included in
    * the results.
    */
-  CXCompletionContext_ObjCSelectorName = -1,
+  CXCompletionContext_ObjCSelectorName = 1 << 19,
   /**
    * Completions for preprocessor macro names should be included in
    * the results.
    */
-  CXCompletionContext_MacroName = -1,
+  CXCompletionContext_MacroName = 1 << 20,
   /**
    * Natural language completions should be included in the results.
    */
-  CXCompletionContext_NaturalLanguage = -1,
+  CXCompletionContext_NaturalLanguage = 1 << 21,
   /**
    * #include file completions should be included in the results.
    */
-  CXCompletionContext_IncludedFile = -1,
+  CXCompletionContext_IncludedFile = 1 << 22,
   /**
    * The current context is unknown, so set all contexts.
    */
-  CXCompletionContext_Unknown = -1,
+  CXCompletionContext_Unknown = ((1 << 23) - 1),
 }
 /**
  * Bits that represent the context under which completion is occurring.
@@ -2790,15 +2791,15 @@ export const CXIdxEntityRefKindT = unsignedInt;
  */
 export const enum CXSymbolRole {
   CXSymbolRole_None = 0,
-  CXSymbolRole_Declaration = -1,
-  CXSymbolRole_Definition = -1,
-  CXSymbolRole_Reference = -1,
-  CXSymbolRole_Read = -1,
-  CXSymbolRole_Write = -1,
-  CXSymbolRole_Call = -1,
-  CXSymbolRole_Dynamic = -1,
-  CXSymbolRole_AddressOf = -1,
-  CXSymbolRole_Implicit = -1,
+  CXSymbolRole_Declaration = 1 << 0,
+  CXSymbolRole_Definition = 1 << 1,
+  CXSymbolRole_Reference = 1 << 2,
+  CXSymbolRole_Read = 1 << 3,
+  CXSymbolRole_Write = 1 << 4,
+  CXSymbolRole_Call = 1 << 5,
+  CXSymbolRole_Dynamic = 1 << 6,
+  CXSymbolRole_AddressOf = 1 << 7,
+  CXSymbolRole_Implicit = 1 << 8,
 }
 /**
  * Roles that are attributed to symbol occurrences.

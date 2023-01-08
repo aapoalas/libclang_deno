@@ -159,6 +159,15 @@ const CX_FIELD_VISITOR_CALLBACK = new Deno.UnsafeCallback(
   },
 );
 
+/**
+ * When called with `true`, installs error handler that prints error message
+ * to stderr and calls abort(). This replaces the currently installed error
+ * handler (if any).
+ *
+ * When called with `false`, removes the currently installed error handler (if any).
+ * If no error handler is intalled, the default strategy is to print error
+ * message to stderr and call exit(1).
+ */
 export const setAbortOnFatalError = (value: boolean) => {
   if (value) {
     libclang.symbols.clang_install_aborting_llvm_fatal_error_handler();
@@ -167,8 +176,19 @@ export const setAbortOnFatalError = (value: boolean) => {
   }
 };
 
+/**
+ * Return a version string, suitable for showing to a user, but not
+ * intended to be parsed (the format is not guaranteed to be stable).
+ *
+ * @example
+ * "clang version 14.0.6"
+ */
 export const getClangVersion = (): string =>
   cxstringToString(libclang.symbols.clang_getClangVersion());
+/**
+ * Return the timestamp for use with Clang's
+ * `-fbuild-session-timestamp=` option.
+ */
 export const getBuildSessionTimestamp = (): bigint =>
   BigInt(libclang.symbols.clang_getBuildSessionTimestamp());
 
@@ -1828,6 +1848,9 @@ export class CXCursor {
   }
 
   getEnumDeclarationIntegerType(): CXType {
+    if (this.kind !== CXCursorKind.CXCursor_EnumDecl) {
+      throw new Error("Not an EnumDecl");
+    }
     return CXType[CONSTRUCTOR](
       this.tu!,
       libclang.symbols.clang_getEnumDeclIntegerType(this.#buffer),

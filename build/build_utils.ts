@@ -8,12 +8,7 @@ import {
   CXTypeLayoutError,
   CXVisitorResult,
 } from "../lib/include/typeDefinitions.ts";
-import {
-  CXComment,
-  CXCursor,
-  CXPrintingPolicy,
-  type CXType,
-} from "../lib/mod.ts";
+import { CXComment, CXCursor, type CXType } from "../lib/mod.ts";
 
 export interface PlainType {
   kind: "plain";
@@ -231,6 +226,7 @@ const toEnumType = (
         name: child.getSpelling(),
         value: null,
       });
+      return CXChildVisitResult.CXChildVisit_Recurse;
     } else if (child.kind === CXCursorKind.CXCursor_IntegerLiteral) {
       const last = values.at(-1)!;
       last.value = Number(
@@ -258,7 +254,7 @@ const toEnumType = (
         last.value = prettyPrintedParent.substring(assignmentPrefix.length);
       }
     }
-    return CXChildVisitResult.CXChildVisit_Recurse;
+    return CXChildVisitResult.CXChildVisit_Continue;
   });
   let maxHexadecimalLength = 0;
   if (
