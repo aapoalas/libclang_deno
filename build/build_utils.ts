@@ -70,6 +70,38 @@ export interface StructField {
   comment: null | string;
 }
 
+export interface StructType {
+  kind: "struct";
+  name: string;
+  reprName: `${string}T`;
+  fields: StructField[];
+  size: number;
+  comment: null | string;
+}
+
+export interface PointerType {
+  kind: "pointer";
+  name: string;
+  pointee: AnyType;
+  comment: null | string;
+  useBuffer: boolean;
+}
+
+export interface TypeReference {
+  kind: "ref";
+  name: string;
+  reprName: `${string}T`;
+  comment: null | string;
+}
+
+export type AnyType =
+  | PlainType
+  | EnumType
+  | FunctionType
+  | StructType
+  | PointerType
+  | TypeReference;
+
 export const anyTypeToString = (type: AnyType): string => {
   if (type.kind === "plain") {
     if (type.type === "void") {
@@ -97,45 +129,17 @@ export const anyTypeToString = (type: AnyType): string => {
     }
     return type.reprName;
   } else if (type.kind === "pointer") {
+    let func: "buf" | "func" | "ptr" = "ptr";
     if (type.pointee.kind === "function") {
-      return `func(${anyTypeToString(type.pointee)})`;
+      func = "func";
+    } else if (type.useBuffer) {
+      func = "buf";
     }
-    return `ptr(${anyTypeToString(type.pointee)})`;
+    return `${func}(${anyTypeToString(type.pointee)})`;
   } else {
     throw new Error("Invalid AnyType");
   }
 };
-
-export interface StructType {
-  kind: "struct";
-  name: string;
-  reprName: `${string}T`;
-  fields: StructField[];
-  size: number;
-  comment: null | string;
-}
-
-export interface PointerType {
-  kind: "pointer";
-  name: string;
-  pointee: AnyType;
-  comment: null | string;
-}
-
-export interface TypeReference {
-  kind: "ref";
-  name: string;
-  reprName: `${string}T`;
-  comment: null | string;
-}
-
-export type AnyType =
-  | PlainType
-  | EnumType
-  | FunctionType
-  | StructType
-  | PointerType
-  | TypeReference;
 
 export const toAnyType = (
   typeMemory: Map<string, AnyType>,
@@ -271,11 +275,15 @@ export const toAnyType = (
   } else if (typekind === CXTypeKind.CXType_Pointer) {
     const pointee = type.getPointeeType();
 
+    const pointeeAnyType = toAnyType(typeMemory, pointee);
+
     const result: PointerType = {
       kind: "pointer",
       name: type.getSpelling(),
-      pointee: toAnyType(typeMemory, pointee),
+      pointee: pointeeAnyType,
       comment: null,
+      useBuffer: pointeeAnyType.kind === "struct" ||
+        pointeeAnyType.kind === "plain" && pointeeAnyType.type !== "void",
     };
     return result;
   } else if (typekind === CXTypeKind.CXType_Typedef) {
@@ -296,6 +304,50 @@ export const toAnyType = (
         typeMemory.set(name, sourceAnyType);
       }
     }
+    return result;
+  } else if (
+    typekind === CXTypeKind.CXType_Enum
+  ) {
+    const typeDeclaration = type.getTypeDeclaration();
+    const values: EnumValue[] = [];
+    let name = type.getSpelling();
+    if (name.startsWith("enum ")) {
+      name = name.substring("enum ".length);
+    }
+    if (typeMemory.has(name)) {
+      return typeMemory.get(name)!;
+    }
+    const enumType = typeDeclaration.getEnumDeclarationIntegerType();
+    const isUnsignedInt = type.kind === CXTypeKind.CXType_Bool ||
+      type.kind === CXTypeKind.CXType_Char_U ||
+      type.kind === CXTypeKind.CXType_UChar ||
+      type.kind === CXTypeKind.CXType_UShort ||
+      type.kind === CXTypeKind.CXType_UInt ||
+      type.kind === CXTypeKind.CXType_ULong ||
+      type.kind === CXTypeKind.CXType_ULongLong;
+    const result: EnumType = {
+      kind: "enum",
+      name,
+      reprName: `${name}T`,
+      type: toAnyType(typeMemory, enumType),
+      values,
+      comment: commentToJSDcoString(typeDeclaration.getParsedComment()),
+    };
+    typeDeclaration.visitChildren((child) => {
+      if (child.kind === CXCursorKind.CXCursor_EnumConstantDecl) {
+        values.push({
+          comment: commentToJSDcoString(child.getParsedComment()),
+          name: child.getSpelling(),
+          value: Number(
+            isUnsignedInt
+              ? child.getEnumConstantDeclarationUnsignedValue()
+              : child.getEnumConstantDeclarationValue(),
+          ),
+        });
+      }
+      return CXChildVisitResult.CXChildVisit_Continue;
+    });
+    typeMemory.set(name, result);
     return result;
   } else if (
     typekind !== CXTypeKind.CXType_Void &&

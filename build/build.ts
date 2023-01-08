@@ -69,6 +69,23 @@ HEADER_FILES.forEach((fileName) => {
       return CXChildVisitResult.CXChildVisit_Continue;
     }
     switch (cx.kind) {
+      case CXCursorKind.CXCursor_EnumDecl: {
+        let name = cx.getDisplayName();
+        if (!name) {
+          // Typedef enums have no name and are handled by the typdef case.
+          break;
+        }
+        if (name.startsWith("enum ")) {
+          name = name.substring("enum ".length);
+        }
+        if (!TYPE_MEMORY.has(name)) {
+          const type = toAnyType(TYPE_MEMORY, cx.getType());
+          TYPE_MEMORY.set(name, type);
+        } else if (!name) {
+          console.log(cx.getDisplayName());
+        }
+        break;
+      }
       case CXCursorKind.CXCursor_TypedefDecl: {
         const typedefName = cx.getDisplayName();
 
@@ -300,7 +317,9 @@ ${
     results.push(
       `${
         anyType.comment ? `${anyType.comment}\n` : ""
-      }export const ${anyType.name}T = ptr(${anyTypeToString(anyType.pointee)});
+      }export const ${anyType.name}T = ${anyType.useBuffer ? "buf" : "ptr"}(${
+        anyTypeToString(anyType.pointee)
+      });
 `,
     );
   } else if (anyType.kind === "ref") {
@@ -333,7 +352,11 @@ const emplaceRefs = (imports: Set<string>, type: AnyType) => {
     });
     emplaceRefs(imports, type.result);
   } else if (type.kind === "pointer") {
-    imports.add("ptr");
+    if (type.useBuffer) {
+      imports.add("buf");
+    } else {
+      imports.add("ptr");
+    }
     emplaceRefs(imports, type.pointee);
   }
 };
