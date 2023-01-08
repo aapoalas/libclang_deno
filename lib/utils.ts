@@ -1,5 +1,8 @@
 import { libclang } from "./ffi.ts";
-import { CXErrorCode, NULL } from "./include/typeDefinitions.ts";
+import { CXErrorCode } from "./include/typeDefinitions.ts";
+
+export const NULLBUF = new Uint8Array();
+export const NULL = Deno.UnsafePointer.of(NULLBUF);
 
 const ENCODER = new TextEncoder();
 const DECODER = new TextDecoder();

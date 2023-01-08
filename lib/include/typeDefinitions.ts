@@ -2,9 +2,6 @@ export const ptr = (_type: unknown) => "pointer" as const;
 export const buf = (_type: unknown) => "buffer" as const;
 export const func = (_func: unknown) => "function" as const;
 
-export const NULLBUF = new Uint8Array();
-export const NULL = Deno.UnsafePointer.of(NULLBUF);
-
 export const unsignedInt = "u32" as const;
 
 /**

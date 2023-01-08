@@ -39,8 +39,6 @@ import {
   CXTypeNullabilityKind,
   CXVisibilityKind,
   CXVisitorResult,
-  NULL,
-  NULLBUF,
 } from "./include/typeDefinitions.ts";
 import {
   charBufferToString,
@@ -48,6 +46,8 @@ import {
   CStringArray,
   cxstringSetToStringArray,
   cxstringToString,
+  NULL,
+  NULLBUF,
   throwIfError,
 } from "./utils.ts";
 export * from "./CompilationDatabase.ts";

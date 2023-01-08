@@ -1,6 +1,5 @@
 import { libclang } from "./ffi.ts";
-import { NULL } from "./include/typeDefinitions.ts";
-import { cstr, cxstringToString } from "./utils.ts";
+import { cstr, cxstringToString, NULL } from "./utils.ts";
 
 const COMPILATION_DATABASE_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
