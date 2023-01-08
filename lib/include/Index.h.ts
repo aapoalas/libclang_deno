@@ -1,67 +1,68 @@
-import { CXErrorCodeT } from "./ErrorCode.h.ts";
 import {
   buf,
-  constCharPtr,
-  CStringArrayT,
+  cstringArrayT,
+  cstringT,
   CX_CXXAccessSpecifierT,
   CX_StorageClassT,
   CXAvailabilityKindT,
   CXCallingConvT,
   CXClientDataT,
-  CXCodeCompleteResults,
+  CXCodeCompleteResultsT,
   CXCompletionChunkKindT,
-  CXCompletionResult,
+  CXCompletionResultT,
   CXCompletionStringT,
-  CXCursor_ExceptionSpecificationKindT,
   CXCursorAndRangeVisitorT,
   CXCursorKindT,
-  CXCursorSet,
+  CXCursorSetT,
   CXCursorT,
-  CXCursorVisitor,
+  CXCursorVisitorT,
   CXDiagnosticSetT,
   CXDiagnosticT,
+  CXErrorCodeT,
   CXEvalResultKindT,
   CXEvalResultT,
   CXFieldVisitorT,
   CXFileT,
-  CXGlobalOptFlagsT,
   CXIdxAttrInfoT,
-  CXIdxClientContainer,
-  CXIdxClientEntity,
-  CXIdxClientFile,
+  CXIdxClientContainerT,
+  CXIdxClientEntityT,
+  CXIdxClientFileT,
   CXIdxContainerInfoT,
   CXIdxCXXClassDeclInfoT,
   CXIdxDeclInfoT,
   CXIdxEntityInfoT,
   CXIdxEntityKindT,
   CXIdxIBOutletCollectionAttrInfoT,
-  CXIdxLoc,
+  CXIdxLocT,
+  CXIdxObjCCategoryDeclInfoT,
   CXIdxObjCContainerDeclInfoT,
+  CXIdxObjCInterfaceDeclInfoT,
   CXIdxObjCPropertyDeclInfoT,
   CXIdxObjCProtocolRefListInfoT,
-  CXInclusionVisitor,
+  CXInclusionVisitorT,
   CXIndexActionT,
   CXIndexT,
   CXLanguageKindT,
   CXLinkageKindT,
-  CXModule,
+  CXModuleT,
   CXPlatformAvailabilityT,
   CXPrintingPolicyPropertyT,
   CXPrintingPolicyT,
   CXRefQualifierKindT,
-  CXRemapping,
+  CXRemappingT,
   CXResultT,
   CXSourceLocationT,
-  CXSourceRangeList,
+  CXSourceRangeListT,
   CXSourceRangeT,
   CXStringSetT,
   CXStringT,
   CXTargetInfoT,
   CXTemplateArgumentKindT,
   CXTLSKindT,
-  CXToken,
   CXTokenKindT,
+  CXTokenT,
   CXTranslationUnitT,
+  CXTUResourceUsageKindT,
   CXTUResourceUsageT,
   CXTypeKindT,
   CXTypeNullabilityKindT,
@@ -69,12 +70,13 @@ import {
   CXUnsavedFileT,
   CXVisibilityKindT,
   double,
-  IndexerCallbacks,
+  func,
+  IndexerCallbacksT,
   int,
   longLong,
   ptr,
   size_t,
-  unsigned,
+  unsignedInt,
   unsignedLongLong,
 } from "./typeDefinitions.ts";
 
@@ -83,180 +85,256 @@ import {
  *
  * It provides two options:
  *
- * - `excludeDeclarationsFromPCH`: When non-zero, allows enumeration of "local" declarations (when loading any new translation units). A "local" declaration is one that belongs in the translation unit itself and not in a precompiled header that was used by the translation unit. If zero, all declarations will be enumerated.
- * - `displayDiagnostics`
+ * - excludeDeclarationsFromPCH: When non-zero, allows enumeration of "local"
+ * declarations (when loading any new translation units). A "local" declaration
+ * is one that belongs in the translation unit itself and not in a precompiled
+ * header that was used by the translation unit. If zero, all declarations
+ * will be enumerated.
  *
- * @param excludeDeclarationsFromPCH
- * @param displayDiagnostics
- * @returns CXIndex {@link CXIndexT}
+ * Here is an example:
+ *
+ * ```cpp
+ *   // excludeDeclsFromPCH = 1, displayDiagnostics=1
+ *   Idx = clang_createIndex(1, 1);
+ *   // IndexTest.pch was produced with the following command:
+ *   // "clang -x c IndexTest.h -emit-ast -o IndexTest.pch"
+ *   TU = clang_createTranslationUnit(Idx, "IndexTest.pch");
+ *   // This will load all the symbols from 'IndexTest.pch'
+ *   clang_visitChildren(clang_getTranslationUnitCursor(TU),
+ *                       TranslationUnitVisitor, 0);
+ *   clang_disposeTranslationUnit(TU);
+ *   // This will load all the symbols from 'IndexTest.c', excluding symbols
+ *   // from 'IndexTest.pch'.
+ *   char *args[] = { "-Xclang", "-include-pch=IndexTest.pch" };
+ *   TU = clang_createTranslationUnitFromSourceFile(Idx, "IndexTest.c", 2, args,
+ *                                                  0, 0);
+ *   clang_visitChildren(clang_getTranslationUnitCursor(TU),
+ *                       TranslationUnitVisitor, 0);
+ *   clang_disposeTranslationUnit(TU);
+ * ```
+ * This process of creating the 'pch', loading it separately, and using it (via
+ * -include-pch) allows 'excludeDeclsFromPCH' to remove redundant callbacks
+ * (which gives the indexer the same performance benefit as the compiler).
  */
 export const clang_createIndex = {
-  parameters: ["i32", "i32"],
+  parameters: [
+    int, // excludeDeclarationsFromPCH
+    int, // displayDiagnostics
+  ],
   result: CXIndexT,
 } as const;
 
 /**
  * Destroy the given index.
  *
- * The index must not be destroyed until all of the translation units created within that index have been destroyed.
+ * The index must not be destroyed until all of the translation units created
+ * within that index have been destroyed.
  */
 export const clang_disposeIndex = {
-  parameters: [CXIndexT],
+  parameters: [
+    CXIndexT, // index
+  ],
   result: "void",
 } as const;
 
 /**
  * Sets general options associated with a CXIndex.
  *
+ * For example:
+ *
+ * ```cpp
+ * CXIndex idx = ...;
+ * clang_CXIndex_setGlobalOptions(idx,
+ *     clang_CXIndex_getGlobalOptions(idx) |
+ *     CXGlobalOpt_ThreadBackgroundPriorityForIndexing);
+ * ```
  * @param options A bitmask of options, a bitwise OR of CXGlobalOpt_XXX flags.
  */
 export const clang_CXIndex_setGlobalOptions = {
-  parameters: [CXIndexT, CXGlobalOptFlagsT],
+  parameters: [
+    CXIndexT,
+    unsignedInt, // options
+  ],
   result: "void",
 } as const;
 
 /**
  * Gets the general options associated with a CXIndex.
  *
- * @returns A bitmask of options, a bitwise OR of {@link CXGlobalOptFlags} flags that are associated with the given CXIndex object.
+ * @returns A bitmask of options, a bitwise OR of CXGlobalOpt_XXX flags that
+ * are associated with the given CXIndex object.
  */
 export const clang_CXIndex_getGlobalOptions = {
-  parameters: [CXIndexT],
-  result: CXGlobalOptFlagsT,
+  parameters: [
+    CXIndexT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Sets the invocation emission path option in a CXIndex.
  *
- * The invocation emission path specifies a path which will contain log files for certain libclang invocations. A null value (default) implies that libclang invocations are not logged..
+ * The invocation emission path specifies a path which will contain log
+ * files for certain libclang invocations. A null value (default) implies that
+ * libclang invocations are not logged..
  */
 export const clang_CXIndex_setInvocationEmissionPathOption = {
-  parameters: [CXIndexT, constCharPtr],
+  parameters: [
+    CXIndexT,
+    cstringT, // Path
+  ],
   result: "void",
 } as const;
 
 /**
- * Determine whether the given header is guarded against multiple inclusions, either with the conventional #ifndef/#define/#endif macro guards or with #pragma once.
- *
- * @param tu
- * @param file
+ * Determine whether the given header is guarded against
+ * multiple inclusions, either with the conventional
+ * \#ifndef/\#define/\#endif macro guards or with \#pragma once.
  */
 export const clang_isFileMultipleIncludeGuarded = {
-  parameters: [CXTranslationUnitT, CXFileT],
-  result: unsigned,
+  parameters: [
+    CXTranslationUnitT, // tu
+    CXFileT, // file
+  ],
+  result: unsignedInt,
 } as const;
+
 /**
  * Retrieve a file handle within the given translation unit.
  *
- * @param tu        the translation unit
+ * @param tu the translation unit
  * @param file_name the name of the file.
- * @returns the file handle for the named file in the translation unit tu, or a NULL file handle if the file was not a part of this translation unit.
+ * @returns the file handle for the named file in the translation unit `tu,` or a NULL file handle if the file was not a part of this translation unit.
  */
 export const clang_getFile = {
-  parameters: [CXTranslationUnitT, constCharPtr],
+  parameters: [
+    CXTranslationUnitT, // tu
+    cstringT, // file_name
+  ],
   result: CXFileT,
 } as const;
+
 /**
  * Retrieve the buffer associated with the given file.
  *
- * @param tu    the translation unit
- * @param file  the file for which to retrieve the buffer.
- * @param size  [out] if non-NULL, will be set to the size of the buffer.
- *
- * @returns a pointer to the buffer in memory that holds the contents of file, or a NULL pointer when the file is not loaded.
+ * @param tu the translation unit
+ * @param file the file for which to retrieve the buffer.
+ * @param size [out] if non-NULL, will be set to the size of the buffer.
+ * @returns a pointer to the buffer in memory that holds the contents of
+ * `file,` or a NULL pointer when the file is not loaded.
  */
 export const clang_getFileContents = {
-  parameters: [CXTranslationUnitT, CXFileT, buf(size_t)],
-  result: constCharPtr,
+  parameters: [
+    CXTranslationUnitT, // tu
+    CXFileT, // file
+    buf(size_t), // size
+  ],
+  result: cstringT,
 } as const;
+
 /**
- * Retrieves the source location associated with a given file/line/column in a particular translation unit.
- * @param tu
- * @param file
- * @param line
- * @param column
+ * Retrieves the source location associated with a given file/line/column
+ * in a particular translation unit.
  */
 export const clang_getLocation = {
-  parameters: [CXTranslationUnitT, CXFileT, unsigned, unsigned],
+  parameters: [
+    CXTranslationUnitT, // tu
+    CXFileT, // file
+    unsignedInt, // line
+    unsignedInt, // column
+  ],
   result: CXSourceLocationT,
 } as const;
+
 /**
- * Retrieves the source location associated with a given character offset in a particular translation unit.
- * @param tu
- * @param file
- * @param offset
+ * Retrieves the source location associated with a given character offset
+ * in a particular translation unit.
  */
 export const clang_getLocationForOffset = {
-  parameters: [CXTranslationUnitT, CXFileT, unsigned],
+  parameters: [
+    CXTranslationUnitT, // tu
+    CXFileT, // file
+    unsignedInt, // offset
+  ],
   result: CXSourceLocationT,
 } as const;
+
 /**
  * Retrieve all ranges that were skipped by the preprocessor.
  *
- * The preprocessor will skip lines when they are surrounded by an if/ifdef/ifndef directive whose condition does not evaluate to true.
- *
- * @param tu
- * @param file
- * @returns `CxSourceRangeList*`
+ * The preprocessor will skip lines when they are surrounded by an
+ * if/ifdef/ifndef directive whose condition does not evaluate to true.
  */
 export const clang_getSkippedRanges = {
-  parameters: [CXTranslationUnitT, CXFileT],
-  result: ptr(CXSourceRangeList),
+  parameters: [
+    CXTranslationUnitT, // tu
+    CXFileT, // file
+  ],
+  result: ptr(CXSourceRangeListT),
 } as const;
+
 /**
- * Retrieve all ranges from all files that were skipped by the preprocessor.
+ * Retrieve all ranges from all files that were skipped by the
+ * preprocessor.
  *
- * The preprocessor will skip lines when they are surrounded by an if/ifdef/ifndef directive whose condition does not evaluate to true.
- *
- * @returns `CXSourceRangeList*`
+ * The preprocessor will skip lines when they are surrounded by an
+ * if/ifdef/ifndef directive whose condition does not evaluate to true.
  */
 export const clang_getAllSkippedRanges = {
-  parameters: [CXTranslationUnitT],
-  result: ptr(CXSourceRangeList),
+  parameters: [
+    CXTranslationUnitT, // tu
+  ],
+  result: ptr(CXSourceRangeListT),
 } as const;
+
 /**
- * Determine the number of diagnostics produced for the given translation unit.
- * @param Unit
+ * Determine the number of diagnostics produced for the given
+ * translation unit.
  */
 export const clang_getNumDiagnostics = {
-  parameters: [CXTranslationUnitT],
-  result: unsigned,
+  parameters: [
+    CXTranslationUnitT, // Unit
+  ],
+  result: unsignedInt,
 } as const;
+
 /**
  * Retrieve a diagnostic associated with the given translation unit.
  *
- * @param Unit  the translation unit to query.
+ * @param Unit the translation unit to query.
+ *
  * @param Index the zero-based diagnostic number to retrieve.
- * @returns the requested diagnostic. This diagnostic must be freed via a call to `clang_disposeDiagnostic()`.
+ * @returns the requested diagnostic. This diagnostic must be freed
+ * via a call to `clang_disposeDiagnostic().`
  */
 export const clang_getDiagnostic = {
-  parameters: [CXTranslationUnitT, unsigned],
+  parameters: [
+    CXTranslationUnitT, // Unit
+    unsignedInt, // Index
+  ],
   result: CXDiagnosticT,
 } as const;
+
 /**
- * Retrieve the complete set of diagnostics associated with a translation unit.
+ * Retrieve the complete set of diagnostics associated with a
+ * translation unit.
  *
  * @param Unit the translation unit to query.
  */
 export const clang_getDiagnosticSetFromTU = {
-  parameters: [CXTranslationUnitT],
+  parameters: [
+    CXTranslationUnitT, // Unit
+  ],
   result: CXDiagnosticSetT,
 } as const;
 
 /**
- * Translation unit manipulation
- *
- * The routines in this group provide the ability to create and destroy
- * translation units from files, either by parsing the contents of the files or
- * by reading in a serialized representation of a translation unit.
- */
-
-/**
  * Get the original translation unit source file name.
- * @param CTUnit
  */
 export const clang_getTranslationUnitSpelling = {
-  parameters: [CXTranslationUnitT],
+  parameters: [
+    CXTranslationUnitT, // CTUnit
+  ],
   result: CXStringT,
 } as const;
 
@@ -264,36 +342,30 @@ export const clang_getTranslationUnitSpelling = {
  * Return the CXTranslationUnit for a given source file and the provided
  * command line arguments one would pass to the compiler.
  *
- * Note: The 'source_filename' argument is optional.  If the caller provides a
+ * Note: The 'source_filename' argument is optional. If the caller provides a
  * NULL pointer, the name of the source file is expected to reside in the
  * specified command line arguments.
  *
  * Note: When encountered in 'clang_command_line_args', the following options
  * are ignored:
  *
- *   '-c'
- *   '-emit-ast'
- *   '-fsyntax-only'
- *   '-o <output file>'  (both '-o' and '<output file>' are ignored)
+ * '-c'
+ * '-emit-ast'
+ * '-fsyntax-only'
+ * '-o <output file>' (both '-o' and '<output file>' are ignored)
  *
  * @param CIdx The index object with which the translation unit will be
  * associated.
- *
  * @param source_filename The name of the source file to load, or NULL if the
- * source file is included in `clang_command_line_args`.
- *
+ * source file is included in `clang_command_line_args.`
  * @param num_clang_command_line_args The number of command-line arguments in
- * `clang_command_line_args`.
- *
+ * `clang_command_line_args.`
  * @param clang_command_line_args The command-line arguments that would be
  * passed to the `clang` executable if it were being invoked out-of-process.
  * These command-line options will be parsed and will affect how the translation
  * unit is parsed. Note that the following options are ignored: '-c',
  * '-emit-ast', '-fsyntax-only' (which is the default), and '-o <output file>'.
- *
- * @param num_unsaved_files the number of unsaved file entries in \p
- * unsaved_files.
- *
+ * @param num_unsaved_files the number of unsaved file entries in `unsaved_files.`
  * @param unsaved_files the files that have not yet been saved to disk
  * but may be required for code completion, including the contents of
  * those files.  The contents and name of these files (as specified by
@@ -302,41 +374,43 @@ export const clang_getTranslationUnitSpelling = {
  */
 export const clang_createTranslationUnitFromSourceFile = {
   parameters: [
-    CXIndexT,
-    constCharPtr,
-    int,
-    constCharPtr,
-    unsigned,
-    CXUnsavedFileT,
+    CXIndexT, // CIdx
+    cstringT, // source_filename
+    int, // num_clang_command_line_args
+    cstringArrayT, // clang_command_line_args
+    unsignedInt, // num_unsaved_files
+    buf(CXUnsavedFileT), // unsaved_files
   ],
   result: CXTranslationUnitT,
 } as const;
 
 /**
- * Same as {@link clang_createTranslationUnit2}, but returns
- * the {@link CXTranslationUnit} instead of an error code.  In case of an error this
- * routine returns a {@link NULL} {@link CXTranslationUnit}, without further detailed
+ * Same as `clang_createTranslationUnit2,` but returns
+ * the `CXTranslationUnit` instead of an error code. In case of an error this
+ * routine returns a `NULL` `CXTranslationUnit,` without further detailed
  * error codes.
- * @param CIdx {@link CXIndexT}
- * @param ast_filename
  */
 export const clang_createTranslationUnit = {
-  parameters: [CXIndexT, constCharPtr],
+  parameters: [
+    CXIndexT, // CIdx
+    cstringT, // ast_filename
+  ],
   result: CXTranslationUnitT,
 } as const;
 
 /**
- * Create a translation unit from an AST file (`$1`.
+ * Create a translation unit from an AST file (`-emit-ast).`
  *
- * @param CIdx
- * @param ast_filename
  * @param out_TU [out] A non-NULL pointer to store the created
- * {@link CXTranslationUnit}.
- *
+ * `CXTranslationUnit.`
  * @returns Zero on success, otherwise returns an error code.
  */
 export const clang_createTranslationUnit2 = {
-  parameters: [CXIndexT, constCharPtr, buf(CXTranslationUnitT)],
+  parameters: [
+    CXIndexT, // CIdx
+    cstringT, // ast_filename
+    buf(CXTranslationUnitT), // out_TU
+  ],
   result: CXErrorCodeT,
 } as const;
 
@@ -344,41 +418,33 @@ export const clang_createTranslationUnit2 = {
  * Returns the set of flags that is suitable for parsing a translation
  * unit that is being edited.
  *
- * The set of flags returned provide options for {@link clang_parseTranslationUnit})
- * to indicate that the translation unit is likely to be reparsed many times,
- * either explicitly (via {@link clang_reparseTranslationUnit})) or implicitly
- * (e.g., by code completion ({@link clang_codeCompletionAt}))). The returned flag
+ * The set of flags returned provide options for `clang_parseTranslationUnit(`) to indicate that the translation unit is likely to be reparsed many times,
+ * either explicitly (via `clang_reparseTranslationUnit()`) or implicitly
+ * (e.g., by code completion (`clang_codeCompletionAt())).` The returned flag
  * set contains an unspecified set of optimizations (e.g., the precompiled
  * preamble) geared toward improving the performance of these routines. The
  * set of optimizations enabled may change from one version to the next.
  */
 export const clang_defaultEditingTranslationUnitOptions = {
   parameters: [],
-  result: unsigned,
+  result: unsignedInt,
 } as const;
 
 /**
- * Same as {@link clang_parseTranslationUnit2}, but returns
- * the {@link CXTranslationUnit} instead of an error code.  In case of an error this
- * routine returns a {@link NULL} {@link CXTranslationUnit}, without further detailed
+ * Same as `clang_parseTranslationUnit2,` but returns
+ * the `CXTranslationUnit` instead of an error code. In case of an error this
+ * routine returns a `NULL` `CXTranslationUnit,` without further detailed
  * error codes.
- * @param CIdx
- * @param source_filename
- * @param command_line_args
- * @param num_command_line_args
- * @param unsaved_files
- * @param num_unsaved_files
- * @param options
  */
 export const clang_parseTranslationUnit = {
   parameters: [
-    CXIndexT,
-    constCharPtr,
-    CStringArrayT,
-    int,
-    ptr(CXUnsavedFileT),
-    unsigned,
-    unsigned,
+    CXIndexT, // CIdx
+    cstringT, // source_filename
+    cstringArrayT, // command_line_args
+    int, // num_command_line_args
+    buf(CXUnsavedFileT), // unsaved_files
+    unsignedInt, // num_unsaved_files
+    unsignedInt, // options
   ],
   result: CXTranslationUnitT,
 } as const;
@@ -395,75 +461,58 @@ export const clang_parseTranslationUnit = {
  *
  * @param CIdx The index object with which the translation unit will be
  * associated.
- *
  * @param source_filename The name of the source file to load, or NULL if the
- * source file is included in `command_line_args`.
- *
+ * source file is included in `command_line_args.`
  * @param command_line_args The command-line arguments that would be
  * passed to the `clang` executable if it were being invoked out-of-process.
  * These command-line options will be parsed and will affect how the translation
  * unit is parsed. Note that the following options are ignored: '-c',
  * '-emit-ast', '-fsyntax-only' (which is the default), and '-o <output file>'.
- *
  * @param num_command_line_args The number of command-line arguments in
- * `command_line_args`.
- *
+ * `command_line_args.`
  * @param unsaved_files the files that have not yet been saved to disk
  * but may be required for parsing, including the contents of
  * those files.  The contents and name of these files (as specified by
  * CXUnsavedFile) are copied when necessary, so the client only needs to
  * guarantee their validity until the call to this function returns.
- *
- * @param num_unsaved_files the number of unsaved file entries in \p
- * unsaved_files.
- *
+ * @param num_unsaved_files the number of unsaved file entries in `unsaved_files.`
  * @param options A bitmask of options that affects how the translation unit
  * is managed but not its compilation. This should be a bitwise OR of the
  * CXTranslationUnit_XXX flags.
- *
  * @param out_TU [out] A non-NULL pointer to store the created
- * {@link CXTranslationUnit}, describing the parsed code and containing any
+ * `CXTranslationUnit,` describing the parsed code and containing any
  * diagnostics produced by the compiler.
- *
  * @returns Zero on success, otherwise returns an error code.
  */
 export const clang_parseTranslationUnit2 = {
   parameters: [
-    CXIndexT,
-    constCharPtr,
-    CStringArrayT,
-    int,
-    ptr(CXUnsavedFileT),
-    unsigned,
-    unsigned,
-    buf(CXTranslationUnitT),
+    CXIndexT, // CIdx
+    cstringT, // source_filename
+    cstringArrayT, // command_line_args
+    int, // num_command_line_args
+    buf(CXUnsavedFileT), // unsaved_files
+    unsignedInt, // num_unsaved_files
+    unsignedInt, // options
+    buf(CXTranslationUnitT), // out_TU
   ],
   result: CXErrorCodeT,
 } as const;
 
 /**
  * Same as clang_parseTranslationUnit2 but requires a full command line
- * for `$1` including argv[0]. This is useful if the standard
+ * for `command_line_args` including argv[0]. This is useful if the standard
  * library paths are relative to the binary.
- * @param CIdx
- * @param source_filename
- * @param command_line_args
- * @param num_command_line_args
- * @param unsaved_files
- * @param num_unsaved_files
- * @param options
- * @param out_TU
  */
 export const clang_parseTranslationUnit2FullArgv = {
   parameters: [
-    CXIndexT,
-    constCharPtr,
-    CStringArrayT,
-    int,
-    CXUnsavedFileT,
-    unsigned,
-    unsigned,
-    buf(CXTranslationUnitT),
+    CXIndexT, // CIdx
+    cstringT, // source_filename
+    cstringArrayT, // command_line_args
+    int, // num_command_line_args
+    buf(CXUnsavedFileT), // unsaved_files
+    unsignedInt, // num_unsaved_files
+    unsignedInt, // options
+    buf(CXTranslationUnitT), // out_TU
   ],
   result: CXErrorCodeT,
 } as const;
@@ -473,15 +522,15 @@ export const clang_parseTranslationUnit2FullArgv = {
  * unit.
  *
  * The set of flags returned provide options for
- * {@link clang_saveTranslationUnit}) by default. The returned flag
+ * `clang_saveTranslationUnit(`) by default. The returned flag
  * set contains an unspecified set of options that save translation units with
  * the most commonly-requested data.
- *
- * @param TU
  */
 export const clang_defaultSaveOptions = {
-  parameters: [CXTranslationUnitT],
-  result: unsigned,
+  parameters: [
+    CXTranslationUnitT, // TU
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -490,25 +539,26 @@ export const clang_defaultSaveOptions = {
  *
  * Any translation unit that was parsed without error can be saved
  * into a file. The translation unit can then be deserialized into a
- * new {@link CXTranslationUnit} with {@link clang_createTranslationUnit}) or,
+ * new `CXTranslationUnit` with `clang_createTranslationUnit(`) or,
  * if it is an incomplete translation unit that corresponds to a
  * header, used as a precompiled header when parsing other translation
  * units.
  *
  * @param TU The translation unit to save.
- *
  * @param FileName The file to which the translation unit will be saved.
- *
  * @param options A bitmask of options that affects how the translation unit
  * is saved. This should be a bitwise OR of the
  * CXSaveTranslationUnit_XXX flags.
- *
  * @returns A value that will match one of the enumerators of the CXSaveError
  * enumeration. Zero (CXSaveError_None) indicates that the translation unit was
  * saved successfully, while a non-zero value indicates that a problem occurred.
  */
 export const clang_saveTranslationUnit = {
-  parameters: [CXTranslationUnitT, constCharPtr, unsigned],
+  parameters: [
+    CXTranslationUnitT, // TU
+    cstringT, // FileName
+    unsignedInt, // options
+  ],
   result: int,
 } as const;
 
@@ -516,19 +566,22 @@ export const clang_saveTranslationUnit = {
  * Suspend a translation unit in order to free memory associated with it.
  *
  * A suspended translation unit uses significantly less memory but on the other
- * side does not support any other calls than {@link clang_reparseTranslationUnit}
- * to resume it or {@link clang_disposeTranslationUnit} to dispose it completely.
+ * side does not support any other calls than `clang_reparseTranslationUnit` to resume it or `clang_disposeTranslationUnit` to dispose it completely.
  */
 export const clang_suspendTranslationUnit = {
-  parameters: [CXTranslationUnitT],
-  result: unsigned,
+  parameters: [
+    CXTranslationUnitT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Destroy the specified CXTranslationUnit object.
  */
 export const clang_disposeTranslationUnit = {
-  parameters: [CXTranslationUnitT],
+  parameters: [
+    CXTranslationUnitT,
+  ],
   result: "void",
 } as const;
 
@@ -537,15 +590,16 @@ export const clang_disposeTranslationUnit = {
  * unit.
  *
  * The set of flags returned provide options for
- * {@link clang_reparseTranslationUnit}) by default. The returned flag
+ * `clang_reparseTranslationUnit(`) by default. The returned flag
  * set contains an unspecified set of optimizations geared toward common uses
  * of reparsing. The set of optimizations enabled may change from one version
  * to the next.
- * @param TU
  */
 export const clang_defaultReparseOptions = {
-  parameters: [CXTranslationUnitT],
-  result: unsigned,
+  parameters: [
+    CXTranslationUnitT, // TU
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -553,7 +607,7 @@ export const clang_defaultReparseOptions = {
  *
  * This routine can be used to re-parse the source files that originally
  * created the given translation unit, for example because those source files
- * have changed (either on disk or as passed via `unsaved_files`). The
+ * have changed (either on disk or as passed via `unsaved_files).` The
  * source code will be reparsed with the same command-line options as it
  * was originally parsed.
  *
@@ -566,57 +620,58 @@ export const clang_defaultReparseOptions = {
  *
  * @param TU The translation unit whose contents will be re-parsed. The
  * translation unit must originally have been built with
- * {@link clang_createTranslationUnitFromSourceFile}).
- *
- * @param num_unsaved_files The number of unsaved file entries in \p
- * unsaved_files.
- *
+ * `clang_createTranslationUnitFromSourceFile().`
+ * @param num_unsaved_files The number of unsaved file entries in `unsaved_files.`
  * @param unsaved_files The files that have not yet been saved to disk
  * but may be required for parsing, including the contents of
  * those files.  The contents and name of these files (as specified by
  * CXUnsavedFile) are copied when necessary, so the client only needs to
  * guarantee their validity until the call to this function returns.
- *
  * @param options A bitset of options composed of the flags in CXReparse_Flags.
- * The function {@link clang_defaultReparseOptions}) produces a default set of
+ * The function `clang_defaultReparseOptions(`) produces a default set of
  * options recommended for most uses, based on the translation unit.
- *
  * @returns 0 if the sources could be reparsed.  A non-zero error code will be
  * returned if reparsing was impossible, such that the translation unit is
- * invalid. In such cases, the only valid call for `$1` is
- * {@link clang_disposeTranslationUnit}().  The error codes returned by this
- * routine are described by the {@link CXErrorCode} enum.
+ * invalid. In such cases, the only valid call for `TU` is
+ * `clang_disposeTranslationUnit(TU).`  The error codes returned by this
+ * routine are described by the `CXErrorCode` enum.
  */
 export const clang_reparseTranslationUnit = {
-  parameters: [CXTranslationUnitT, unsigned, CXUnsavedFileT, unsigned],
+  parameters: [
+    CXTranslationUnitT, // TU
+    unsignedInt, // num_unsaved_files
+    buf(CXUnsavedFileT), // unsaved_files
+    unsignedInt, // options
+  ],
   result: int,
 } as const;
 
 /**
  * Returns the human-readable null-terminated C string that represents
- *  the name of the memory category.  This string should never be freed.
- * @param kind {@link CXTUResourceUsageKind}
+ * the name of the memory category. This string should never be freed.
  */
 export const clang_getTUResourceUsageName = {
-  parameters: [unsigned],
-  result: constCharPtr,
+  parameters: [
+    CXTUResourceUsageKindT, // kind
+  ],
+  result: cstringT,
 } as const;
 
 /**
- * Return the memory usage of a translation unit.  This object
- *  should be released with clang_disposeCXTUResourceUsage().
- * @param TU
+ * Return the memory usage of a translation unit. This object
+ * should be released with clang_disposeCXTUResourceUsage().
  */
 export const clang_getCXTUResourceUsage = {
-  parameters: [CXTranslationUnitT],
+  parameters: [
+    CXTranslationUnitT, // TU
+  ],
   result: CXTUResourceUsageT,
 } as const;
 
-/**
- * @param usage
- */
 export const clang_disposeCXTUResourceUsage = {
-  parameters: [CXTUResourceUsageT],
+  parameters: [
+    CXTUResourceUsageT, // usage
+  ],
   result: "void",
 } as const;
 
@@ -624,19 +679,21 @@ export const clang_disposeCXTUResourceUsage = {
  * Get target information for this translation unit.
  *
  * The CXTargetInfo object cannot outlive the CXTranslationUnit object.
- * @param CTUnit
  */
 export const clang_getTranslationUnitTargetInfo = {
-  parameters: [CXTranslationUnitT],
+  parameters: [
+    CXTranslationUnitT, // CTUnit
+  ],
   result: CXTargetInfoT,
 } as const;
 
 /**
  * Destroy the CXTargetInfo object.
- * @param Info
  */
 export const clang_TargetInfo_dispose = {
-  parameters: [CXTargetInfoT],
+  parameters: [
+    CXTargetInfoT, // Info
+  ],
   result: "void",
 } as const;
 
@@ -644,10 +701,11 @@ export const clang_TargetInfo_dispose = {
  * Get the normalized target triple as a string.
  *
  * Returns the empty string in case of any error.
- * @param Info
  */
 export const clang_TargetInfo_getTriple = {
-  parameters: [CXTargetInfoT],
+  parameters: [
+    CXTargetInfoT, // Info
+  ],
   result: CXStringT,
 } as const;
 
@@ -655,10 +713,11 @@ export const clang_TargetInfo_getTriple = {
  * Get the pointer width of the target in bits.
  *
  * Returns -1 in case of error.
- * @param Info
  */
 export const clang_TargetInfo_getPointerWidth = {
-  parameters: [CXTargetInfoT],
+  parameters: [
+    CXTargetInfoT, // Info
+  ],
   result: int,
 } as const;
 
@@ -677,7 +736,9 @@ export const clang_getNullCursor = {
  * various declarations within the given translation unit.
  */
 export const clang_getTranslationUnitCursor = {
-  parameters: [CXTranslationUnitT],
+  parameters: [
+    CXTranslationUnitT,
+  ],
   result: CXCursorT,
 } as const;
 
@@ -685,16 +746,20 @@ export const clang_getTranslationUnitCursor = {
  * Determine whether two cursors are equivalent.
  */
 export const clang_equalCursors = {
-  parameters: [CXCursorT, CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT,
+    CXCursorT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Returns non-zero if `cursor` is null.
- * @param cursor {@link CXCursor}
  */
 export const clang_Cursor_isNull = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // cursor
+  ],
   result: int,
 } as const;
 
@@ -702,15 +767,19 @@ export const clang_Cursor_isNull = {
  * Compute a hash value for the given cursor.
  */
 export const clang_hashCursor = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Retrieve the kind of the given cursor.
  */
 export const clang_getCursorKind = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: CXCursorKindT,
 } as const;
 
@@ -718,8 +787,10 @@ export const clang_getCursorKind = {
  * Determine whether the given cursor kind represents a declaration.
  */
 export const clang_isDeclaration = {
-  parameters: [CXCursorKindT],
-  result: unsigned,
+  parameters: [
+    CXCursorKindT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -727,12 +798,14 @@ export const clang_isDeclaration = {
  *
  * A declaration is invalid if it could not be parsed successfully.
  *
- * \returns non-zero if the cursor represents a declaration and it is
+ * @returns non-zero if the cursor represents a declaration and it is
  * invalid, otherwise NULL.
  */
 export const clang_isInvalidDeclaration = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -744,40 +817,50 @@ export const clang_isInvalidDeclaration = {
  * particular cursor refers to another entity.
  */
 export const clang_isReference = {
-  parameters: [CXCursorKindT],
-  result: unsigned,
+  parameters: [
+    CXCursorKindT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Determine whether the given cursor kind represents an expression.
  */
 export const clang_isExpression = {
-  parameters: [CXCursorKindT],
-  result: unsigned,
+  parameters: [
+    CXCursorKindT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Determine whether the given cursor kind represents a statement.
  */
 export const clang_isStatement = {
-  parameters: [CXCursorKindT],
-  result: unsigned,
+  parameters: [
+    CXCursorKindT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Determine whether the given cursor kind represents an attribute.
  */
 export const clang_isAttribute = {
-  parameters: [CXCursorKindT],
-  result: unsigned,
+  parameters: [
+    CXCursorKindT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Determine whether the given cursor has any attributes.
  */
 export const clang_Cursor_hasAttrs = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -785,8 +868,10 @@ export const clang_Cursor_hasAttrs = {
  * cursor.
  */
 export const clang_isInvalid = {
-  parameters: [CXCursorKindT],
-  result: unsigned,
+  parameters: [
+    CXCursorKindT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -794,34 +879,43 @@ export const clang_isInvalid = {
  * unit.
  */
 export const clang_isTranslationUnit = {
-  parameters: [CXCursorKindT],
-  result: unsigned,
+  parameters: [
+    CXCursorKindT,
+  ],
+  result: unsignedInt,
 } as const;
 
-/***
+/**
+ * \*
  * Determine whether the given cursor represents a preprocessing
  * element, such as a preprocessor directive or macro instantiation.
  */
 export const clang_isPreprocessing = {
-  parameters: [CXCursorKindT],
-  result: unsigned,
+  parameters: [
+    CXCursorKindT,
+  ],
+  result: unsignedInt,
 } as const;
 
-/***
+/**
+ * \*
  * Determine whether the given cursor represents a currently
- *  unexposed piece of the AST (e.g., CXCursor_UnexposedStmt).
+ * unexposed piece of the AST (e.g., CXCursor_UnexposedStmt).
  */
 export const clang_isUnexposed = {
-  parameters: [CXCursorKindT],
-  result: unsigned,
+  parameters: [
+    CXCursorKindT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Determine the linkage of the entity referred to by a given cursor.
- * @param cursor {@link CXCursor}
  */
 export const clang_getCursorLinkage = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // cursor
+  ],
   result: CXLinkageKindT,
 } as const;
 
@@ -833,12 +927,12 @@ export const clang_getCursorLinkage = {
  * commandline arguments.
  *
  * @param cursor The cursor to query.
- *
- * \returns The visibility of the cursor.
- * @param cursor {@link CXCursor}
+ * @returns The visibility of the cursor.
  */
 export const clang_getCursorVisibility = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // cursor
+  ],
   result: CXVisibilityKindT,
 } as const;
 
@@ -847,12 +941,12 @@ export const clang_getCursorVisibility = {
  * taking the current target platform into account.
  *
  * @param cursor The cursor to query.
- *
- * \returns The availability of the cursor.
- * @param cursor {@link CXCursor}
+ * @returns The availability of the cursor.
  */
 export const clang_getCursorAvailability = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // cursor
+  ],
   result: CXAvailabilityKindT,
 } as const;
 
@@ -861,66 +955,61 @@ export const clang_getCursorAvailability = {
  * on any platforms for which availability information is known.
  *
  * @param cursor The cursor to query.
- *
  * @param always_deprecated If non-NULL, will be set to indicate whether the
  * entity is deprecated on all platforms.
- *
  * @param deprecated_message If non-NULL, will be set to the message text
  * provided along with the unconditional deprecation of this entity. The client
  * is responsible for deallocating this string.
- *
  * @param always_unavailable If non-NULL, will be set to indicate whether the
  * entity is unavailable on all platforms.
- *
  * @param unavailable_message If non-NULL, will be set to the message text
  * provided along with the unconditional unavailability of this entity. The
  * client is responsible for deallocating this string.
- *
  * @param availability If non-NULL, an array of CXPlatformAvailability instances
  * that will be populated with platform availability information, up to either
  * the number of platforms for which availability information is available (as
- * returned by this function) or `$1`, whichever is smaller.
- *
+ * returned by this function) or `availability_size,` whichever is smaller.
  * @param availability_size The number of elements available in the
  * `availability` array.
- *
- * \returns The number of platforms (N) for which availability information is
- * available (which is unrelated to `$1`.
+ * @returns The number of platforms (N) for which availability information is
+ * available (which is unrelated to `availability_size).`
  *
  * Note that the client is responsible for calling
- * {@link clang_disposeCXPlatformAvailability} to free each of the
+ * `clang_disposeCXPlatformAvailability` to free each of the
  * platform-availability structures returned. There are
- * `availability_size` such structures.
+ * `min(N,` availability_size) such structures.
  */
 export const clang_getCursorPlatformAvailability = {
   parameters: [
-    CXCursorT,
-    buf(int),
-    buf(CXStringT),
-    buf(int),
-    buf(CXStringT),
-    buf(CXPlatformAvailabilityT),
-    int,
+    CXCursorT, // cursor
+    buf(int), // always_deprecated
+    buf(CXStringT), // deprecated_message
+    buf(int), // always_unavailable
+    buf(CXStringT), // unavailable_message
+    buf(CXPlatformAvailabilityT), // availability
+    int, // availability_size
   ],
   result: int,
 } as const;
 
 /**
- * Free the memory associated with a {@link CXPlatformAvailabilityT} structure.
- * @param availability (`CXPlatformAvailability *`)
+ * Free the memory associated with a `CXPlatformAvailability` structure.
  */
 export const clang_disposeCXPlatformAvailability = {
-  parameters: [buf(CXPlatformAvailabilityT)],
+  parameters: [
+    buf(CXPlatformAvailabilityT), // availability
+  ],
   result: "void",
 } as const;
 
 /**
  * If cursor refers to a variable declaration and it has initializer returns
  * cursor referring to the initializer otherwise return null cursor.
- * @param cursor {@link CXCursor}
  */
 export const clang_Cursor_getVarDeclInitializer = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // cursor
+  ],
   result: CXCursorT,
 } as const;
 
@@ -928,10 +1017,11 @@ export const clang_Cursor_getVarDeclInitializer = {
  * If cursor refers to a variable declaration that has global storage returns 1.
  * If cursor refers to a variable declaration that doesn't have global storage
  * returns 0. Otherwise returns -1.
- * @param cursor {@link CXCursor}
  */
 export const clang_Cursor_hasVarDeclGlobalStorage = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // cursor
+  ],
   result: int,
 } as const;
 
@@ -939,31 +1029,32 @@ export const clang_Cursor_hasVarDeclGlobalStorage = {
  * If cursor refers to a variable declaration that has external storage
  * returns 1. If cursor refers to a variable declaration that doesn't have
  * external storage returns 0. Otherwise returns -1.
- * @param cursor {@link CXCursor}
  */
 export const clang_Cursor_hasVarDeclExternalStorage = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // cursor
+  ],
   result: int,
 } as const;
 
 /**
  * Determine the "language" of the entity referred to by a given cursor.
- * @param cursor {@link CXCursor}
- * @returns CXLanguageKind {@link CXLanguageKind}
  */
 export const clang_getCursorLanguage = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // cursor
+  ],
   result: CXLanguageKindT,
 } as const;
 
 /**
  * Determine the "thread-local storage (TLS) kind" of the declaration
  * referred to by a cursor.
- * @param cursor {@link CXCursor}
- * @returns CXTLSKind {@link CXTLSKind}
  */
 export const clang_getCursorTLSKind = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // cursor
+  ],
   result: CXTLSKindT,
 } as const;
 
@@ -971,7 +1062,9 @@ export const clang_getCursorTLSKind = {
  * Returns the translation unit that a cursor originated from.
  */
 export const clang_Cursor_getTranslationUnit = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: CXTranslationUnitT,
 } as const;
 
@@ -980,61 +1073,62 @@ export const clang_Cursor_getTranslationUnit = {
  */
 export const clang_createCXCursorSet = {
   parameters: [],
-  result: CXCursorSet,
+  result: CXCursorSetT,
 } as const;
 
 /**
  * Disposes a CXCursorSet and releases its associated memory.
- * @param cset
  */
 export const clang_disposeCXCursorSet = {
-  parameters: [CXCursorSet],
+  parameters: [
+    CXCursorSetT, // cset
+  ],
   result: "void",
 } as const;
 
 /**
  * Queries a CXCursorSet to see if it contains a specific CXCursor.
  *
- * \returns non-zero if the set contains the specified cursor.
- * @param cset
- * @param cursor
+ * @returns non-zero if the set contains the specified cursor.
  */
 export const clang_CXCursorSet_contains = {
-  parameters: [CXCursorSet, CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorSetT, // cset
+    CXCursorT, // cursor
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Inserts a CXCursor into a CXCursorSet.
  *
- * \returns zero if the CXCursor was already in the set, and non-zero otherwise.
- * @param cset
- * @param cursor
+ * @returns zero if the CXCursor was already in the set, and non-zero otherwise.
  */
 export const clang_CXCursorSet_insert = {
-  parameters: [CXCursorSet, CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorSetT, // cset
+    CXCursorT, // cursor
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Determine the semantic parent of the given cursor.
  *
  * The semantic parent of a cursor is the cursor that semantically contains
- * the given `cursor`. For many declarations, the lexical and semantic parents
+ * the given `cursor.` For many declarations, the lexical and semantic parents
  * are equivalent (the lexical parent is returned by
- * {@link clang_getCursorLexicalParent}()). They diverge when declarations or
+ * `clang_getCursorLexicalParent()).` They diverge when declarations or
  * definitions are provided out-of-line. For example:
  *
- * ```c++
+ * ```cpp
  * class C {
  *  void f();
  * };
- *
  * void C::f() { }
  * ```
- *
- * In the out-of-line definition of `$1`, the semantic parent is
- * the class `$1`, of which this function is a member. The lexical parent is
+ * In the out-of-line definition of `C::f,` the semantic parent is
+ * the class `C,` of which this function is a member. The lexical parent is
  * the place where the declaration actually occurs in the source code; in this
  * case, the definition occurs in the translation unit. In general, the
  * lexical parent for a given entity can change without affecting the semantics
@@ -1043,37 +1137,34 @@ export const clang_CXCursorSet_insert = {
  * on the other hand, can have a major impact on semantics, and redeclarations
  * of a particular entity should all have the same semantic context.
  *
- * In the example above, both declarations of `$1` have `$1` as their
- * semantic context, while the lexical context of the first `$1` is `$1`
- * and the lexical context of the second `$1` is the translation unit.
+ * In the example above, both declarations of `C::f` have `C` as their
+ * semantic context, while the lexical context of the first `C::f` is `C` and the lexical context of the second `C::f` is the translation unit.
  *
  * For global declarations, the semantic parent is the translation unit.
- * @param cursor {@link CXCursor}
  */
 export const clang_getCursorSemanticParent = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // cursor
+  ],
   result: CXCursorT,
 } as const;
 
 /**
  * Determine the lexical parent of the given cursor.
  *
- * The lexical parent of a cursor is the cursor in which the given `cursor`
- * was actually written. For many declarations, the lexical and semantic parents
+ * The lexical parent of a cursor is the cursor in which the given `cursor` was actually written. For many declarations, the lexical and semantic parents
  * are equivalent (the semantic parent is returned by
- * {@link clang_getCursorSemanticParent}()). They diverge when declarations or
+ * `clang_getCursorSemanticParent()).` They diverge when declarations or
  * definitions are provided out-of-line. For example:
  *
- * ```c++
+ * ```cpp
  * class C {
  *  void f();
  * };
- *
  * void C::f() { }
  * ```
- *
- * In the out-of-line definition of `$1`, the semantic parent is
- * the class `$1`, of which this function is a member. The lexical parent is
+ * In the out-of-line definition of `C::f,` the semantic parent is
+ * the class `C,` of which this function is a member. The lexical parent is
  * the place where the declaration actually occurs in the source code; in this
  * case, the definition occurs in the translation unit. In general, the
  * lexical parent for a given entity can change without affecting the semantics
@@ -1082,16 +1173,16 @@ export const clang_getCursorSemanticParent = {
  * on the other hand, can have a major impact on semantics, and redeclarations
  * of a particular entity should all have the same semantic context.
  *
- * In the example above, both declarations of `$1` have `$1` as their
- * semantic context, while the lexical context of the first `$1` is `$1`
- * and the lexical context of the second `$1` is the translation unit.
+ * In the example above, both declarations of `C::f` have `C` as their
+ * semantic context, while the lexical context of the first `C::f` is `C` and the lexical context of the second `C::f` is the translation unit.
  *
  * For declarations written in the global scope, the lexical parent is
  * the translation unit.
- * @param cursor {@link CXCursor}
  */
 export const clang_getCursorLexicalParent = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // cursor
+  ],
   result: CXCursorT,
 } as const;
 
@@ -1127,49 +1218,44 @@ export const clang_getCursorLexicalParent = {
  * @param cursor A cursor representing an Objective-C or C++
  * method. This routine will compute the set of methods that this
  * method overrides.
- *
  * @param overridden A pointer whose pointee will be replaced with a
  * pointer to an array of cursors, representing the set of overridden
  * methods. If there are no overridden methods, the pointee will be
  * set to NULL. The pointee must be freed via a call to
- * {@link clang_disposeOverriddenCursors}().
- *
+ * `clang_disposeOverriddenCursors().`
  * @param num_overridden A pointer to the number of overridden
  * functions, will be set to the number of overridden functions in the
- * array pointed to by `overridden`.
+ * array pointed to by `overridden.`
  */
 export const clang_getOverriddenCursors = {
-  parameters: [CXCursorT, buf(buf(CXCursorT)), buf(unsigned)],
+  parameters: [
+    CXCursorT, // cursor
+    buf(buf(CXCursorT)), // overridden
+    buf(unsignedInt), // num_overridden
+  ],
   result: "void",
 } as const;
 
 /**
- * Free the set of overridden cursors returned by {@link clang_getOverriddenCursors}().
- * @param {CxCursor *} overridden
+ * Free the set of overridden cursors returned by `clang_getOverriddenCursors().`
  */
 export const clang_disposeOverriddenCursors = {
-  parameters: [ptr(CXCursorT)],
+  parameters: [
+    ptr(CXCursorT), // overridden
+  ],
   result: "void",
 } as const;
 
 /**
  * Retrieve the file that is included by the given inclusion directive
  * cursor.
- * @param cursor {@link CXCursor}
  */
 export const clang_getIncludedFile = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // cursor
+  ],
   result: CXFileT,
 } as const;
-
-/**
- * Mapping between cursors and source code
- *
- * Cursors represent a location within the Abstract Syntax Tree (AST). These
- * routines help map between cursors and the physical locations where the
- * described entities occur in the source code. The mapping is provided in
- * both directions, so one can map from source code to the AST and back.
- */
 
 /**
  * Map a source location to the cursor that describes the entity at that
@@ -1177,7 +1263,7 @@ export const clang_getIncludedFile = {
  *
  * clang_getCursor() maps an arbitrary source location within a translation
  * unit down to the most specific cursor that describes the entity at that
- * location. For example, given an expression `$1` + y, invoking
+ * location. For example, given an expression `x` + y, invoking
  * clang_getCursor() with a source location pointing to "x" will return the
  * cursor for "x"; similarly for "y". If the cursor points anywhere between
  * "x" or "y" (e.g., on the + or the whitespace around it), clang_getCursor()
@@ -1187,7 +1273,10 @@ export const clang_getIncludedFile = {
  * a NULL cursor if no such entity can be found.
  */
 export const clang_getCursor = {
-  parameters: [CXTranslationUnitT, CXSourceLocationT],
+  parameters: [
+    CXTranslationUnitT,
+    CXSourceLocationT,
+  ],
   result: CXCursorT,
 } as const;
 
@@ -1202,7 +1291,9 @@ export const clang_getCursor = {
  * source code.
  */
 export const clang_getCursorLocation = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: CXSourceLocationT,
 } as const;
 
@@ -1218,16 +1309,19 @@ export const clang_getCursorLocation = {
  * entity was actually used).
  */
 export const clang_getCursorExtent = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: CXSourceRangeT,
 } as const;
 
 /**
  * Retrieve the type of a CXCursor (if any).
- * @param C
  */
 export const clang_getCursorType = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: CXTypeT,
 } as const;
 
@@ -1236,10 +1330,11 @@ export const clang_getCursorType = {
  * language of the translation unit from which it came.
  *
  * If the type is invalid, an empty string is returned.
- * @param CT
  */
 export const clang_getTypeSpelling = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // CT
+  ],
   result: CXStringT,
 } as const;
 
@@ -1248,10 +1343,11 @@ export const clang_getTypeSpelling = {
  *
  * If the cursor does not reference a typedef declaration, an invalid type is
  * returned.
- * @param C
  */
 export const clang_getTypedefDeclUnderlyingType = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: CXTypeT,
 } as const;
 
@@ -1260,38 +1356,41 @@ export const clang_getTypedefDeclUnderlyingType = {
  *
  * If the cursor does not reference an enum declaration, an invalid type is
  * returned.
- * @param C
  */
 export const clang_getEnumDeclIntegerType = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: CXTypeT,
 } as const;
 
 /**
  * Retrieve the integer value of an enum constant declaration as a signed
- *  long long.
+ * long long.
  *
  * If the cursor does not reference an enum constant declaration, LLONG_MIN is
  * returned. Since this is also potentially a valid constant value, the kind of
  * the cursor must be verified before calling this function.
- * @param C
  */
 export const clang_getEnumConstantDeclValue = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: longLong,
 } as const;
 
 /**
  * Retrieve the integer value of an enum constant declaration as an unsigned
- *  long long.
+ * long long.
  *
  * If the cursor does not reference an enum constant declaration, ULLONG_MAX is
  * returned. Since this is also potentially a valid constant value, the kind of
  * the cursor must be verified before calling this function.
- * @param C
  */
 export const clang_getEnumConstantDeclUnsignedValue = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: unsignedLongLong,
 } as const;
 
@@ -1299,10 +1398,11 @@ export const clang_getEnumConstantDeclUnsignedValue = {
  * Retrieve the bit width of a bit field declaration as an integer.
  *
  * If a cursor that is not a bit field declaration is passed in, -1 is returned.
- * @param C
  */
 export const clang_getFieldDeclBitWidth = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: int,
 } as const;
 
@@ -1312,10 +1412,11 @@ export const clang_getFieldDeclBitWidth = {
  *
  * The number of arguments can be determined for calls as well as for
  * declarations of functions or methods. For other cursors -1 is returned.
- * @param C
  */
 export const clang_Cursor_getNumArguments = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: int,
 } as const;
 
@@ -1325,11 +1426,12 @@ export const clang_Cursor_getNumArguments = {
  * The argument cursor can be determined for calls as well as for declarations
  * of functions or methods. For other cursors and for invalid indices, an
  * invalid cursor is returned.
- * @param C
- * @param i
  */
 export const clang_Cursor_getArgument = {
-  parameters: [CXCursorT, unsigned],
+  parameters: [
+    CXCursorT, // C
+    unsignedInt, // i
+  ],
   result: CXCursorT,
 } as const;
 
@@ -1341,17 +1443,18 @@ export const clang_Cursor_getArgument = {
  * declaration, -1 is returned.
  *
  * For example, for the following declaration and specialization:
- *   template <typename T, int kInt, bool kBool>
- *   void foo() { ... }
+ * template <typename T, int kInt, bool kBool>
+ * void foo() { ... }
  *
- *   template <>
- *   void foo<float, -7, true>();
+ * template \<\>
+ * void foo<float, -7, true>();
  *
  * The value 3 would be returned from this call.
- * @param C
  */
 export const clang_Cursor_getNumTemplateArguments = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: int,
 } as const;
 
@@ -1363,114 +1466,127 @@ export const clang_Cursor_getNumTemplateArguments = {
  * returned.
  *
  * For example, for the following declaration and specialization:
- *   template <typename T, int kInt, bool kBool>
- *   void foo() { ... }
+ * template <typename T, int kInt, bool kBool>
+ * void foo() { ... }
  *
- *   template <>
- *   void foo<float, -7, true>();
+ * template \<\>
+ * void foo<float, -7, true>();
  *
  * For I = 0, 1, and 2, Type, Integral, and Integral will be returned,
  * respectively.
- * @param C
- * @param I
  */
 export const clang_Cursor_getTemplateArgumentKind = {
-  parameters: [CXCursorT, unsigned],
+  parameters: [
+    CXCursorT, // C
+    unsignedInt, // I
+  ],
   result: CXTemplateArgumentKindT,
 } as const;
 
 /**
  * Retrieve a CXType representing the type of a TemplateArgument of a
- *  function decl representing a template specialization.
+ * function decl representing a template specialization.
  *
  * If the argument CXCursor does not represent a FunctionDecl, StructDecl,
  * ClassDecl or ClassTemplatePartialSpecialization whose I'th template argument
  * has a kind of CXTemplateArgKind_Integral, an invalid type is returned.
  *
  * For example, for the following declaration and specialization:
- *   template <typename T, int kInt, bool kBool>
- *   void foo() { ... }
+ * template <typename T, int kInt, bool kBool>
+ * void foo() { ... }
  *
- *   template <>
- *   void foo<float, -7, true>();
+ * template \<\>
+ * void foo<float, -7, true>();
  *
  * If called with I = 0, "float", will be returned.
  * Invalid types will be returned for I == 1 or 2.
- * @param C
- * @param I
  */
 export const clang_Cursor_getTemplateArgumentType = {
-  parameters: [CXCursorT, unsigned],
+  parameters: [
+    CXCursorT, // C
+    unsignedInt, // I
+  ],
   result: CXTypeT,
 } as const;
 
 /**
  * Retrieve the value of an Integral TemplateArgument (of a function
- *  decl representing a template specialization) as a signed long long.
+ * decl representing a template specialization) as a signed long long.
  *
  * It is undefined to call this function on a CXCursor that does not represent a
  * FunctionDecl, StructDecl, ClassDecl or ClassTemplatePartialSpecialization
  * whose I'th template argument is not an integral value.
  *
  * For example, for the following declaration and specialization:
- *   template <typename T, int kInt, bool kBool>
- *   void foo() { ... }
+ * template <typename T, int kInt, bool kBool>
+ * void foo() { ... }
  *
- *   template <>
- *   void foo<float, -7, true>();
+ * template \<\>
+ * void foo<float, -7, true>();
  *
  * If called with I = 1 or 2, -7 or true will be returned, respectively.
  * For I == 0, this function's behavior is undefined.
  */
 export const clang_Cursor_getTemplateArgumentValue = {
-  parameters: [CXCursorT, unsigned],
+  parameters: [
+    CXCursorT, // C
+    unsignedInt, // I
+  ],
   result: longLong,
 } as const;
 
 /**
  * Retrieve the value of an Integral TemplateArgument (of a function
- *  decl representing a template specialization) as an unsigned long long.
+ * decl representing a template specialization) as an unsigned long long.
  *
  * It is undefined to call this function on a CXCursor that does not represent a
  * FunctionDecl, StructDecl, ClassDecl or ClassTemplatePartialSpecialization or
  * whose I'th template argument is not an integral value.
  *
  * For example, for the following declaration and specialization:
- *   template <typename T, int kInt, bool kBool>
- *   void foo() { ... }
+ * template <typename T, int kInt, bool kBool>
+ * void foo() { ... }
  *
- *   template <>
- *   void foo<float, 2147483649, true>();
+ * template \<\>
+ * void foo<float, 2147483649, true>();
  *
  * If called with I = 1 or 2, 2147483649 or true will be returned, respectively.
  * For I == 0, this function's behavior is undefined.
  */
 export const clang_Cursor_getTemplateArgumentUnsignedValue = {
-  parameters: [CXCursorT, unsigned],
+  parameters: [
+    CXCursorT, // C
+    unsignedInt, // I
+  ],
   result: unsignedLongLong,
 } as const;
 
 /**
  * Determine whether two CXTypes represent the same type.
  *
- * \returns non-zero if the CXTypes represent the same type and
+ * @returns non-zero if the CXTypes represent the same type and
  *          zero otherwise.
  */
 export const clang_equalTypes = {
-  parameters: [CXTypeT, CXTypeT],
-  result: unsigned,
+  parameters: [
+    CXTypeT, // A
+    CXTypeT, // B
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Return the canonical type for a CXType.
  *
  * Clang's type system explicitly models typedefs and all the ways
- * a specific type can be represented.  The canonical type is the underlying
- * type with all the "sugar" removed.  For example, if 'T' is a typedef
+ * a specific type can be represented. The canonical type is the underlying
+ * type with all the "sugar" removed. For example, if 'T' is a typedef
  * for 'int', the canonical type for 'T' would be 'int'.
  */
 export const clang_getCanonicalType = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: CXTypeT,
 } as const;
 
@@ -1480,38 +1596,43 @@ export const clang_getCanonicalType = {
  * different level.
  */
 export const clang_isConstQualifiedType = {
-  parameters: [CXTypeT],
-  result: unsigned,
+  parameters: [
+    CXTypeT, // T
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
- * Determine whether a  CXCursor that is a macro, is
+ * Determine whether a CXCursor that is a macro, is
  * function like.
- * @param C
  */
 export const clang_Cursor_isMacroFunctionLike = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
- * Determine whether a  CXCursor that is a macro, is a
+ * Determine whether a CXCursor that is a macro, is a
  * builtin one.
- * @param C
  */
 export const clang_Cursor_isMacroBuiltin = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
- * Determine whether a  CXCursor that is a function declaration, is an
+ * Determine whether a CXCursor that is a function declaration, is an
  * inline declaration.
- * @param C
  */
 export const clang_Cursor_isFunctionInlined = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -1520,8 +1641,10 @@ export const clang_Cursor_isFunctionInlined = {
  * a different level.
  */
 export const clang_isVolatileQualifiedType = {
-  parameters: [CXTypeT],
-  result: unsigned,
+  parameters: [
+    CXTypeT, // T
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -1530,24 +1653,29 @@ export const clang_isVolatileQualifiedType = {
  * different level.
  */
 export const clang_isRestrictQualifiedType = {
-  parameters: [CXTypeT],
-  result: unsigned,
+  parameters: [
+    CXTypeT, // T
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Returns the address space of the given type.
  */
 export const clang_getAddressSpace = {
-  parameters: [CXTypeT],
-  result: unsigned,
+  parameters: [
+    CXTypeT, // T
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Returns the typedef name of the given type.
- * @param CT
  */
 export const clang_getTypedefName = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // CT
+  ],
   result: CXStringT,
 } as const;
 
@@ -1555,7 +1683,9 @@ export const clang_getTypedefName = {
  * For pointer types, returns the type of the pointee.
  */
 export const clang_getPointeeType = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: CXTypeT,
 } as const;
 
@@ -1565,37 +1695,34 @@ export const clang_getPointeeType = {
  *
  * For example, given the following series of typedefs:
  *
- * ```c++
+ * ```cpp
  * typedef int Integer;
  * typedef const Integer CInteger;
  * typedef CInteger DifferenceType;
  * ```
+ * Executing `clang_getUnqualifiedType(`) on a `CXType` that
+ * represents `DifferenceType,` will desugar to a type representing
+ * `Integer,` that has no qualifiers.
  *
- * Executing {@link clang_getUnqualifiedType}() on a {@link CXType} that
- * represents `$1`, will desugar to a type representing
- * `$1`, that has no qualifiers.
- *
- * And, executing {@link clang_getUnqualifiedType}() on the type of the
+ * And, executing `clang_getUnqualifiedType(`) on the type of the
  * first argument of the following function declaration:
  *
- * ```c++
+ * ```cpp
  * void foo(const int);
  * ```
- *
- * Will return a type representing `$1`, removing the `$1`
- * qualifier.
+ * Will return a type representing `int,` removing the `const` qualifier.
  *
  * Sugar over array types is not desugared.
  *
- * A type can be checked for qualifiers with {@link clang_isConstQualifiedType}(), {@link clang_isVolatileQualifiedType}()
- * and {@link clang_isRestrictQualifiedType}().
+ * A type can be checked for qualifiers with `clang_isConstQualifiedType(),` `clang_isVolatileQualifiedType(`) and `clang_isRestrictQualifiedType().`
  *
- * A type that resulted from a call to {@link clang_getUnqualifiedType}
- * will return `$1` for all of the above calls.
- * @param CT
+ * A type that resulted from a call to `clang_getUnqualifiedType` will return `false` for all of the above calls.
  */
-const _clang_getUnqualifiedType = {
-  parameters: [CXTypeT],
+// deno-lint-ignore no-unused-vars
+const clang_getUnqualifiedType = {
+  parameters: [
+    CXTypeT, // CT
+  ],
   result: CXTypeT,
 } as const;
 
@@ -1605,12 +1732,14 @@ const _clang_getUnqualifiedType = {
  *
  * Otherwise, returns the type itself.
  *
- * A type that has kind {@link CXType_LValueReference} or
- * {@link CXType_RValueReference} is a reference type.
- * @param CT
+ * A type that has kind `CXType_LValueReference` or
+ * `CXType_RValueReference` is a reference type.
  */
-const _clang_getNonReferenceType = {
-  parameters: [CXTypeT],
+// deno-lint-ignore no-unused-vars
+const clang_getNonReferenceType = {
+  parameters: [
+    CXTypeT, // CT
+  ],
   result: CXTypeT,
 } as const;
 
@@ -1618,34 +1747,39 @@ const _clang_getNonReferenceType = {
  * Return the cursor for the declaration of the given type.
  */
 export const clang_getTypeDeclaration = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: CXCursorT,
 } as const;
 
 /**
  * Returns the Objective-C type encoding for the specified declaration.
- * @param C
  */
 export const clang_getDeclObjCTypeEncoding = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: CXStringT,
 } as const;
 
 /**
  * Returns the Objective-C type encoding for the specified CXType.
- * @param type
  */
 export const clang_Type_getObjCEncoding = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // type
+  ],
   result: CXStringT,
 } as const;
 
 /**
  * Retrieve the spelling of a given CXTypeKind.
- * @param K {@link CXTypeKind}
  */
 export const clang_getTypeKindSpelling = {
-  parameters: [CXTypeKindT],
+  parameters: [
+    CXTypeKindT, // K
+  ],
   result: CXStringT,
 } as const;
 
@@ -1655,7 +1789,9 @@ export const clang_getTypeKindSpelling = {
  * If a non-function type is passed in, CXCallingConv_Invalid is returned.
  */
 export const clang_getFunctionTypeCallingConv = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: CXCallingConvT,
 } as const;
 
@@ -1665,7 +1801,9 @@ export const clang_getFunctionTypeCallingConv = {
  * If a non-function type is passed in, an invalid type is returned.
  */
 export const clang_getResultType = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: CXTypeT,
 } as const;
 
@@ -1676,8 +1814,10 @@ export const clang_getResultType = {
  * If a non-function type is passed in, an error code of -1 is returned.
  */
 export const clang_getExceptionSpecificationType = {
-  parameters: [CXTypeT],
-  result: CXCursor_ExceptionSpecificationKindT,
+  parameters: [
+    CXTypeT, // T
+  ],
+  result: int,
 } as const;
 
 /**
@@ -1687,7 +1827,9 @@ export const clang_getExceptionSpecificationType = {
  * If a non-function type is passed in, -1 is returned.
  */
 export const clang_getNumArgTypes = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: int,
 } as const;
 
@@ -1696,11 +1838,12 @@ export const clang_getNumArgTypes = {
  *
  * If a non-function type is passed in or the function does not have enough
  * parameters, an invalid type is returned.
- * @param T
- * @param i
  */
 export const clang_getArgType = {
-  parameters: [CXTypeT, unsigned],
+  parameters: [
+    CXTypeT, // T
+    unsignedInt, // i
+  ],
   result: CXTypeT,
 } as const;
 
@@ -1710,7 +1853,9 @@ export const clang_getArgType = {
  * If the type is not an ObjC object, an invalid type is returned.
  */
 export const clang_Type_getObjCObjectBaseType = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: CXTypeT,
 } as const;
 
@@ -1720,8 +1865,10 @@ export const clang_Type_getObjCObjectBaseType = {
  * If the type is not an ObjC object, 0 is returned.
  */
 export const clang_Type_getNumObjCProtocolRefs = {
-  parameters: [CXTypeT],
-  result: unsigned,
+  parameters: [
+    CXTypeT, // T
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -1729,11 +1876,12 @@ export const clang_Type_getNumObjCProtocolRefs = {
  *
  * If the type is not an ObjC object or there are not enough protocol
  * references, an invalid cursor is returned.
- * @param T
- * @param i
  */
 export const clang_Type_getObjCProtocolDecl = {
-  parameters: [CXTypeT, unsigned],
+  parameters: [
+    CXTypeT, // T
+    unsignedInt, // i
+  ],
   result: CXCursorT,
 } as const;
 
@@ -1743,8 +1891,10 @@ export const clang_Type_getObjCProtocolDecl = {
  * If the type is not an ObjC object, 0 is returned.
  */
 export const clang_Type_getNumObjCTypeArgs = {
-  parameters: [CXTypeT],
-  result: unsigned,
+  parameters: [
+    CXTypeT, // T
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -1752,11 +1902,12 @@ export const clang_Type_getNumObjCTypeArgs = {
  *
  * If the type is not an ObjC or the index is not valid,
  * an invalid type is returned.
- * @param T
- * @param i
  */
 export const clang_Type_getObjCTypeArg = {
-  parameters: [CXTypeT, unsigned],
+  parameters: [
+    CXTypeT, // T
+    unsignedInt, // i
+  ],
   result: CXTypeT,
 } as const;
 
@@ -1764,18 +1915,21 @@ export const clang_Type_getObjCTypeArg = {
  * Return 1 if the CXType is a variadic function type, and 0 otherwise.
  */
 export const clang_isFunctionTypeVariadic = {
-  parameters: [CXTypeT],
-  result: unsigned,
+  parameters: [
+    CXTypeT, // T
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Retrieve the return type associated with a given cursor.
  *
  * This only returns a valid type if the cursor refers to a function or method.
- * @param C
  */
 export const clang_getCursorResultType = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: CXTypeT,
 } as const;
 
@@ -1785,20 +1939,23 @@ export const clang_getCursorResultType = {
  *
  * This only returns a valid result if the cursor refers to a function or
  * method.
- * @param C
  */
 export const clang_getCursorExceptionSpecificationType = {
-  parameters: [CXCursorT],
-  result: CXCursor_ExceptionSpecificationKindT,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: int,
 } as const;
 
 /**
  * Return 1 if the CXType is a POD (plain old data) type, and 0
- *  otherwise.
+ * otherwise.
  */
 export const clang_isPODType = {
-  parameters: [CXTypeT],
-  result: unsigned,
+  parameters: [
+    CXTypeT, // T
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -1808,7 +1965,9 @@ export const clang_isPODType = {
  * an invalid type is returned.
  */
 export const clang_getElementType = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: CXTypeT,
 } as const;
 
@@ -1819,7 +1978,9 @@ export const clang_getElementType = {
  * -1 is returned.
  */
 export const clang_getNumElements = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: longLong,
 } as const;
 
@@ -1829,7 +1990,9 @@ export const clang_getNumElements = {
  * If a non-array type is passed in, an invalid type is returned.
  */
 export const clang_getArrayElementType = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: CXTypeT,
 } as const;
 
@@ -1839,7 +2002,9 @@ export const clang_getArrayElementType = {
  * If a non-array type is passed in, -1 is returned.
  */
 export const clang_getArraySize = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: longLong,
 } as const;
 
@@ -1849,7 +2014,9 @@ export const clang_getArraySize = {
  * If a non-elaborated type is passed in, an invalid type is returned.
  */
 export const clang_Type_getNamedType = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: CXTypeT,
 } as const;
 
@@ -1859,35 +2026,41 @@ export const clang_Type_getNamedType = {
  * A typedef is considered 'transparent' if it shares a name and spelling
  * location with its underlying tag type, as is the case with the NS_ENUM macro.
  *
- * \returns non-zero if transparent and zero otherwise.
+ * @returns non-zero if transparent and zero otherwise.
  */
 export const clang_Type_isTransparentTagTypedef = {
-  parameters: [CXTypeT],
-  result: unsigned,
+  parameters: [
+    CXTypeT, // T
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Retrieve the nullability kind of a pointer type.
  */
 export const clang_Type_getNullability = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: CXTypeNullabilityKindT,
 } as const;
 
 /**
  * Return the alignment of a type in bytes as per C++[expr.alignof]
- *   standard.
+ * standard.
  *
  * If the type declaration is invalid, CXTypeLayoutError_Invalid is returned.
  * If the type declaration is an incomplete type, CXTypeLayoutError_Incomplete
- *   is returned.
+ * is returned.
  * If the type declaration is a dependent type, CXTypeLayoutError_Dependent is
- *   returned.
+ * returned.
  * If the type declaration is not a constant size type,
- *   CXTypeLayoutError_NotConstantSize is returned.
+ * CXTypeLayoutError_NotConstantSize is returned.
  */
 export const clang_Type_getAlignOf = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: longLong,
 } as const;
 
@@ -1897,7 +2070,9 @@ export const clang_Type_getAlignOf = {
  * If a non-member-pointer type is passed in, an invalid type is returned.
  */
 export const clang_Type_getClassType = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: CXTypeT,
 } as const;
 
@@ -1906,32 +2081,35 @@ export const clang_Type_getClassType = {
  *
  * If the type declaration is invalid, CXTypeLayoutError_Invalid is returned.
  * If the type declaration is an incomplete type, CXTypeLayoutError_Incomplete
- *   is returned.
+ * is returned.
  * If the type declaration is a dependent type, CXTypeLayoutError_Dependent is
- *   returned.
+ * returned.
  */
 export const clang_Type_getSizeOf = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: longLong,
 } as const;
 
 /**
  * Return the offset of a field named S in a record of type T in bits
- *   as it would be returned by __offsetof__ as per C++11[18.2p4]
+ * as it would be returned by __offsetof__ as per C++11[18.2p4]
  *
  * If the cursor is not a record field declaration, CXTypeLayoutError_Invalid
- *   is returned.
+ * is returned.
  * If the field's type declaration is an incomplete type,
- *   CXTypeLayoutError_Incomplete is returned.
+ * CXTypeLayoutError_Incomplete is returned.
  * If the field's type declaration is a dependent type,
- *   CXTypeLayoutError_Dependent is returned.
+ * CXTypeLayoutError_Dependent is returned.
  * If the field's name S is not found,
- *   CXTypeLayoutError_InvalidFieldName is returned.
- * @param T
- * @param S
+ * CXTypeLayoutError_InvalidFieldName is returned.
  */
 export const clang_Type_getOffsetOf = {
-  parameters: [CXTypeT, constCharPtr],
+  parameters: [
+    CXTypeT, // T
+    cstringT, // S
+  ],
   result: longLong,
 } as const;
 
@@ -1941,7 +2119,9 @@ export const clang_Type_getOffsetOf = {
  * If the type is not an attributed type, an invalid type is returned.
  */
 export const clang_Type_getModifiedType = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: CXTypeT,
 } as const;
 
@@ -1949,10 +2129,11 @@ export const clang_Type_getModifiedType = {
  * Gets the type contained by this atomic type.
  *
  * If a non-atomic type is passed in, an invalid type is returned.
- * @param CT
  */
 export const clang_Type_getValueType = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // CT
+  ],
   result: CXTypeT,
 } as const;
 
@@ -1961,56 +2142,62 @@ export const clang_Type_getValueType = {
  *
  * If the cursor is not a field declaration, -1 is returned.
  * If the cursor semantic parent is not a record field declaration,
- *   CXTypeLayoutError_Invalid is returned.
+ * CXTypeLayoutError_Invalid is returned.
  * If the field's type declaration is an incomplete type,
- *   CXTypeLayoutError_Incomplete is returned.
+ * CXTypeLayoutError_Incomplete is returned.
  * If the field's type declaration is a dependent type,
- *   CXTypeLayoutError_Dependent is returned.
+ * CXTypeLayoutError_Dependent is returned.
  * If the field's name S is not found,
- *   CXTypeLayoutError_InvalidFieldName is returned.
- * @param C
+ * CXTypeLayoutError_InvalidFieldName is returned.
  */
 export const clang_Cursor_getOffsetOfField = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: longLong,
 } as const;
 
 /**
  * Determine whether the given cursor represents an anonymous
  * tag or namespace
- * @param C
  */
 export const clang_Cursor_isAnonymous = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Determine whether the given cursor represents an anonymous record
  * declaration.
- * @param C
  */
 export const clang_Cursor_isAnonymousRecordDecl = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Determine whether the given cursor represents an inline namespace
  * declaration.
- * @param C
  */
 export const clang_Cursor_isInlineNamespace = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Returns the number of template arguments for given template
- * specialization, or -1 if type `$1` is not a template specialization.
+ * specialization, or -1 if type `T` is not a template specialization.
  */
 export const clang_Type_getNumTemplateArguments = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: int,
 } as const;
 
@@ -2022,7 +2209,10 @@ export const clang_Type_getNumTemplateArguments = {
  * template template arguments or variadic packs.
  */
 export const clang_Type_getTemplateArgumentAsType = {
-  parameters: [CXTypeT, unsigned],
+  parameters: [
+    CXTypeT, // T
+    unsignedInt, // i
+  ],
   result: CXTypeT,
 } as const;
 
@@ -2033,27 +2223,32 @@ export const clang_Type_getTemplateArgumentAsType = {
  * or non-C++ declarations, CXRefQualifier_None is returned.
  */
 export const clang_Type_getCXXRefQualifier = {
-  parameters: [CXTypeT],
+  parameters: [
+    CXTypeT, // T
+  ],
   result: CXRefQualifierKindT,
 } as const;
 
 /**
  * Returns non-zero if the cursor specifies a Record member that is a
- *   bitfield.
- * @param C
+ * bitfield.
  */
 export const clang_Cursor_isBitField = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Returns 1 if the base class specified by the cursor with kind
- *   CX_CXXBaseSpecifier is virtual.
+ * CX_CXXBaseSpecifier is virtual.
  */
 export const clang_isVirtualBase = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -2064,7 +2259,9 @@ export const clang_isVirtualBase = {
  * specifier or access specifier, the specifier itself is returned.
  */
 export const clang_getCXXAccessSpecifier = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: CX_CXXAccessSpecifierT,
 } as const;
 
@@ -2075,62 +2272,57 @@ export const clang_getCXXAccessSpecifier = {
  * CX_SC_Invalid is returned else the storage class.
  */
 export const clang_Cursor_getStorageClass = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: CX_StorageClassT,
 } as const;
 
 /**
  * Determine the number of overloaded declarations referenced by a
- * {@link CXCursor_OverloadedDeclRef} cursor.
+ * `CXCursor_OverloadedDeclRef` cursor.
  *
- * \param cursor The cursor whose overloaded declarations are being queried.
- *
- * \returns The number of overloaded declarations referenced by `$1`. If it
- * is not a {@link CXCursor_OverloadedDeclRef} cursor, returns 0.
+ * @param cursor The cursor whose overloaded declarations are being queried.
+ * @returns The number of overloaded declarations referenced by `cursor.` If it
+ * is not a `CXCursor_OverloadedDeclRef` cursor, returns 0.
  */
 export const clang_getNumOverloadedDecls = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // cursor
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Retrieve a cursor for one of the overloaded declarations referenced
- * by a {@link CXCursor_OverloadedDeclRef} cursor.
+ * by a `CXCursor_OverloadedDeclRef` cursor.
  *
- * \param cursor The cursor whose overloaded declarations are being queried.
- *
- * \param index The zero-based index into the set of overloaded declarations in
+ * @param cursor The cursor whose overloaded declarations are being queried.
+ * @param index The zero-based index into the set of overloaded declarations in
  * the cursor.
- *
- * \returns A cursor representing the declaration referenced by the given
- * `$1` at the specified `$1`. If the cursor does not have an
+ * @returns A cursor representing the declaration referenced by the given
+ * `cursor` at the specified `index.` If the cursor does not have an
  * associated set of overloaded declarations, or if the index is out of bounds,
- * returns {@link clang_getNullCursor}();
+ * returns `clang_getNullCursor();`
  */
 export const clang_getOverloadedDecl = {
-  parameters: [CXCursorT, unsigned],
+  parameters: [
+    CXCursorT, // cursor
+    unsignedInt, // index
+  ],
   result: CXCursorT,
 } as const;
 
 /**
- * Information for attributes
- */
-
-/**
  * For cursors representing an iboutletcollection attribute,
- *  this function returns the collection element type.
+ * this function returns the collection element type.
  */
 export const clang_getIBOutletCollectionType = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: CXTypeT,
 } as const;
-
-/**
- * Traversing the AST with cursors
- *
- * These routines provide the ability to traverse the abstract syntax tree
- * using cursors.
- */
 
 /**
  * Visit the children of a particular cursor.
@@ -2138,46 +2330,27 @@ export const clang_getIBOutletCollectionType = {
  * This function visits all the direct children of the given cursor,
  * invoking the given `visitor` function with the cursors of each
  * visited child. The traversal may be recursive, if the visitor returns
- * {@link CXChildVisit_Recurse}. The traversal may also be ended prematurely, if
- * the visitor returns {@link CXChildVisit_Break}.
+ * `CXChildVisit_Recurse.` The traversal may also be ended prematurely, if
+ * the visitor returns `CXChildVisit_Break.`
  *
- * \param parent the cursor whose child may be visited. All kinds of
+ * @param parent the cursor whose child may be visited. All kinds of
  * cursors can be visited, including invalid cursors (which, by
  * definition, have no children).
- *
- * \param visitor the visitor function that will be invoked for each
- * child of `parent`.
- *
- * \param client_data pointer data supplied by the client, which will
+ * @param visitor the visitor function that will be invoked for each
+ * child of `parent.`
+ * @param client_data pointer data supplied by the client, which will
  * be passed to the visitor each time it is invoked.
- *
- * \returns a non-zero value if the traversal was terminated
- * prematurely by the visitor returning {@link CXChildVisit_Break}.
+ * @returns a non-zero value if the traversal was terminated
+ * prematurely by the visitor returning `CXChildVisit_Break.`
  */
 export const clang_visitChildren = {
-  parameters: [CXCursorT, CXCursorVisitor, CXClientDataT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // parent
+    CXCursorVisitorT, // visitor
+    CXClientDataT, // client_data
+  ],
+  result: unsignedInt,
 } as const;
-
-/**
- * Visits the children of a cursor using the specified block.  Behaves
- * identically to clang_visitChildren() in all other respects.
- * @param parent {@link CXCursor}
- * @param {Deno.UnsafeCallback<CXCursorVisitorBlockCallbackDefinition>} block
- */
-// export const clang_visitChildrenWithBlock = {
-//   parameters: [CXCursorT, CXCursorVisitorBlock],
-//   result: unsigned,
-// } as const;
-
-/**
- * Cross-referencing in the AST
- *
- * These routines provide the ability to determine references within and
- * across translation units, by providing the names of the entities referenced
- * by cursors, follow reference cursors to the declarations they reference,
- * and associate declarations with their definitions.
- */
 
 /**
  * Retrieve a Unified Symbol Resolution (USR) for the entity referenced
@@ -2189,69 +2362,77 @@ export const clang_visitChildren = {
  * one translation refer to an entity defined in another translation unit.
  */
 export const clang_getCursorUSR = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: CXStringT,
 } as const;
 
 /**
  * Construct a USR for a specified Objective-C class.
- * @param class_name
  */
 export const clang_constructUSR_ObjCClass = {
-  parameters: [constCharPtr],
+  parameters: [
+    cstringT, // class_name
+  ],
   result: CXStringT,
 } as const;
 
 /**
  * Construct a USR for a specified Objective-C category.
- * @param class_name
- * @param category_name
  */
 export const clang_constructUSR_ObjCCategory = {
-  parameters: [constCharPtr, constCharPtr],
+  parameters: [
+    cstringT, // class_name
+    cstringT, // category_name
+  ],
   result: CXStringT,
 } as const;
 
 /**
  * Construct a USR for a specified Objective-C protocol.
- * @param protocol_name
  */
 export const clang_constructUSR_ObjCProtocol = {
-  parameters: [constCharPtr],
+  parameters: [
+    cstringT, // protocol_name
+  ],
   result: CXStringT,
 } as const;
 
 /**
  * Construct a USR for a specified Objective-C instance variable and
- *   the USR for its containing class.
- * @param name
- * @param classUSR
+ * the USR for its containing class.
  */
 export const clang_constructUSR_ObjCIvar = {
-  parameters: [constCharPtr, CXStringT],
+  parameters: [
+    cstringT, // name
+    CXStringT, // classUSR
+  ],
   result: CXStringT,
 } as const;
 
 /**
  * Construct a USR for a specified Objective-C method and
- *   the USR for its containing class.
- * @param name
- * @param isInstanceMethod
- * @param classUSR
+ * the USR for its containing class.
  */
 export const clang_constructUSR_ObjCMethod = {
-  parameters: [constCharPtr, unsigned, CXStringT],
+  parameters: [
+    cstringT, // name
+    unsignedInt, // isInstanceMethod
+    CXStringT, // classUSR
+  ],
   result: CXStringT,
 } as const;
 
 /**
  * Construct a USR for a specified Objective-C property and the USR
- *  for its containing class.
- * @param property
- * @param classUSR
+ * for its containing class.
  */
 export const clang_constructUSR_ObjCProperty = {
-  parameters: [constCharPtr, CXStringT],
+  parameters: [
+    cstringT, // property
+    CXStringT, // classUSR
+  ],
   result: CXStringT,
 } as const;
 
@@ -2259,7 +2440,9 @@ export const clang_constructUSR_ObjCProperty = {
  * Retrieve a name for the entity referenced by this cursor.
  */
 export const clang_getCursorSpelling = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: CXStringT,
 } as const;
 
@@ -2271,51 +2454,59 @@ export const clang_getCursorSpelling = {
  *
  * @param pieceIndex the index of the spelling name piece. If this is greater
  * than the actual number of pieces, it will return a NULL (invalid) range.
- *
  * @param options Reserved.
  */
 export const clang_Cursor_getSpellingNameRange = {
-  parameters: [CXCursorT, unsigned, unsigned],
+  parameters: [
+    CXCursorT,
+    unsignedInt, // pieceIndex
+    unsignedInt, // options
+  ],
   result: CXSourceRangeT,
 } as const;
 
 /**
  * Get a property value for the given printing policy.
- * @param Policy
- * @param Property
  */
 export const clang_PrintingPolicy_getProperty = {
-  parameters: [CXPrintingPolicyT, CXPrintingPolicyPropertyT],
-  result: unsigned,
+  parameters: [
+    CXPrintingPolicyT, // Policy
+    CXPrintingPolicyPropertyT, // Property
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Set a property value for the given printing policy.
- * @param Policy
- * @param Property
- * @param Value
  */
 export const clang_PrintingPolicy_setProperty = {
-  parameters: [CXPrintingPolicyT, CXPrintingPolicyPropertyT, unsigned],
+  parameters: [
+    CXPrintingPolicyT, // Policy
+    CXPrintingPolicyPropertyT, // Property
+    unsignedInt, // Value
+  ],
   result: "void",
 } as const;
 
 /**
  * Retrieve the default policy for the cursor.
  *
- * The policy should be released after use with {@link clang_PrintingPolicy_dispose}.
+ * The policy should be released after use with `clang_PrintingPolicy_dispose.`
  */
 export const clang_getCursorPrintingPolicy = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: CXPrintingPolicyT,
 } as const;
 
 /**
  * Release a printing policy.
- * @param Policy
  */
 export const clang_PrintingPolicy_dispose = {
-  parameters: [CXPrintingPolicyT],
+  parameters: [
+    CXPrintingPolicyT, // Policy
+  ],
   result: "void",
 } as const;
 
@@ -2323,15 +2514,16 @@ export const clang_PrintingPolicy_dispose = {
  * Pretty print declarations.
  *
  * @param Cursor The cursor representing a declaration.
- *
  * @param Policy The policy to control the entities being printed. If
  * NULL, a default policy is used.
- *
  * @returns The pretty printed declaration or the empty string for
  * other cursors.
  */
 export const clang_getCursorPrettyPrinted = {
-  parameters: [CXCursorT, CXPrintingPolicyT],
+  parameters: [
+    CXCursorT, // Cursor
+    CXPrintingPolicyT, // Policy
+  ],
   result: CXStringT,
 } as const;
 
@@ -2343,11 +2535,14 @@ export const clang_getCursorPrettyPrinted = {
  * class template specialization.
  */
 export const clang_getCursorDisplayName = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: CXStringT,
 } as const;
 
-/** For a cursor that is a reference, retrieve a cursor representing the
+/**
+ * For a cursor that is a reference, retrieve a cursor representing the
  * entity that it references.
  *
  * Reference cursors refer to other entities in the AST. For example, an
@@ -2358,40 +2553,43 @@ export const clang_getCursorDisplayName = {
  * Otherwise, returns the NULL cursor.
  */
 export const clang_getCursorReferenced = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: CXCursorT,
 } as const;
 
 /**
- *  For a cursor that is either a reference to or a declaration
- *  of some entity, retrieve a cursor that describes the definition of
- *  that entity.
+ * For a cursor that is either a reference to or a declaration
+ * of some entity, retrieve a cursor that describes the definition of
+ * that entity.
  *
- *  Some entities can be declared multiple times within a translation
- *  unit, but only one of those declarations can also be a
- *  definition. For example, given:
+ * Some entities can be declared multiple times within a translation
+ * unit, but only one of those declarations can also be a
+ * definition. For example, given:
  *
- *  \code
+ * ```cpp
  *  int f(int, int);
  *  int g(int x, int y) { return f(x, y); }
  *  int f(int a, int b) { return a + b; }
  *  int f(int, int);
- *  \endcode
+ * ```
+ * there are three declarations of the function "f", but only the
+ * second one is a definition. The clang_getCursorDefinition()
+ * function will take any cursor pointing to a declaration of "f"
+ * (the first or fourth lines of the example) or a cursor referenced
+ * that uses "f" (the call to "f' inside "g") and will return a
+ * declaration cursor pointing to the definition (the second "f"
+ * declaration).
  *
- *  there are three declarations of the function "f", but only the
- *  second one is a definition. The clang_getCursorDefinition()
- *  function will take any cursor pointing to a declaration of "f"
- *  (the first or fourth lines of the example) or a cursor referenced
- *  that uses "f" (the call to "f' inside "g") and will return a
- *  declaration cursor pointing to the definition (the second "f"
- *  declaration).
- *
- *  If given a cursor for which there is no corresponding definition,
- *  e.g., because there is no definition of that entity within this
- *  translation unit, returns a NULL cursor.
+ * If given a cursor for which there is no corresponding definition,
+ * e.g., because there is no definition of that entity within this
+ * translation unit, returns a NULL cursor.
  */
 export const clang_getCursorDefinition = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: CXCursorT,
 } as const;
 
@@ -2400,8 +2598,10 @@ export const clang_getCursorDefinition = {
  * is also a definition of that entity.
  */
 export const clang_isCursorDefinition = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -2411,15 +2611,14 @@ export const clang_isCursorDefinition = {
  * times within a single translation unit. For example, a structure type can
  * be forward-declared (possibly multiple times) and later defined:
  *
- * ```c++
+ * ```cpp
  * struct X;
  * struct X;
  * struct X {
  *   int member;
  * };
  * ```
- *
- * The declarations and the definition of `$1` are represented by three
+ * The declarations and the definition of `X` are represented by three
  * different cursors, all of which are declarations of the same underlying
  * entity. One of these cursor is considered the "canonical" cursor, which
  * is effectively the representative for the underlying entity. One can
@@ -2429,7 +2628,9 @@ export const clang_isCursorDefinition = {
  * @returns The canonical cursor for the entity referred to by the given cursor.
  */
 export const clang_getCanonicalCursor = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: CXCursorT,
 } as const;
 
@@ -2445,7 +2646,9 @@ export const clang_getCanonicalCursor = {
  * otherwise.
  */
 export const clang_Cursor_getObjCSelectorIndex = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: int,
 } as const;
 
@@ -2461,29 +2664,36 @@ export const clang_Cursor_getObjCSelectorIndex = {
  * method/message, it will return zero.
  */
 export const clang_Cursor_isDynamicCall = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: int,
-};
+} as const;
 
 /**
  * Given a cursor pointing to an Objective-C message or property
  * reference, or C++ method call, returns the CXType of the receiver.
  */
 export const clang_Cursor_getReceiverType = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: CXTypeT,
-};
+} as const;
 
 /**
  * Given a cursor that represents a property declaration, return the
  * associated property attributes. The bits are formed from
- * {@link CXObjCPropertyAttrKind}.
+ * `CXObjCPropertyAttrKind.`
  *
  * @param reserved Reserved for future use, pass 0.
  */
 export const clang_Cursor_getObjCPropertyAttributes = {
-  parameters: [CXCursorT, unsigned],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+    unsignedInt, // reserved
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -2491,7 +2701,9 @@ export const clang_Cursor_getObjCPropertyAttributes = {
  * name of the method that implements the getter.
  */
 export const clang_Cursor_getObjCPropertyGetterName = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: CXStringT,
 } as const;
 
@@ -2500,7 +2712,9 @@ export const clang_Cursor_getObjCPropertyGetterName = {
  * name of the method that implements the setter, if any.
  */
 export const clang_Cursor_getObjCPropertySetterName = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: CXStringT,
 } as const;
 
@@ -2511,8 +2725,10 @@ export const clang_Cursor_getObjCPropertySetterName = {
  * CXObjCDeclQualifierKind.
  */
 export const clang_Cursor_getObjCDeclQualifiers = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -2521,45 +2737,52 @@ export const clang_Cursor_getObjCDeclQualifiers = {
  * Returns zero if the cursor is not such a declaration or it is "\@required".
  */
 export const clang_Cursor_isObjCOptional = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Returns non-zero if the given cursor is a variadic function or method.
  */
 export const clang_Cursor_isVariadic = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Returns non-zero if the given cursor points to a symbol marked with
  * external_source_symbol attribute.
  *
- * @param Cursor
- *
- * @param language (`CXString *`) If non-NULL, and the attribute is present, will be set to
+ * @param language If non-NULL, and the attribute is present, will be set to
  * the 'language' string from the attribute.
- *
- * @param definedIn (`CXString *`) If non-NULL, and the attribute is present, will be set to
+ * @param definedIn If non-NULL, and the attribute is present, will be set to
  * the 'definedIn' string from the attribute.
- *
- * @param isGenerated (`unsigned *`) If non-NULL, and the attribute is present, will be set to
+ * @param isGenerated If non-NULL, and the attribute is present, will be set to
  * non-zero if the 'generated_declaration' is set in the attribute.
  */
 export const clang_Cursor_isExternalSymbol = {
-  parameters: [CXCursorT, buf(CXStringT), buf(CXStringT), buf(unsigned)],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+    buf(CXStringT), // language
+    buf(CXStringT), // definedIn
+    buf(unsignedInt), // isGenerated
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Given a cursor that represents a declaration, return the associated
- * comment's source range.  The range may include multiple consecutive comments
+ * comment's source range. The range may include multiple consecutive comments
  * with whitespace in between.
  */
 export const clang_Cursor_getCommentRange = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: CXSourceRangeT,
 } as const;
 
@@ -2568,48 +2791,54 @@ export const clang_Cursor_getCommentRange = {
  * comment text, including comment markers.
  */
 export const clang_Cursor_getRawCommentText = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: CXStringT,
 } as const;
 
 /**
  * Given a cursor that represents a documentable entity (e.g.,
- * declaration), return the associated \paragraph; otherwise return the
+ * declaration), return the associated
+ * \\paragraph ; otherwise return the
  * first paragraph.
  */
 export const clang_Cursor_getBriefCommentText = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: CXStringT,
 } as const;
-
-/** Name Mangling API Functions
- */
 
 /**
  * Retrieve the CXString representing the mangled name of the cursor.
  */
 export const clang_Cursor_getMangling = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: CXStringT,
 } as const;
 
 /**
  * Retrieve the CXStrings representing the mangled symbols of the C++
  * constructor or destructor at the cursor.
- * @returns {CXStringSet *}
  */
 export const clang_Cursor_getCXXManglings = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: ptr(CXStringSetT),
 } as const;
 
 /**
  * Retrieve the CXStrings representing the mangled symbols of the ObjC
  * class interface or implementation at the cursor.
- * @returns {CXStringSet *}
  */
 export const clang_Cursor_getObjCManglings = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT,
+  ],
   result: ptr(CXStringSetT),
 } as const;
 
@@ -2617,8 +2846,10 @@ export const clang_Cursor_getObjCManglings = {
  * Given a CXCursor_ModuleImportDecl cursor, return the associated module.
  */
 export const clang_Cursor_getModule = {
-  parameters: [CXCursorT],
-  result: CXModule,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: CXModuleT,
 } as const;
 
 /**
@@ -2626,145 +2857,165 @@ export const clang_Cursor_getModule = {
  * exists.
  */
 export const clang_getModuleForFile = {
-  parameters: [CXTranslationUnitT, CXFileT],
-  result: CXModule,
+  parameters: [
+    CXTranslationUnitT,
+    CXFileT,
+  ],
+  result: CXModuleT,
 } as const;
 
 /**
  * @param Module a module object.
- *
  * @returns the module file where the provided module object came from.
  */
 export const clang_Module_getASTFile = {
-  parameters: [CXModule],
+  parameters: [
+    CXModuleT, // Module
+  ],
   result: CXFileT,
 } as const;
 
 /**
  * @param Module a module object.
- *
  * @returns the parent of a sub-module or NULL if the given module is top-level,
  * e.g. for 'std.vector' it will return the 'std' module.
  */
 export const clang_Module_getParent = {
-  parameters: [CXModule],
-  result: CXModule,
+  parameters: [
+    CXModuleT, // Module
+  ],
+  result: CXModuleT,
 } as const;
 
 /**
  * @param Module a module object.
- *
  * @returns the name of the module, e.g. for the 'std.vector' sub-module it
  * will return "vector".
  */
 export const clang_Module_getName = {
-  parameters: [CXModule],
+  parameters: [
+    CXModuleT, // Module
+  ],
   result: CXStringT,
 } as const;
 
 /**
  * @param Module a module object.
- *
  * @returns the full name of the module, e.g. "std.vector".
  */
 export const clang_Module_getFullName = {
-  parameters: [CXModule],
+  parameters: [
+    CXModuleT, // Module
+  ],
   result: CXStringT,
 } as const;
 
 /**
  * @param Module a module object.
- *
  * @returns non-zero if the module is a system one.
  */
 export const clang_Module_isSystem = {
-  parameters: [CXModule],
+  parameters: [
+    CXModuleT, // Module
+  ],
   result: int,
 } as const;
 
 /**
  * @param Module a module object.
- *
  * @returns the number of top level headers associated with this module.
  */
 export const clang_Module_getNumTopLevelHeaders = {
-  parameters: [CXTranslationUnitT, CXModule],
-  result: unsigned,
+  parameters: [
+    CXTranslationUnitT,
+    CXModuleT, // Module
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * @param Module a module object.
- *
  * @param Index top level header index (zero-based).
- *
  * @returns the specified top level header associated with the module.
  */
 export const clang_Module_getTopLevelHeader = {
-  parameters: [CXTranslationUnitT, CXModule, unsigned],
+  parameters: [
+    CXTranslationUnitT,
+    CXModuleT, // Module
+    unsignedInt, // Index
+  ],
   result: CXFileT,
 } as const;
-
-/**
- * C++ AST introspection
- *
- * The routines in this group provide access information in the ASTs specific
- * to C++ language features.
- */
 
 /**
  * Determine if a C++ constructor is a converting constructor.
  */
 export const clang_CXXConstructor_isConvertingConstructor = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Determine if a C++ constructor is a copy constructor.
  */
 export const clang_CXXConstructor_isCopyConstructor = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Determine if a C++ constructor is the default constructor.
  */
 export const clang_CXXConstructor_isDefaultConstructor = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Determine if a C++ constructor is a move constructor.
  */
 export const clang_CXXConstructor_isMoveConstructor = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Determine if a C++ field is declared 'mutable'.
  */
 export const clang_CXXField_isMutable = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Determine if a C++ method is declared '= default'.
  */
 export const clang_CXXMethod_isDefaulted = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Determine if a C++ method is declared '= delete'.
  */
-const _clang_CXXMethod_isDeleted = {
-  parameters: [CXCursorT],
-  result: unsigned,
+// deno-lint-ignore no-unused-vars
+const clang_CXXMethod_isDeleted = {
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -2772,8 +3023,10 @@ const _clang_CXXMethod_isDeleted = {
  * pure virtual.
  */
 export const clang_CXXMethod_isPureVirtual = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -2781,8 +3034,10 @@ export const clang_CXXMethod_isPureVirtual = {
  * declared 'static'.
  */
 export const clang_CXXMethod_isStatic = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -2791,8 +3046,10 @@ export const clang_CXXMethod_isStatic = {
  * one of the base classes.
  */
 export const clang_CXXMethod_isVirtual = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -2801,26 +3058,60 @@ export const clang_CXXMethod_isVirtual = {
  *
  * > A copy-assignment operator `X::operator=` is a non-static,
  * > non-template member function of _class_ `X` with exactly one
- * > parameter of type `X`, `X&`, `const X&`, `volatile X&` or `const
- * > volatile X&`.
+ * > parameter of type `X`, `X\&`, `const X\&`, `volatile X\&` or `const
+ * > volatile X\&`.
  *
  * That is, for example, the `operator=` in:
  *
- *    class Foo {
- *        bool operator=(const volatile Foo&);
- *    };
+ * class Foo {
+ * bool operator=(const volatile Foo\&);
+ * };
  *
  * Is a copy-assignment operator, while the `operator=` in:
  *
- *    class Bar {
- *        bool operator=(const int&);
- *    };
+ * class Bar {
+ * bool operator=(const int\&);
+ * };
  *
  * Is not.
  */
-const _clang_CXXMethod_isCopyAssignmentOperator = {
-  parameters: [CXCursorT],
-  result: unsigned,
+// deno-lint-ignore no-unused-vars
+const clang_CXXMethod_isCopyAssignmentOperator = {
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
+} as const;
+
+/**
+ * Determine if a C++ member function is a move-assignment operator,
+ * returning 1 if such is the case and 0 otherwise.
+ *
+ * > A move-assignment operator `X::operator=` is a non-static,
+ * > non-template member function of _class_ `X` with exactly one
+ * > parameter of type `X\&\&`, `const X\&\&`, `volatile X\&\&` or `const
+ * > volatile X\&\&`.
+ *
+ * That is, for example, the `operator=` in:
+ *
+ * class Foo {
+ * bool operator=(const volatile Foo\&\&);
+ * };
+ *
+ * Is a move-assignment operator, while the `operator=` in:
+ *
+ * class Bar {
+ * bool operator=(const int\&\&);
+ * };
+ *
+ * Is not.
+ */
+// deno-lint-ignore no-unused-vars
+const clang_CXXMethod_isMoveAssignmentOperator = {
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -2828,16 +3119,20 @@ const _clang_CXXMethod_isCopyAssignmentOperator = {
  * has a pure virtual member function.
  */
 export const clang_CXXRecord_isAbstract = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Determine if an enum declaration refers to a scoped enum.
  */
 export const clang_EnumDecl_isScoped = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -2845,8 +3140,10 @@ export const clang_EnumDecl_isScoped = {
  * declared 'const'.
  */
 export const clang_CXXMethod_isConst = {
-  parameters: [CXCursorT],
-  result: unsigned,
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -2861,13 +3158,14 @@ export const clang_CXXMethod_isConst = {
  *
  * @param C The cursor to query. This cursor should represent a template
  * declaration.
- *
  * @returns The cursor kind of the specializations that would be generated
- * by instantiating the template `C`. If `C` is not a template, returns
- * {@link CXCursor_NoDeclFound}.
+ * by instantiating the template `C.` If `C` is not a template, returns
+ * `CXCursor_NoDeclFound.`
  */
 export const clang_getTemplateCursorKind = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: CXCursorKindT,
 } as const;
 
@@ -2879,8 +3177,8 @@ export const clang_getTemplateCursorKind = {
  * This routine determines the template involved both for explicit
  * specializations of templates and for implicit instantiations of the template,
  * both of which are referred to as "specializations". For a class template
- * specialization (e.g., `$1`, this routine will return
- * either the primary template (`$1` or, if the specialization was
+ * specialization (e.g., `std::vector<bool>),` this routine will return
+ * either the primary template (`std::vector`) or, if the specialization was
  * instantiated from a class template partial specialization, the class template
  * partial specialization. For a class template partial specialization and a
  * function template specialization (including instantiations), this
@@ -2894,13 +3192,14 @@ export const clang_getTemplateCursorKind = {
  *
  * @param C A cursor that may be a specialization of a template or a member
  * of a template.
- *
  * @returns If the given cursor is a specialization or instantiation of a
  * template or a member thereof, the template or member that it specializes or
  * from which it was instantiated. Otherwise, returns a NULL cursor.
  */
 export const clang_getSpecializedCursorTemplate = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: CXCursorT,
 } as const;
 
@@ -2910,20 +3209,25 @@ export const clang_getSpecializedCursorTemplate = {
  *
  * @param C A cursor pointing to a member reference, a declaration reference, or
  * an operator call.
+ *
  * @param NameFlags A bitset with three independent flags:
  * CXNameRange_WantQualifier, CXNameRange_WantTemplateArgs, and
  * CXNameRange_WantSinglePiece.
+ *
  * @param PieceIndex For contiguous names or when passing the flag
  * CXNameRange_WantSinglePiece, only one piece with index 0 is
  * available. When the CXNameRange_WantSinglePiece flag is not passed for a
  * non-contiguous names, this index can be used to retrieve the individual
  * pieces of the name. See also CXNameRange_WantSinglePiece.
- *
  * @returns The piece of the name pointed to by the given cursor. If there is no
  * name, or if the PieceIndex is out-of-range, a null-cursor will be returned.
  */
 export const clang_getCursorReferenceNameRange = {
-  parameters: [CXCursorT, unsigned, unsigned],
+  parameters: [
+    CXCursorT, // C
+    unsignedInt, // NameFlags
+    unsignedInt, // PieceIndex
+  ],
   result: CXSourceRangeT,
 } as const;
 
@@ -2931,23 +3235,26 @@ export const clang_getCursorReferenceNameRange = {
  * Get the raw lexical token starting with the given location.
  *
  * @param TU the translation unit whose text is being tokenized.
- *
  * @param Location the source location with which the token starts.
- *
  * @returns The token starting with the given location or NULL if no such token
  * exist. The returned pointer must be freed with clang_disposeTokens before the
  * translation unit is destroyed.
  */
 export const clang_getToken = {
-  parameters: [CXTranslationUnitT, CXSourceLocationT],
-  result: ptr(CXToken),
+  parameters: [
+    CXTranslationUnitT, // TU
+    CXSourceLocationT, // Location
+  ],
+  result: ptr(CXTokenT),
 } as const;
 
 /**
  * Determine the kind of the given token.
  */
 export const clang_getTokenKind = {
-  parameters: [CXToken],
+  parameters: [
+    CXTokenT,
+  ],
   result: CXTokenKindT,
 } as const;
 
@@ -2958,7 +3265,10 @@ export const clang_getTokenKind = {
  * the text of an identifier or keyword.
  */
 export const clang_getTokenSpelling = {
-  parameters: [CXTranslationUnitT, CXToken],
+  parameters: [
+    CXTranslationUnitT,
+    CXTokenT,
+  ],
   result: CXStringT,
 } as const;
 
@@ -2966,7 +3276,10 @@ export const clang_getTokenSpelling = {
  * Retrieve the source location of the given token.
  */
 export const clang_getTokenLocation = {
-  parameters: [CXTranslationUnitT, CXToken],
+  parameters: [
+    CXTranslationUnitT,
+    CXTokenT,
+  ],
   result: CXSourceLocationT,
 } as const;
 
@@ -2974,7 +3287,10 @@ export const clang_getTokenLocation = {
  * Retrieve a source range that covers the given token.
  */
 export const clang_getTokenExtent = {
-  parameters: [CXTranslationUnitT, CXToken],
+  parameters: [
+    CXTranslationUnitT,
+    CXTokenT,
+  ],
   result: CXSourceRangeT,
 } as const;
 
@@ -2983,23 +3299,19 @@ export const clang_getTokenExtent = {
  * lexical tokens.
  *
  * @param TU the translation unit whose text is being tokenized.
- *
  * @param Range the source range in which text should be tokenized. All of the
  * tokens produced by tokenization will fall within this source range,
- *
- * @param {CXTokens **} Tokens [out] this pointer will be set to point to the array of tokens
+ * @param Tokens this pointer will be set to point to the array of tokens
  * that occur within the given source range. The returned pointer must be
  * freed with clang_disposeTokens() before the translation unit is destroyed.
- *
- * @param {unsinged *} NumTokens [out] will be set to the number of tokens in the `$1`
- * array.
+ * @param NumTokens will be set to the number of tokens in the `*Tokens` array.
  */
 export const clang_tokenize = {
   parameters: [
-    CXTranslationUnitT,
-    CXSourceRangeT,
-    buf(buf(CXToken)),
-    buf(unsigned),
+    CXTranslationUnitT, // TU
+    CXSourceRangeT, // Range
+    buf(buf(CXTokenT)), // Tokens
+    buf(unsignedInt), // NumTokens
   ],
   result: "void",
 } as const;
@@ -3012,12 +3324,11 @@ export const clang_tokenize = {
  * clang_getCursor() for the source locations of each of the
  * tokens. The cursors provided are filtered, so that only those
  * cursors that have a direct correspondence to the token are
- * accepted. For example, given a function call `$1`,
- * clang_getCursor() would provide the following cursors:
+ * accepted. For example, given a function call `f(x),` clang_getCursor() would provide the following cursors:
  *
- *   * when the cursor is over the 'f', a DeclRefExpr cursor referring to 'f'.
- *   * when the cursor is over the '(' or the ')', a CallExpr referring to 'f'.
- *   * when the cursor is over the 'x', a DeclRefExpr cursor referring to 'x'.
+ * * when the cursor is over the 'f', a DeclRefExpr cursor referring to 'f'.
+ * * when the cursor is over the '(' or the ')', a CallExpr referring to 'f'.
+ * * when the cursor is over the 'x', a DeclRefExpr cursor referring to 'x'.
  *
  * Only the first and last of these cursors will occur within the
  * annotate, since the tokens "f" and "x' directly refer to a function
@@ -3026,86 +3337,90 @@ export const clang_tokenize = {
  * not provided as an annotation.
  *
  * @param TU the translation unit that owns the given tokens.
- *
- * @param {CXToken *} Tokens the set of tokens to annotate.
- *
- * @param NumTokens the number of tokens in `Tokens`.
- *
- * @param {CXCursor *} Cursors an array of `NumTokens` cursors, whose contents will be
+ * @param Tokens the set of tokens to annotate.
+ * @param NumTokens the number of tokens in `Tokens.`
+ * @param Cursors an array of `NumTokens` cursors, whose contents will be
  * replaced with the cursors corresponding to each token.
  */
 export const clang_annotateTokens = {
-  parameters: [CXTranslationUnitT, CXToken, unsigned, CXCursorT],
+  parameters: [
+    CXTranslationUnitT, // TU
+    buf(CXTokenT), // Tokens
+    unsignedInt, // NumTokens
+    buf(CXCursorT), // Cursors
+  ],
   result: "void",
 } as const;
 
 /**
  * Free the given set of tokens.
- * @param TU
- *
- * @param {CXToken *} Tokens
- *
- * @param NumTokens
  */
 export const clang_disposeTokens = {
-  parameters: [CXTranslationUnitT, ptr(CXToken), unsigned],
+  parameters: [
+    CXTranslationUnitT, // TU
+    ptr(CXTokenT), // Tokens
+    unsignedInt, // NumTokens
+  ],
   result: "void",
 } as const;
 
 /**
- * Debugging facilities
- *
  * These routines are used for testing and debugging, only, and should not
  * be relied upon.
+ *
+ * \@\{
  */
-
-/** for debug/testing */
 export const clang_getCursorKindSpelling = {
-  parameters: [CXCursorKindT],
+  parameters: [
+    CXCursorKindT, // Kind
+  ],
   result: CXStringT,
 } as const;
+
 export const clang_getDefinitionSpellingAndExtent = {
   parameters: [
     CXCursorT,
-    buf(constCharPtr),
-    buf(constCharPtr),
-    buf(unsigned),
-    buf(unsigned),
-    buf(unsigned),
-    buf(unsigned),
+    cstringArrayT, // startBuf
+    cstringArrayT, // endBuf
+    buf(unsignedInt), // startLine
+    buf(unsignedInt), // startColumn
+    buf(unsignedInt), // endLine
+    buf(unsignedInt), // endColumn
   ],
   result: "void",
 } as const;
+
 export const clang_enableStackTraces = {
   parameters: [],
   result: "void",
 } as const;
+
 export const clang_executeOnThread = {
-  parameters: ["function", ptr("void"), unsigned],
+  parameters: [
+    func({
+      /** void (void *) */
+      parameters: [ptr("void") // void *
+      ],
+      result: "void",
+    }), // fn
+    ptr("void"), // user_data
+    unsignedInt, // stack_size
+  ],
   result: "void",
 } as const;
-
-/**
- * Code completion
- *
- * Code completion involves taking an (incomplete) source file, along with
- * knowledge of where the user is actively editing that file, and suggesting
- * syntactically- and semantically-valid constructs that the user might want to
- * use at that particular point in the source code. These data structures and
- * routines provide support for code completion.
- */
 
 /**
  * Determine the kind of a particular chunk within a completion string.
  *
  * @param completion_string the completion string to query.
- *
  * @param chunk_number the 0-based index of the chunk in the completion string.
- *
- * @returns the kind of the chunk at the index `$1`.
+ * @returns the kind of the chunk at the index `chunk_number.`
  */
 export const clang_getCompletionChunkKind = {
-  parameters: [CXCompletionStringT, unsigned],
+  parameters: [
+    CXCompletionStringT, // completion_string
+    unsignedInt, // chunk_number
+  ],
   result: CXCompletionChunkKindT,
 } as const;
 
@@ -3114,13 +3429,14 @@ export const clang_getCompletionChunkKind = {
  * completion string.
  *
  * @param completion_string the completion string to query.
- *
  * @param chunk_number the 0-based index of the chunk in the completion string.
- *
- * @returns the text associated with the chunk at index `$1`.
+ * @returns the text associated with the chunk at index `chunk_number.`
  */
 export const clang_getCompletionChunkText = {
-  parameters: [CXCompletionStringT, unsigned],
+  parameters: [
+    CXCompletionStringT, // completion_string
+    unsignedInt, // chunk_number
+  ],
   result: CXStringT,
 } as const;
 
@@ -3129,14 +3445,15 @@ export const clang_getCompletionChunkText = {
  * within a completion string.
  *
  * @param completion_string the completion string to query.
- *
  * @param chunk_number the 0-based index of the chunk in the completion string.
- *
  * @returns the completion string associated with the chunk at index
- * `$1`.
+ * `chunk_number.`
  */
 export const clang_getCompletionChunkCompletionString = {
-  parameters: [CXCompletionStringT, unsigned],
+  parameters: [
+    CXCompletionStringT, // completion_string
+    unsignedInt, // chunk_number
+  ],
   result: CXCompletionStringT,
 } as const;
 
@@ -3144,8 +3461,10 @@ export const clang_getCompletionChunkCompletionString = {
  * Retrieve the number of chunks in the given code-completion string.
  */
 export const clang_getNumCompletionChunks = {
-  parameters: [CXCompletionStringT],
-  result: unsigned,
+  parameters: [
+    CXCompletionStringT, // completion_string
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -3156,13 +3475,14 @@ export const clang_getNumCompletionChunks = {
  * priority is selected by various internal heuristics.
  *
  * @param completion_string The completion string to query.
- *
  * @returns The priority of this completion string. Smaller values indicate
  * higher-priority (more likely) completions.
  */
 export const clang_getCompletionPriority = {
-  parameters: [CXCompletionStringT],
-  result: unsigned,
+  parameters: [
+    CXCompletionStringT, // completion_string
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -3170,11 +3490,12 @@ export const clang_getCompletionPriority = {
  * string refers to.
  *
  * @param completion_string The completion string to query.
- *
  * @returns The availability of the completion string.
  */
 export const clang_getCompletionAvailability = {
-  parameters: [CXCompletionStringT],
+  parameters: [
+    CXCompletionStringT, // completion_string
+  ],
   result: CXAvailabilityKindT,
 } as const;
 
@@ -3183,28 +3504,30 @@ export const clang_getCompletionAvailability = {
  * completion string.
  *
  * @param completion_string the completion string to query.
- *
  * @returns the number of annotations associated with the given completion
  * string.
  */
 export const clang_getCompletionNumAnnotations = {
-  parameters: [CXCompletionStringT],
-  result: unsigned,
+  parameters: [
+    CXCompletionStringT, // completion_string
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Retrieve the annotation associated with the given completion string.
  *
  * @param completion_string the completion string to query.
- *
  * @param annotation_number the 0-based index of the annotation of the
  * completion string.
- *
  * @returns annotation string associated with the completion at index
- * `$1`, or a NULL string if that annotation is not available.
+ * `annotation_number,` or a NULL string if that annotation is not available.
  */
 export const clang_getCompletionAnnotation = {
-  parameters: [CXCompletionStringT, unsigned],
+  parameters: [
+    CXCompletionStringT, // completion_string
+    unsignedInt, // annotation_number
+  ],
   result: CXStringT,
 } as const;
 
@@ -3218,14 +3541,15 @@ export const clang_getCompletionAnnotation = {
  *
  * @param completion_string The code completion string whose parent is
  * being queried.
- *
  * @param kind DEPRECATED: always set to CXCursor_NotImplemented if non-NULL.
- *
  * @returns The name of the completion parent, e.g., "NSObject" if
  * the completion string represents a method in the NSObject class.
  */
 export const clang_getCompletionParent = {
-  parameters: [CXCompletionStringT, ptr(CXCursorKindT)],
+  parameters: [
+    CXCompletionStringT, // completion_string
+    buf(CXCursorKindT), // kind
+  ],
   result: CXStringT,
 } as const;
 
@@ -3234,7 +3558,9 @@ export const clang_getCompletionParent = {
  * that corresponds to the given completion string.
  */
 export const clang_getCompletionBriefComment = {
-  parameters: [CXCompletionStringT],
+  parameters: [
+    CXCompletionStringT, // completion_string
+  ],
   result: CXStringT,
 } as const;
 
@@ -3243,12 +3569,13 @@ export const clang_getCompletionBriefComment = {
  * definition cursor.
  *
  * @param cursor The cursor to query.
- *
  * @returns A non-context-sensitive completion string for declaration and macro
  * definition cursors, or NULL for other kinds of cursors.
  */
 export const clang_getCursorCompletionString = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // cursor
+  ],
   result: CXCompletionStringT,
 } as const;
 
@@ -3258,16 +3585,17 @@ export const clang_getCursorCompletionString = {
  * Calling this makes sense only if CXCodeComplete_IncludeCompletionsWithFixIts
  * option was set.
  *
- * @param {CXCodeCompleteResults *} results The structure keeping all completion results
- *
+ * @param results The structure keeping all completion results
  * @param completion_index The index of the completion
- *
- * \return The number of fix-its which must be applied before the completion at
+ * @returns The number of fix-its which must be applied before the completion at
  * completion_index can be applied
  */
 export const clang_getCompletionNumFixIts = {
-  parameters: [ptr(CXCodeCompleteResults), unsigned],
-  result: unsigned,
+  parameters: [
+    ptr(CXCodeCompleteResultsT), // results
+    unsignedInt, // completion_index
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -3281,13 +3609,13 @@ export const clang_getCompletionNumFixIts = {
  * For the clients to be able to compute position of the cursor after applying
  * fix-its, the following conditions are guaranteed to hold for
  * replacement_range of the stored fix-its:
- *  - Ranges in the fix-its are guaranteed to never contain the completion
- *  point (or identifier under completion point, if any) inside them, except
- *  at the start or at the end of the range.
- *  - If a fix-it range starts or ends with completion point (or starts or
- *  ends after the identifier under completion point), it will contain at
- *  least one character. It allows to unambiguously recompute completion
- *  point after applying the fix-it.
+ * - Ranges in the fix-its are guaranteed to never contain the completion
+ * point (or identifier under completion point, if any) inside them, except
+ * at the start or at the end of the range.
+ * - If a fix-it range starts or ends with completion point (or starts or
+ * ends after the identifier under completion point), it will contain at
+ * least one character. It allows to unambiguously recompute completion
+ * point after applying the fix-it.
  *
  * The intuition is that provided fix-its change code around the identifier we
  * complete, but are not allowed to touch the identifier itself or the
@@ -3300,36 +3628,32 @@ export const clang_getCompletionNumFixIts = {
  * In 'vec_ptr->^', one of the completions is 'release', it requires
  * replacing '->' with '.'.
  *
- * @param {CXCodeCompleteResults *} results The structure keeping all completion results
- *
+ * @param results The structure keeping all completion results
  * @param completion_index The index of the completion
- *
  * @param fixit_index The index of the fix-it for the completion at
  * completion_index
- *
- * @param {CXSourceRange *} replacement_range The fix-it range that must be replaced before the
+ * @param replacement_range The fix-it range that must be replaced before the
  * completion at completion_index can be applied
- *
  * @returns The fix-it string that must replace the code at replacement_range
  * before the completion at completion_index can be applied
  */
 export const clang_getCompletionFixIt = {
   parameters: [
-    ptr(CXCodeCompleteResults),
-    unsigned,
-    unsigned,
-    buf(CXSourceRangeT),
+    ptr(CXCodeCompleteResultsT), // results
+    unsignedInt, // completion_index
+    unsignedInt, // fixit_index
+    buf(CXSourceRangeT), // replacement_range
   ],
   result: CXStringT,
 } as const;
 
 /**
  * Returns a default set of code-completion options that can be
- * passed to{@link clang_codeCompleteAt}().
+ * passed to`clang_codeCompleteAt().`
  */
 export const clang_defaultCodeCompleteOptions = {
   parameters: [],
-  result: unsigned,
+  result: unsignedInt,
 } as const;
 
 /**
@@ -3344,18 +3668,17 @@ export const clang_defaultCodeCompleteOptions = {
  * to the parser, which recognizes this token and determines, based on the
  * current location in the C/Objective-C/C++ grammar and the state of
  * semantic analysis, what completions to provide. These completions are
- * returned via a new {@link CXCodeCompleteResults} structure.
+ * returned via a new `CXCodeCompleteResults` structure.
  *
  * Code completion itself is meant to be triggered by the client when the
  * user types punctuation characters or whitespace, at which point the
- * code-completion location will coincide with the cursor. For example, if `$1`
- * is a pointer, code-completion might be triggered after the "-" and then
- * after the ">" in `$1`. When the code-completion location is after the ">",
+ * code-completion location will coincide with the cursor. For example, if `p` is a pointer, code-completion might be triggered after the "-" and then
+ * after the ">" in `p->.` When the code-completion location is after the ">",
  * the completion results will provide, e.g., the members of the struct that
  * "p" points to. The client is responsible for placing the cursor at the
  * beginning of the token currently being typed, then filtering the results
  * based on the contents of the token. For example, when code-completing for
- * the expression `$1`, the client should provide the location just after
+ * the expression `p->get,` the client should provide the location just after
  * the ">" (e.g., pointing at the "g") to this code-completion hook. Then, the
  * client can filter the results based on the current token text ("get"), only
  * showing those results that start with "get". The intent of this interface
@@ -3366,97 +3689,96 @@ export const clang_defaultCodeCompleteOptions = {
  * @param TU The translation unit in which code-completion should
  * occur. The source files for this translation unit need not be
  * completely up-to-date (and the contents of those source files may
- * be overridden via `unsaved_files`). Cursors referring into the
+ * be overridden via `unsaved_files).` Cursors referring into the
  * translation unit may be invalidated by this invocation.
- *
  * @param complete_filename The name of the source file where code
  * completion should be performed. This filename may be any file
  * included in the translation unit.
- *
  * @param complete_line The line at which code-completion should occur.
- *
  * @param complete_column The column at which code-completion should occur.
  * Note that the column should point just after the syntactic construct that
  * initiated code completion, and not in the middle of a lexical token.
- *
- * @param {struct CXUnsavedFile *} unsaved_files the Files that have not yet been saved to disk
+ * @param unsaved_files the Files that have not yet been saved to disk
  * but may be required for parsing or code completion, including the
  * contents of those files.  The contents and name of these files (as
  * specified by CXUnsavedFile) are copied when necessary, so the
  * client only needs to guarantee their validity until the call to
  * this function returns.
- *
- * @param num_unsaved_files The number of unsaved file entries in \p
- * unsaved_files.
- *
+ * @param num_unsaved_files The number of unsaved file entries in `unsaved_files.`
  * @param options Extra options that control the behavior of code
  * completion, expressed as a bitwise OR of the enumerators of the
  * CXCodeComplete_Flags enumeration. The
- * {@link clang_defaultCodeCompleteOptions}() function returns a default set
+ * `clang_defaultCodeCompleteOptions(`) function returns a default set
  * of code-completion options.
- *
- * @returns {CXCodeCompleteResults *} If successful, a new {@link CXCodeCompleteResults} structure
+ * @returns If successful, a new `CXCodeCompleteResults` structure
  * containing code-completion results, which should eventually be
- * freed with {@link clang_disposeCodeCompleteResults}(). If code
+ * freed with `clang_disposeCodeCompleteResults().` If code
  * completion fails, returns NULL.
  */
 export const clang_codeCompleteAt = {
   parameters: [
-    CXTranslationUnitT,
-    constCharPtr,
-    unsigned,
-    unsigned,
-    ptr(CXUnsavedFileT),
-    unsigned,
-    unsigned,
+    CXTranslationUnitT, // TU
+    cstringT, // complete_filename
+    unsignedInt, // complete_line
+    unsignedInt, // complete_column
+    buf(CXUnsavedFileT), // unsaved_files
+    unsignedInt, // num_unsaved_files
+    unsignedInt, // options
   ],
-  result: ptr(CXCodeCompleteResults),
+  result: ptr(CXCodeCompleteResultsT),
 } as const;
 
 /**
  * Sort the code-completion results in case-insensitive alphabetical
  * order.
  *
- * @param {CXCompletionResult *} Results The set of results to sort.
- * @param NumResults The number of results in `Results`.
+ * @param Results The set of results to sort.
+ *
+ * @param NumResults The number of results in `Results.`
  */
 export const clang_sortCodeCompletionResults = {
-  parameters: [ptr(CXCompletionResult), unsigned],
+  parameters: [
+    ptr(CXCompletionResultT), // Results
+    unsignedInt, // NumResults
+  ],
   result: "void",
 } as const;
 
 /**
  * Free the given set of code-completion results.
- *
- * @param {CXCodeCompleteResults *} Results
  */
 export const clang_disposeCodeCompleteResults = {
-  parameters: [ptr(CXCodeCompleteResults)],
+  parameters: [
+    ptr(CXCodeCompleteResultsT), // Results
+  ],
   result: "void",
 } as const;
 
 /**
  * Determine the number of diagnostics produced prior to the
  * location where code completion was performed.
- *
- * @param {CXCodeCompleteResults *} Results
  */
 export const clang_codeCompleteGetNumDiagnostics = {
-  parameters: [ptr(CXCodeCompleteResults)],
-  result: unsigned,
+  parameters: [
+    ptr(CXCodeCompleteResultsT), // Results
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Retrieve a diagnostic associated with the given code completion.
  *
- * @param {CXCodeCompleteResults *} Results the code completion results to query.
- * @param Index the zero-based diagnostic number to retrieve.
+ * @param Results the code completion results to query.
  *
+ * @param Index the zero-based diagnostic number to retrieve.
  * @returns the requested diagnostic. This diagnostic must be freed
- * via a call to {@link clang_disposeDiagnostic}().
+ * via a call to `clang_disposeDiagnostic().`
  */
 export const clang_codeCompleteGetDiagnostic = {
-  parameters: [ptr(CXCodeCompleteResults), unsigned],
+  parameters: [
+    ptr(CXCodeCompleteResultsT), // Results
+    unsignedInt, // Index
+  ],
   result: CXDiagnosticT,
 } as const;
 
@@ -3464,13 +3786,14 @@ export const clang_codeCompleteGetDiagnostic = {
  * Determines what completions are appropriate for the context
  * the given code completion.
  *
- * @param {CXCodeCompleteResults *} Results the code completion results to query.
- *
+ * @param Results the code completion results to query
  * @returns the kinds of completions that are appropriate for use
  * along with the given code completion results.
  */
 export const clang_codeCompleteGetContexts = {
-  parameters: [ptr(CXCodeCompleteResults)],
+  parameters: [
+    ptr(CXCodeCompleteResultsT), // Results
+  ],
   result: unsignedLongLong,
 } as const;
 
@@ -3481,17 +3804,18 @@ export const clang_codeCompleteGetContexts = {
  * message sends); if there is not a container, this function will return
  * CXCursor_InvalidCode.
  *
- * @param {CXCodeCompleteResults *} Results the code completion results to query.
- *
- * @param {unsigned *} IsIncomplete on return, this value will be false if Clang has complete
+ * @param Results the code completion results to query
+ * @param IsIncomplete on return, this value will be false if Clang has complete
  * information about the container. If Clang does not have complete
  * information, this value will be true.
- *
  * @returns the container kind, or CXCursor_InvalidCode if there is not a
  * container
  */
 export const clang_codeCompleteGetContainerKind = {
-  parameters: [ptr(CXCodeCompleteResults), buf(unsigned)],
+  parameters: [
+    ptr(CXCodeCompleteResultsT), // Results
+    buf(unsignedInt), // IsIncomplete
+  ],
   result: CXCursorKindT,
 } as const;
 
@@ -3500,12 +3824,13 @@ export const clang_codeCompleteGetContainerKind = {
  * context. If there is not a container for the current context, this
  * function will return the empty string.
  *
- * @param {CXCodeCompleteResults *} Results the code completion results to query.
- *
+ * @param Results the code completion results to query
  * @returns the USR for the container
  */
 export const clang_codeCompleteGetContainerUSR = {
-  parameters: [ptr(CXCodeCompleteResults)],
+  parameters: [
+    ptr(CXCodeCompleteResultsT), // Results
+  ],
   result: CXStringT,
 } as const;
 
@@ -3515,23 +3840,20 @@ export const clang_codeCompleteGetContainerUSR = {
  * non-empty string for CXCompletionContext_ObjCInstanceMessage and
  * CXCompletionContext_ObjCClassMessage.
  *
- * @param {CXCodeCompleteResults *} Results the code completion results to query.
- *
+ * @param Results the code completion results to query
  * @returns the selector (or partial selector) that has been entered thus far
  * for an Objective-C message send.
  */
 export const clang_codeCompleteGetObjCSelector = {
-  parameters: [ptr(CXCodeCompleteResults)],
+  parameters: [
+    ptr(CXCodeCompleteResultsT), // Results
+  ],
   result: CXStringT,
 } as const;
 
 /**
- * Miscellaneous utility functions
- */
-
-/**
  * Return a version string, suitable for showing to a user, but not
- *        intended to be parsed (the format is not guaranteed to be stable).
+ * intended to be parsed (the format is not guaranteed to be stable).
  */
 export const clang_getClangVersion = {
   parameters: [],
@@ -3545,18 +3867,24 @@ export const clang_getClangVersion = {
  *        value enables crash recovery, while 0 disables it.
  */
 export const clang_toggleCrashRecovery = {
-  parameters: [unsigned],
+  parameters: [
+    unsignedInt, // isEnabled
+  ],
   result: "void",
 } as const;
 
 /**
  * Visit the set of preprocessor inclusions in a translation unit.
- *   The visitor function is called with the provided data for every included
- *   file.  This does not include headers included by the PCH file (unless one
- *   is inspecting the inclusions in the PCH file itself).
+ * The visitor function is called with the provided data for every included
+ * file. This does not include headers included by the PCH file (unless one
+ * is inspecting the inclusions in the PCH file itself).
  */
 export const clang_getInclusions = {
-  parameters: [CXTranslationUnitT, CXInclusionVisitor, CXClientDataT],
+  parameters: [
+    CXTranslationUnitT, // tu
+    CXInclusionVisitorT, // visitor
+    CXClientDataT, // client_data
+  ],
   result: "void",
 } as const;
 
@@ -3567,7 +3895,9 @@ export const clang_getInclusions = {
  * If it's an expression, tries to evaluate the expression.
  */
 export const clang_Cursor_Evaluate = {
-  parameters: [CXCursorT],
+  parameters: [
+    CXCursorT, // C
+  ],
   result: CXEvalResultT,
 } as const;
 
@@ -3575,7 +3905,9 @@ export const clang_Cursor_Evaluate = {
  * Returns the kind of the evaluated result.
  */
 export const clang_EvalResult_getKind = {
-  parameters: [CXEvalResultT],
+  parameters: [
+    CXEvalResultT, // E
+  ],
   result: CXEvalResultKindT,
 } as const;
 
@@ -3584,7 +3916,9 @@ export const clang_EvalResult_getKind = {
  * kind is Int.
  */
 export const clang_EvalResult_getAsInt = {
-  parameters: [CXEvalResultT],
+  parameters: [
+    CXEvalResultT, // E
+  ],
   result: int,
 } as const;
 
@@ -3594,7 +3928,9 @@ export const clang_EvalResult_getAsInt = {
  * returned with clang_EvalResult_getAsInt.
  */
 export const clang_EvalResult_getAsLongLong = {
-  parameters: [CXEvalResultT],
+  parameters: [
+    CXEvalResultT, // E
+  ],
   result: longLong,
 } as const;
 
@@ -3603,8 +3939,10 @@ export const clang_EvalResult_getAsLongLong = {
  * result resulted in an unsigned integer.
  */
 export const clang_EvalResult_isUnsignedInt = {
-  parameters: [CXEvalResultT],
-  result: unsigned,
+  parameters: [
+    CXEvalResultT, // E
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
@@ -3612,7 +3950,9 @@ export const clang_EvalResult_isUnsignedInt = {
  * the kind is Int and clang_EvalResult_isUnsignedInt is non-zero.
  */
 export const clang_EvalResult_getAsUnsigned = {
-  parameters: [CXEvalResultT],
+  parameters: [
+    CXEvalResultT, // E
+  ],
   result: unsignedLongLong,
 } as const;
 
@@ -3621,7 +3961,9 @@ export const clang_EvalResult_getAsUnsigned = {
  * kind is double.
  */
 export const clang_EvalResult_getAsDouble = {
-  parameters: [CXEvalResultT],
+  parameters: [
+    CXEvalResultT, // E
+  ],
   result: double,
 } as const;
 
@@ -3632,67 +3974,76 @@ export const clang_EvalResult_getAsDouble = {
  * by clang_Cursor_Evaluate.
  */
 export const clang_EvalResult_getAsStr = {
-  parameters: [CXEvalResultT],
-  result: constCharPtr,
+  parameters: [
+    CXEvalResultT, // E
+  ],
+  result: cstringT,
 } as const;
 
 /**
  * Disposes the created Eval memory.
  */
 export const clang_EvalResult_dispose = {
-  parameters: [CXEvalResultT],
+  parameters: [
+    CXEvalResultT, // E
+  ],
   result: "void",
 } as const;
-
-/** Remapping functions
- */
 
 /**
  * Retrieve a remapping.
  *
  * @param path the path that contains metadata about remappings.
- *
  * @returns the requested remapping. This remapping must be freed
- * via a call to {@link clang_remap_dispose}(). Can return NULL if an error occurred.
+ * via a call to `clang_remap_dispose().` Can return NULL if an error occurred.
  */
 export const clang_getRemappings = {
-  parameters: [constCharPtr],
-  result: CXRemapping,
+  parameters: [
+    cstringT, // path
+  ],
+  result: CXRemappingT,
 } as const;
 
 /**
  * Retrieve a remapping.
  *
  * @param filePaths pointer to an array of file paths containing remapping info.
- *
  * @param numFiles number of file paths.
- *
  * @returns the requested remapping. This remapping must be freed
- * via a call to {@link clang_remap_dispose}(). Can return NULL if an error occurred.
+ * via a call to `clang_remap_dispose().` Can return NULL if an error occurred.
  */
 export const clang_getRemappingsFromFileList = {
-  parameters: [constCharPtr, unsigned],
-  result: CXRemapping,
+  parameters: [
+    cstringArrayT, // filePaths
+    unsignedInt, // numFiles
+  ],
+  result: CXRemappingT,
 } as const;
 
 /**
  * Determine the number of remappings.
  */
 export const clang_remap_getNumFiles = {
-  parameters: [CXRemapping],
-  result: unsigned,
+  parameters: [
+    CXRemappingT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Get the original and the associated filename from the remapping.
  *
- * @param {CXString *} original If non-NULL, will be set to the original filename.
- *
- * @param {CXString *} transformed If non-NULL, will be set to the filename that the original
+ * @param original If non-NULL, will be set to the original filename.
+ * @param transformed If non-NULL, will be set to the filename that the original
  * is associated with.
  */
 export const clang_remap_getFilenames = {
-  parameters: [CXRemapping, unsigned, CXStringT, CXStringT],
+  parameters: [
+    CXRemappingT,
+    unsignedInt, // index
+    buf(CXStringT), // original
+    buf(CXStringT), // transformed
+  ],
   result: "void",
 } as const;
 
@@ -3700,29 +4051,29 @@ export const clang_remap_getFilenames = {
  * Dispose the remapping.
  */
 export const clang_remap_dispose = {
-  parameters: [CXRemapping],
+  parameters: [
+    CXRemappingT,
+  ],
   result: "void",
 } as const;
-
-/** Higher level API functions
- */
 
 /**
  * Find references of a declaration in a specific file.
  *
  * @param cursor pointing to a declaration or a reference of one.
- *
  * @param file to search for references.
- *
  * @param visitor callback that will receive pairs of CXCursor/CXSourceRange for
  * each reference found.
  * The CXSourceRange will point inside the file; if the reference is inside
  * a macro (and not a macro argument) the CXSourceRange will be invalid.
- *
  * @returns one of the CXResult enumerators.
  */
 export const clang_findReferencesInFile = {
-  parameters: [CXCursorT, CXFileT, CXCursorAndRangeVisitorT],
+  parameters: [
+    CXCursorT, // cursor
+    CXFileT, // file
+    CXCursorAndRangeVisitorT, // visitor
+  ],
   result: CXResultT,
 } as const;
 
@@ -3730,104 +4081,85 @@ export const clang_findReferencesInFile = {
  * Find #import/#include directives in a specific file.
  *
  * @param TU translation unit containing the file to query.
- *
  * @param file to search for #import/#include directives.
- *
  * @param visitor callback that will receive pairs of CXCursor/CXSourceRange for
  * each directive found.
- *
  * @returns one of the CXResult enumerators.
  */
 export const clang_findIncludesInFile = {
-  parameters: [CXTranslationUnitT, CXFileT, CXCursorAndRangeVisitorT],
+  parameters: [
+    CXTranslationUnitT, // TU
+    CXFileT, // file
+    CXCursorAndRangeVisitorT, // visitor
+  ],
   result: CXResultT,
 } as const;
 
-//  #ifdef __has_feature
-//  #if __has_feature(blocks)
-
-// export const clang_findReferencesInFileWithBlock = {
-//   parameters: [CXCursorT, CXFileT, CXCursorAndRangeVisitorBlockT],
-//   result: CXResultT,
-// } as const;
-
-// export const clang_findIncludesInFileWithBlock = {
-//   parameters: [CXTranslationUnitT, CXFileT, CXCursorAndRangeVisitorBlockT],
-//   result: CXResultT,
-// } as const;
-
-//  #endif
-//  #endif
-
 export const clang_index_isEntityObjCContainerKind = {
-  parameters: [CXIdxEntityKindT],
+  parameters: [
+    CXIdxEntityKindT,
+  ],
   result: int,
 } as const;
-/**
- * @param {const CXIdxDeclInfo *}
- * @returns {const CXIdxObjCContainerDeclInfo *}
- */
+
 export const clang_index_getObjCContainerDeclInfo = {
-  parameters: [buf(CXIdxDeclInfoT)],
+  parameters: [
+    ptr(CXIdxDeclInfoT),
+  ],
   result: ptr(CXIdxObjCContainerDeclInfoT),
 } as const;
 
-/**
- * @returns {const CXIdxObjCInterfaceDeclInfo *}
- */
 export const clang_index_getObjCInterfaceDeclInfo = {
-  parameters: [CXIdxDeclInfoT],
-  result: ptr(CXIdxObjCContainerDeclInfoT),
+  parameters: [
+    ptr(CXIdxDeclInfoT),
+  ],
+  result: ptr(CXIdxObjCInterfaceDeclInfoT),
 } as const;
 
-/**
- * @returns {const CXIdxObjCCategoryDeclInfo *}
- */
 export const clang_index_getObjCCategoryDeclInfo = {
-  parameters: [CXIdxDeclInfoT],
-  result: ptr(CXIdxObjCContainerDeclInfoT),
+  parameters: [
+    ptr(CXIdxDeclInfoT),
+  ],
+  result: ptr(CXIdxObjCCategoryDeclInfoT),
 } as const;
 
-/**
- * @returns {const CXIdxObjCProtocolRefListInfo *}
- */
 export const clang_index_getObjCProtocolRefListInfo = {
-  parameters: [CXIdxDeclInfoT],
+  parameters: [
+    ptr(CXIdxDeclInfoT),
+  ],
   result: ptr(CXIdxObjCProtocolRefListInfoT),
 } as const;
 
-/**
- * @returns {const CXIdxObjCPropertyDeclInfo *}
- */
 export const clang_index_getObjCPropertyDeclInfo = {
-  parameters: [CXIdxDeclInfoT],
+  parameters: [
+    ptr(CXIdxDeclInfoT),
+  ],
   result: ptr(CXIdxObjCPropertyDeclInfoT),
 } as const;
 
-/**
- * @returns {const CXIdxIBOutletCollectionAttrInfo *}
- */
 export const clang_index_getIBOutletCollectionAttrInfo = {
-  parameters: [CXIdxAttrInfoT],
+  parameters: [
+    ptr(CXIdxAttrInfoT),
+  ],
   result: ptr(CXIdxIBOutletCollectionAttrInfoT),
 } as const;
 
-/**
- * @returns {const CXIdxCXXClassDeclInfo *}
- */
 export const clang_index_getCXXClassDeclInfo = {
-  parameters: [CXIdxDeclInfoT],
+  parameters: [
+    ptr(CXIdxDeclInfoT),
+  ],
   result: ptr(CXIdxCXXClassDeclInfoT),
 } as const;
 
 /**
  * For retrieving a custom CXIdxClientContainer attached to a
  * container.
- * @param {const CXIdxContainerInfo *}
  */
 export const clang_index_getClientContainer = {
-  parameters: [CXIdxContainerInfoT],
-  result: CXIdxClientContainer,
+  parameters: [
+    ptr(CXIdxContainerInfoT),
+  ],
+  result: CXIdxClientContainerT,
 } as const;
 
 /**
@@ -3835,25 +4167,31 @@ export const clang_index_getClientContainer = {
  * container.
  */
 export const clang_index_setClientContainer = {
-  parameters: [CXIdxContainerInfoT, CXIdxClientContainer],
+  parameters: [
+    ptr(CXIdxContainerInfoT),
+    CXIdxClientContainerT,
+  ],
   result: "void",
 } as const;
 
 /**
  * For retrieving a custom CXIdxClientEntity attached to an entity.
- * @param {const CXIdxEntityInfo *}
  */
 export const clang_index_getClientEntity = {
-  parameters: [CXIdxEntityInfoT],
-  result: CXIdxClientEntity,
+  parameters: [
+    ptr(CXIdxEntityInfoT),
+  ],
+  result: CXIdxClientEntityT,
 } as const;
 
 /**
  * For setting a custom CXIdxClientEntity attached to an entity.
- * @param {const CXIdxEntityInfo *}
  */
 export const clang_index_setClientEntity = {
-  parameters: [CXIdxEntityInfoT, CXIdxClientEntity],
+  parameters: [
+    ptr(CXIdxEntityInfoT),
+    CXIdxClientEntityT,
+  ],
   result: "void",
 } as const;
 
@@ -3864,7 +4202,9 @@ export const clang_index_setClientEntity = {
  * @param CIdx The index object with which the index action will be associated.
  */
 export const clang_IndexAction_create = {
-  parameters: [CXIndexT],
+  parameters: [
+    CXIndexT, // CIdx
+  ],
   result: CXIndexActionT,
 } as const;
 
@@ -3875,7 +4215,9 @@ export const clang_IndexAction_create = {
  * created within that index action have been destroyed.
  */
 export const clang_IndexAction_dispose = {
-  parameters: [CXIndexActionT],
+  parameters: [
+    CXIndexActionT,
+  ],
   result: "void",
 } as const;
 
@@ -3885,72 +4227,57 @@ export const clang_IndexAction_dispose = {
  *
  * @param client_data pointer data supplied by the client, which will
  * be passed to the invoked callbacks.
- *
  * @param index_callbacks Pointer to indexing callbacks that the client
  * implements.
- *
  * @param index_callbacks_size Size of #IndexerCallbacks structure that gets
  * passed in index_callbacks.
- *
  * @param index_options A bitmask of options that affects how indexing is
  * performed. This should be a bitwise OR of the CXIndexOpt_XXX flags.
- *
- * @param[out] out_TU pointer to store a {@link CXTranslationUnit} that can be
- * reused after indexing is finished. Set to {@link NULL} if you do not require it.
- *
+ * @param out_TU [out] pointer to store a `CXTranslationUnit` that can be
+ * reused after indexing is finished. Set to `NULL` if you do not require it.
  * @returns 0 on success or if there were errors from which the compiler could
  * recover.  If there is a failure from which there is no recovery, returns
- * a non-zero {@link CXErrorCode}.
+ * a non-zero `CXErrorCode.`
  *
  * The rest of the parameters are the same as #clang_parseTranslationUnit.
  */
 export const clang_indexSourceFile = {
   parameters: [
     CXIndexActionT,
-    CXClientDataT,
-    IndexerCallbacks,
-    unsigned,
-    unsigned,
-    constCharPtr,
-    buf(constCharPtr),
-    int,
-    CXUnsavedFileT,
-    unsigned,
-    CXTranslationUnitT,
-    unsigned,
+    CXClientDataT, // client_data
+    buf(IndexerCallbacksT), // index_callbacks
+    unsignedInt, // index_callbacks_size
+    unsignedInt, // index_options
+    cstringT, // source_filename
+    cstringArrayT, // command_line_args
+    int, // num_command_line_args
+    buf(CXUnsavedFileT), // unsaved_files
+    unsignedInt, // num_unsaved_files
+    buf(CXTranslationUnitT), // out_TU
+    unsignedInt, // TU_options
   ],
   result: int,
 } as const;
 
 /**
  * Same as clang_indexSourceFile but requires a full command line
- * for `$1` including argv[0]. This is useful if the standard
+ * for `command_line_args` including argv[0]. This is useful if the standard
  * library paths are relative to the binary.
- * @param client_data
- * @param {IndexerCallbacks *} index_callback
- * @param index_callbacks_size
- * @param source_filename
- * @param command_line_arg
- * @param num_command_line_args
- * @param {struct CXUnsavedFile *} unsaved_file
- * @param num_unsaved_files
- * @param {@link CXTranslationUnit} out_TU
- * @param TU_options
  */
 export const clang_indexSourceFileFullArgv = {
   parameters: [
     CXIndexActionT,
-    CXClientDataT,
-    buf(IndexerCallbacks),
-    unsigned,
-    unsigned,
-    constCharPtr,
-    buf(constCharPtr),
-    int,
-    CXUnsavedFileT,
-    unsigned,
-    CXTranslationUnitT,
-    unsigned,
+    CXClientDataT, // client_data
+    buf(IndexerCallbacksT), // index_callbacks
+    unsignedInt, // index_callbacks_size
+    unsignedInt, // index_options
+    cstringT, // source_filename
+    cstringArrayT, // command_line_args
+    int, // num_command_line_args
+    buf(CXUnsavedFileT), // unsaved_files
+    unsignedInt, // num_unsaved_files
+    buf(CXTranslationUnitT), // out_TU
+    unsignedInt, // TU_options
   ],
   result: int,
 } as const;
@@ -3962,9 +4289,9 @@ export const clang_indexSourceFileFullArgv = {
  * The order of callback invocations is not guaranteed to be the same as
  * when indexing a source file. The high level order will be:
  *
- *   -Preprocessor callbacks invocations
- *   -Declaration/reference callbacks invocations
- *   -Diagnostic callback invocations
+ * -Preprocessor callbacks invocations
+ * -Declaration/reference callbacks invocations
+ * -Diagnostic callback invocations
  *
  * The parameters are the same as #clang_indexSourceFile.
  *
@@ -3974,10 +4301,10 @@ export const clang_indexSourceFileFullArgv = {
 export const clang_indexTranslationUnit = {
   parameters: [
     CXIndexActionT,
-    CXClientDataT,
-    IndexerCallbacks,
-    unsigned,
-    unsigned,
+    CXClientDataT, // client_data
+    buf(IndexerCallbacksT), // index_callbacks
+    unsignedInt, // index_callbacks_size
+    unsignedInt, // index_options
     CXTranslationUnitT,
   ],
   result: int,
@@ -3993,12 +4320,12 @@ export const clang_indexTranslationUnit = {
  */
 export const clang_indexLoc_getFileLocation = {
   parameters: [
-    CXIdxLoc,
-    buf(CXIdxClientFile),
-    buf(CXFileT),
-    buf(unsigned),
-    buf(unsigned),
-    buf(unsigned),
+    CXIdxLocT, // loc
+    buf(CXIdxClientFileT), // indexFile
+    buf(CXFileT), // file
+    buf(unsignedInt), // line
+    buf(unsignedInt), // column
+    buf(unsignedInt), // offset
   ],
   result: "void",
 } as const;
@@ -4007,7 +4334,9 @@ export const clang_indexLoc_getFileLocation = {
  * Retrieve the CXSourceLocation represented by the given CXIdxLoc.
  */
 export const clang_indexLoc_getCXSourceLocation = {
-  parameters: [CXIdxLoc],
+  parameters: [
+    CXIdxLocT, // loc
+  ],
   result: CXSourceLocationT,
 } as const;
 
@@ -4017,20 +4346,21 @@ export const clang_indexLoc_getCXSourceLocation = {
  * This function visits all the direct fields of the given cursor,
  * invoking the given `visitor` function with the cursors of each
  * visited field. The traversal may be ended prematurely, if
- * the visitor returns {@link CXFieldVisit_Break}.
+ * the visitor returns `CXFieldVisit_Break.`
  *
  * @param T the record type whose field may be visited.
- *
  * @param visitor the visitor function that will be invoked for each
- * field of `T`.
- *
+ * field of `T.`
  * @param client_data pointer data supplied by the client, which will
  * be passed to the visitor each time it is invoked.
- *
  * @returns a non-zero value if the traversal was terminated
- * prematurely by the visitor returning {@link CXFieldVisit_Break}.
+ * prematurely by the visitor returning `CXFieldVisit_Break.`
  */
 export const clang_Type_visitFields = {
-  parameters: [CXTypeT, CXFieldVisitorT, CXClientDataT],
-  result: unsigned,
+  parameters: [
+    CXTypeT, // T
+    CXFieldVisitorT, // visitor
+    CXClientDataT, // client_data
+  ],
+  result: unsignedInt,
 } as const;

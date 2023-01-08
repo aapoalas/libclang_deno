@@ -1,5 +1,4 @@
 import { libclang } from "./ffi.ts";
-import { CXErrorCode, throwIfError } from "./include/ErrorCode.h.ts";
 import {
   CX_CXXAccessSpecifier,
   CX_StorageClass,
@@ -17,6 +16,7 @@ import {
   CXCursorVisitorCallbackDefinition,
   CXDiagnosticDisplayOptions,
   CXDiagnosticSeverity,
+  CXErrorCode,
   CXEvalResultKind,
   CXFieldVisitorCallbackDefinition,
   CXGlobalOptFlags,
@@ -48,10 +48,24 @@ import {
   CStringArray,
   cxstringSetToStringArray,
   cxstringToString,
+  throwIfError,
 } from "./utils.ts";
 export * from "./CompilationDatabase.ts";
 export * from "./ModuleMapDescriptor.ts";
 export * from "./VirtualFileOverlay.ts";
+export type {
+  CXCodeCompleteResults,
+  CXCompletionString,
+  CXEvalResult,
+  CXIndexAction,
+  CXModule,
+  CXPrintingPolicy,
+  CXRewriter,
+  CXSourceRangeList,
+  CXToken,
+  CXTUResourceUsage,
+  CXType,
+};
 
 const CONSTRUCTOR = Symbol("[[constructor]]");
 const POINTER = Symbol("[[pointer]]");
@@ -239,7 +253,7 @@ export class CXIndex {
       source_filename,
       command_line_args,
       commandLineArguments.length,
-      NULL,
+      NULLBUF,
       0,
       options,
       OUT,
@@ -762,7 +776,7 @@ export class CXTranslationUnit {
       cstr(fileName),
       line,
       column,
-      NULL,
+      NULLBUF,
       0,
       options,
     );
@@ -2113,7 +2127,7 @@ class CXCompletionString {
   }
   getParent(): string {
     return cxstringToString(
-      libclang.symbols.clang_getCompletionParent(this.#pointer, NULL),
+      libclang.symbols.clang_getCompletionParent(this.#pointer, NULLBUF),
     );
   }
   getBriefComment(): string {
@@ -3239,8 +3253,6 @@ class CXType {
   }
 }
 
-export type { CXType };
-
 const PRINTING_POLICY_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
 >((pointer) => libclang.symbols.clang_PrintingPolicy_dispose(pointer));
@@ -4018,7 +4030,6 @@ export class CXDiagnostic {
           : 0);
     }
     const result = libclang.symbols.clang_formatDiagnostic(this.#pointer, opts);
-    console.log(result);
     return cxstringToString(
       result,
     );

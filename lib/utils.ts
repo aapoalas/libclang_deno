@@ -1,5 +1,5 @@
 import { libclang } from "./ffi.ts";
-import { NULL } from "./include/typeDefinitions.ts";
+import { CXErrorCode, NULL } from "./include/typeDefinitions.ts";
 
 const ENCODER = new TextEncoder();
 const DECODER = new TextDecoder();
@@ -108,4 +108,41 @@ export const wrapPointerInBuffer = (pointer: Deno.PointerValue): Uint8Array => {
   const u64Buf = new BigUint64Array(buf.buffer);
   u64Buf[0] = BigInt(pointer);
   return buf;
+};
+
+export const throwIfError = (
+  errorCode: CXErrorCode,
+  baseMessage: string,
+): void => {
+  if (errorCode === CXErrorCode.CXError_Success) {
+    return;
+  }
+  let err: Error;
+  if (errorCode === CXErrorCode.CXError_Failure) {
+    err = new Error(
+      `${baseMessage}: Unkown error occurred`,
+      { cause: errorCode },
+    );
+  } else if (errorCode === CXErrorCode.CXError_Crashed) {
+    err = new Error(`${baseMessage}: libclang crashed`, {
+      cause: errorCode,
+    });
+  } else if (errorCode === CXErrorCode.CXError_InvalidArguments) {
+    err = new Error(`${baseMessage}: Invalid arguments`, {
+      cause: errorCode,
+    });
+  } else if (errorCode === CXErrorCode.CXError_ASTReadError) {
+    err = new Error(
+      `${baseMessage}: AST deserialization error occurred`,
+      { cause: errorCode },
+    );
+  } else {
+    err = new Error(`${baseMessage}: Unkown error code`, {
+      cause: errorCode,
+    });
+  }
+  if ("captureStackTrace" in Error) {
+    Error.captureStackTrace(err, throwIfError);
+  }
+  throw err;
 };

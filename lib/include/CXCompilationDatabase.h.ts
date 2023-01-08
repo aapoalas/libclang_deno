@@ -1,65 +1,68 @@
 import {
   buf,
-  constCharPtr,
-  CXCompilationDatabase,
+  cstringT,
   CXCompilationDatabase_ErrorT,
-  CXCompileCommand,
-  CXCompileCommands,
+  CXCompilationDatabaseT,
+  CXCompileCommandsT,
+  CXCompileCommandT,
   CXStringT,
-  unsigned,
+  unsignedInt,
 } from "./typeDefinitions.ts";
-
-/** CompilationDatabase functions
- */
 
 /**
  * Creates a compilation database from the database found in directory
  * buildDir. For example, CMake can output a compile_commands.json which can
  * be used to build the database.
  *
- * It must be freed by {@link clang_CompilationDatabase_dispose}.
- *
- * @param {const char *} BuildDir
- * @param {CXCompilationDatabase_ErrorT *} ErrorCode out pointer
+ * It must be freed by `clang_CompilationDatabase_dispose.`
  */
 export const clang_CompilationDatabase_fromDirectory = {
-  parameters: [constCharPtr, buf(CXCompilationDatabase_ErrorT)],
-  result: CXCompilationDatabase,
+  parameters: [
+    cstringT, // BuildDir
+    buf(CXCompilationDatabase_ErrorT), // ErrorCode
+  ],
+  result: CXCompilationDatabaseT,
 } as const;
 
 /**
  * Free the given compilation database
  */
 export const clang_CompilationDatabase_dispose = {
-  parameters: [CXCompilationDatabase],
+  parameters: [
+    CXCompilationDatabaseT,
+  ],
   result: "void",
 } as const;
 
 /**
  * Find the compile commands used for a file. The compile commands
- * must be freed by {@link clang_CompileCommands_dispose}.
- *
- * @param database
- * @param {const char *} CompleteFileName
+ * must be freed by `clang_CompileCommands_dispose.`
  */
 export const clang_CompilationDatabase_getCompileCommands = {
-  parameters: [CXCompilationDatabase, constCharPtr],
-  result: CXCompileCommands,
+  parameters: [
+    CXCompilationDatabaseT,
+    cstringT, // CompleteFileName
+  ],
+  result: CXCompileCommandsT,
 } as const;
 
 /**
  * Get all the compile commands in the given compilation database.
  */
 export const clang_CompilationDatabase_getAllCompileCommands = {
-  parameters: [CXCompilationDatabase],
-  result: CXCompileCommands,
+  parameters: [
+    CXCompilationDatabaseT,
+  ],
+  result: CXCompileCommandsT,
 } as const;
 
 /**
  * Free the given CompileCommands
  */
 export const clang_CompileCommands_dispose = {
-  parameters: [CXCompileCommands],
+  parameters: [
+    CXCompileCommandsT,
+  ],
   result: "void",
 } as const;
 
@@ -67,25 +70,32 @@ export const clang_CompileCommands_dispose = {
  * Get the number of CompileCommand we have for a file
  */
 export const clang_CompileCommands_getSize = {
-  parameters: [CXCompileCommands],
-  result: unsigned,
+  parameters: [
+    CXCompileCommandsT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Get the I'th CompileCommand for a file
  *
- * Note : 0 <= i < clang_CompileCommands_getSize(CXCompileCommands)
+ * Note : 0 \<= i \< clang_CompileCommands_getSize(CXCompileCommands)
  */
 export const clang_CompileCommands_getCommand = {
-  parameters: [CXCompileCommands, unsigned],
-  result: CXCompileCommand,
+  parameters: [
+    CXCompileCommandsT,
+    unsignedInt, // I
+  ],
+  result: CXCompileCommandT,
 } as const;
 
 /**
  * Get the working directory where the CompileCommand was executed from
  */
 export const clang_CompileCommand_getDirectory = {
-  parameters: [CXCompileCommand],
+  parameters: [
+    CXCompileCommandT,
+  ],
   result: CXStringT,
 } as const;
 
@@ -93,7 +103,9 @@ export const clang_CompileCommand_getDirectory = {
  * Get the filename associated with the CompileCommand.
  */
 export const clang_CompileCommand_getFilename = {
-  parameters: [CXCompileCommand],
+  parameters: [
+    CXCompileCommandT,
+  ],
   result: CXStringT,
 } as const;
 
@@ -101,18 +113,23 @@ export const clang_CompileCommand_getFilename = {
  * Get the number of arguments in the compiler invocation.
  */
 export const clang_CompileCommand_getNumArgs = {
-  parameters: [CXCompileCommand],
-  result: unsigned,
+  parameters: [
+    CXCompileCommandT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Get the I'th argument value in the compiler invocations
  *
  * Invariant :
- *  - argument 0 is the compiler executable
+ * - argument 0 is the compiler executable
  */
 export const clang_CompileCommand_getArg = {
-  parameters: [CXCompileCommand, unsigned],
+  parameters: [
+    CXCompileCommandT,
+    unsignedInt, // I
+  ],
   result: CXStringT,
 } as const;
 
@@ -120,15 +137,20 @@ export const clang_CompileCommand_getArg = {
  * Get the number of source mappings for the compiler invocation.
  */
 export const clang_CompileCommand_getNumMappedSources = {
-  parameters: [CXCompileCommand],
-  result: unsigned,
+  parameters: [
+    CXCompileCommandT,
+  ],
+  result: unsignedInt,
 } as const;
 
 /**
  * Get the I'th mapped source path for the compiler invocation.
  */
 export const clang_CompileCommand_getMappedSourcePath = {
-  parameters: [CXCompileCommand, unsigned],
+  parameters: [
+    CXCompileCommandT,
+    unsignedInt, // I
+  ],
   result: CXStringT,
 } as const;
 
@@ -136,6 +158,9 @@ export const clang_CompileCommand_getMappedSourcePath = {
  * Get the I'th mapped source content for the compiler invocation.
  */
 export const clang_CompileCommand_getMappedSourceContent = {
-  parameters: [CXCompileCommand, unsigned],
+  parameters: [
+    CXCompileCommandT,
+    unsignedInt, // I
+  ],
   result: CXStringT,
 } as const;

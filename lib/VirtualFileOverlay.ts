@@ -1,6 +1,5 @@
 import { libclang } from "./ffi.ts";
-import { throwIfError } from "./include/ErrorCode.h.ts";
-import { charBufferToString, cstr } from "./utils.ts";
+import { charBufferToString, cstr, throwIfError } from "./utils.ts";
 
 const VIRTUAL_FILE_OVERLAY_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue

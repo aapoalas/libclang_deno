@@ -1,6 +1,5 @@
 import { libclang } from "./ffi.ts";
-import { throwIfError } from "./include/ErrorCode.h.ts";
-import { charBufferToString, cstr } from "./utils.ts";
+import { charBufferToString, cstr, throwIfError } from "./utils.ts";
 
 const MODULE_MAP_DESCRIPTOR_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue

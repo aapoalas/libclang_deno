@@ -1,16 +1,13 @@
-/**
- * Build system utilities
- */
-
-import { charBuffer } from "../utils.ts";
-import { CXErrorCodeT } from "./ErrorCode.h.ts";
 import {
   buf,
-  constCharPtr,
-  CXModuleMapDescriptor,
+  cstringArrayT,
+  cstringT,
+  CXErrorCodeT,
+  CXModuleMapDescriptorT,
   CXVirtualFileOverlayT,
   int,
-  unsigned,
+  ptr,
+  unsignedInt,
   unsignedLongLong,
 } from "./typeDefinitions.ts";
 
@@ -24,137 +21,158 @@ export const clang_getBuildSessionTimestamp = {
 } as const;
 
 /**
- * Create a {@link CXVirtualFileOverlayT} object.
- * Must be disposed with {@link clang_VirtualFileOverlay_dispose}().
+ * Create a `CXVirtualFileOverlay` object.
+ * Must be disposed with `clang_VirtualFileOverlay_dispose().`
  *
  * @param options is reserved, always pass 0.
  */
 export const clang_VirtualFileOverlay_create = {
-  parameters: [unsigned],
+  parameters: [
+    unsignedInt, // options
+  ],
   result: CXVirtualFileOverlayT,
 } as const;
 
 /**
  * Map an absolute virtual file path to an absolute real one.
  * The virtual path must be canonicalized (not contain "."/"..").
- * @param fileOverlay
- * @param virtualPath
- * @param realPath
+ *
  * @returns 0 for success, non-zero to indicate an error.
  */
 export const clang_VirtualFileOverlay_addFileMapping = {
-  parameters: [CXVirtualFileOverlayT, constCharPtr, constCharPtr],
+  parameters: [
+    CXVirtualFileOverlayT,
+    cstringT, // virtualPath
+    cstringT, // realPath
+  ],
   result: CXErrorCodeT,
 } as const;
 
 /**
- * Set the case sensitivity for the {@link CXVirtualFileOverlayT} object.
- * The {@link CXVirtualFileOverlayT} object is case-sensitive by default, this
+ * Set the case sensitivity for the `CXVirtualFileOverlay` object.
+ * The `CXVirtualFileOverlay` object is case-sensitive by default, this
  * option can be used to override the default.
- * @param fileOverlay
- * @param caseSensitive
+ *
  * @returns 0 for success, non-zero to indicate an error.
  */
 export const clang_VirtualFileOverlay_setCaseSensitivity = {
-  parameters: [CXVirtualFileOverlayT, int],
+  parameters: [
+    CXVirtualFileOverlayT,
+    int, // caseSensitive
+  ],
   result: CXErrorCodeT,
 } as const;
 
 /**
- * Write out the {@link CXVirtualFileOverlayT} object to a char buffer.
+ * Write out the `CXVirtualFileOverlay` object to a char buffer.
  *
- * @param fileOverlay
  * @param options is reserved, always pass 0.
+ *
  * @param out_buffer_ptr pointer to receive the buffer pointer, which should be
- * disposed using {@link clang_free}().
+ * disposed using `clang_free().`
  * @param out_buffer_size pointer to receive the buffer size.
+ *
  * @returns 0 for success, non-zero to indicate an error.
  */
 export const clang_VirtualFileOverlay_writeToBuffer = {
   parameters: [
     CXVirtualFileOverlayT,
-    unsigned,
-    buf(charBuffer),
-    buf(unsigned),
+    unsignedInt, // options
+    cstringArrayT, // out_buffer_ptr
+    buf(unsignedInt), // out_buffer_size
   ],
   result: CXErrorCodeT,
 } as const;
 
 /**
  * free memory allocated by libclang, such as the buffer returned by
- * {@link CXVirtualFileOverlayT}() or {@link clang_ModuleMapDescriptor_writeToBuffer}().
+ * `CXVirtualFileOverlay(`) or `clang_ModuleMapDescriptor_writeToBuffer().`
  *
  * @param buffer memory pointer to free.
  */
 export const clang_free = {
-  parameters: [CXVirtualFileOverlayT],
+  parameters: [
+    ptr("void"), // buffer
+  ],
   result: "void",
 } as const;
 
 /**
- * Dispose a {@link CXVirtualFileOverlayT} object.
+ * Dispose a `CXVirtualFileOverlay` object.
  */
 export const clang_VirtualFileOverlay_dispose = {
-  parameters: [CXVirtualFileOverlayT],
+  parameters: [
+    CXVirtualFileOverlayT,
+  ],
   result: "void",
 } as const;
 
 /**
- * Create a {@link CXModuleMapDescriptor} object.
- * Must be disposed with {@link clang_ModuleMapDescriptor_dispose}().
+ * Create a `CXModuleMapDescriptor` object.
+ * Must be disposed with `clang_ModuleMapDescriptor_dispose().`
  *
  * @param options is reserved, always pass 0.
  */
 export const clang_ModuleMapDescriptor_create = {
-  parameters: [unsigned],
-  result: CXModuleMapDescriptor,
+  parameters: [
+    unsignedInt, // options
+  ],
+  result: CXModuleMapDescriptorT,
 } as const;
 
 /**
  * Sets the framework module name that the module.map describes.
- * @param fileOverlay
- * @param name
+ *
  * @returns 0 for success, non-zero to indicate an error.
  */
 export const clang_ModuleMapDescriptor_setFrameworkModuleName = {
-  parameters: [CXModuleMapDescriptor, constCharPtr],
-  result: CXErrorCodeT,
-} as const;
-
-/**
- * Sets the umbrella header name that the module.map describes.
- * @param fileOverlay
- * @param name
- * @returns 0 for success, non-zero to indicate an error.
- */
-export const clang_ModuleMapDescriptor_setUmbrellaHeader = {
-  parameters: [CXModuleMapDescriptor, constCharPtr],
-  result: CXErrorCodeT,
-} as const;
-
-/**
- * Write out the {@link CXModuleMapDescriptor} object to a char buffer.
- *
- * @param options is reserved, always pass 0.
- * @param out_buffer_ptr pointer to receive the buffer pointer, which should be
- * disposed using {@link clang_free}().
- * @param out_buffer_size pointer to receive the buffer size.
- * @returns 0 for success, non-zero to indicate an error.
- */
-export const clang_ModuleMapDescriptor_writeToBuffer = {
   parameters: [
-    CXModuleMapDescriptor,
-    unsigned,
-    buf(CXModuleMapDescriptor),
-    buf(unsigned),
+    CXModuleMapDescriptorT,
+    cstringT, // name
   ],
   result: CXErrorCodeT,
 } as const;
 
 /**
- * Dispose a {@link CXModuleMapDescriptor} object.
+ * Sets the umbrella header name that the module.map describes.
+ *
+ * @returns 0 for success, non-zero to indicate an error.
+ */
+export const clang_ModuleMapDescriptor_setUmbrellaHeader = {
+  parameters: [
+    CXModuleMapDescriptorT,
+    cstringT, // name
+  ],
+  result: CXErrorCodeT,
+} as const;
+
+/**
+ * Write out the `CXModuleMapDescriptor` object to a char buffer.
+ *
+ * @param options is reserved, always pass 0.
+ *
+ * @param out_buffer_ptr pointer to receive the buffer pointer, which should be
+ * disposed using `clang_free().`
+ * @param out_buffer_size pointer to receive the buffer size.
+ *
+ * @returns 0 for success, non-zero to indicate an error.
+ */
+export const clang_ModuleMapDescriptor_writeToBuffer = {
+  parameters: [
+    CXModuleMapDescriptorT,
+    unsignedInt, // options
+    cstringArrayT, // out_buffer_ptr
+    buf(unsignedInt), // out_buffer_size
+  ],
+  result: CXErrorCodeT,
+} as const;
+
+/**
+ * Dispose a `CXModuleMapDescriptor` object.
  */
 export const clang_ModuleMapDescriptor_dispose = {
-  parameters: [CXModuleMapDescriptor],
+  parameters: [
+    CXModuleMapDescriptorT,
+  ],
   result: "void",
 } as const;
