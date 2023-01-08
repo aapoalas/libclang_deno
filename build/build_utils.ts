@@ -275,6 +275,31 @@ export const toAnyType = (
   } else if (typekind === CXTypeKind.CXType_Pointer) {
     const pointee = type.getPointeeType();
 
+    if (
+      pointee.kind === CXTypeKind.CXType_Char_S
+    ) {
+      // `const char *` or `char *`
+      const cstringResult: TypeReference = {
+        comment: null,
+        kind: "ref",
+        name: "cstring",
+        reprName: "cstringT",
+      };
+      return cstringResult;
+    } else if (
+      pointee.kind === CXTypeKind.CXType_Pointer &&
+      pointee.getPointeeType().kind === CXTypeKind.CXType_Char_S
+    ) {
+      // `const char **` or `char **`
+      const cstringArrayResult: TypeReference = {
+        comment: null,
+        kind: "ref",
+        name: "cstringArray",
+        reprName: "cstringArrayT",
+      };
+      return cstringArrayResult;
+    }
+
     const pointeeAnyType = toAnyType(typeMemory, pointee);
 
     const result: PointerType = {
@@ -283,7 +308,8 @@ export const toAnyType = (
       pointee: pointeeAnyType,
       comment: null,
       useBuffer: pointeeAnyType.kind === "struct" ||
-        pointeeAnyType.kind === "plain" && pointeeAnyType.type !== "void",
+        pointeeAnyType.kind === "plain" && pointeeAnyType.type !== "void" ||
+        pointeeAnyType.kind === "ref" || pointeeAnyType.kind === "pointer",
     };
     return result;
   } else if (typekind === CXTypeKind.CXType_Typedef) {

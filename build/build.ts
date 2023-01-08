@@ -221,6 +221,14 @@ const results: string[] = [
   `export const ptr = (_type: unknown) => "pointer" as const;
 export const buf = (_type: unknown) => "buffer" as const;
 export const func = (_func: unknown) => "function" as const;
+/**
+ * \`const char *\`, C string
+ */
+export const cstringT = "buffer" as const;
+/**
+ * \`char **\`, C string array
+ */
+export const cstringArrayT = "buffer" as const;
 `,
 ];
 
