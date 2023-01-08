@@ -1,11 +1,11 @@
 import {
+  buf,
   constCharPtr,
   CXCompilationDatabase,
   CXCompilationDatabase_ErrorT,
   CXCompileCommand,
   CXCompileCommands,
   CXStringT,
-  out,
   unsigned,
 } from "./typeDefinitions.ts";
 

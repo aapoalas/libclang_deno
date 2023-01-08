@@ -1,9 +1,9 @@
 import {
+  buf,
   CXFileT,
   CXSourceLocationT,
   CXSourceRangeList,
   CXSourceRangeT,
-  out,
   ptr,
   unsigned,
 } from "./typeDefinitions.ts";

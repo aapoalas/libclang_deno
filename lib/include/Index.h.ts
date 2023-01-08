@@ -72,7 +72,6 @@ import {
   IndexerCallbacks,
   int,
   longLong,
-  out,
   ptr,
   size_t,
   unsigned,

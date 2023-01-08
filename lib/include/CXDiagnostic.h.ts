@@ -1,4 +1,5 @@
 import {
+  buf,
   constCharPtr,
   CXDiagnosticDisplayOptionsT,
   CXDiagnosticSetT,
@@ -8,7 +9,6 @@ import {
   CXSourceLocationT,
   CXSourceRangeT,
   CXStringT,
-  out,
   unsigned,
 } from "./typeDefinitions.ts";
 
