@@ -9,7 +9,9 @@ FFI API with a more idiomatic and fully typed TypeScript API.
 
 The Deno FFI binding declarations are generated automatically by `libclang-deno`
 build script which uses the library's APIs to implement a basic C header walker,
-complete with comment JSDoc'ifying.
+complete with comment JSDoc'ifying. Check out
+[https://github.com/aapoalas/libclang-deno/blob/main/build/build.ts](build.ts)
+for the ugly details.
 
 ### Entry points and memory management
 
