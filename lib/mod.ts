@@ -26,9 +26,7 @@ import {
   CXLinkageKind,
   CXLoadDiag_Error,
   CXNameRefFlags,
-  // deno-lint-ignore no-unused-vars
   CXObjCDeclQualifierKind,
-  // deno-lint-ignore no-unused-vars
   CXObjCPropertyAttrKind,
   CXPrintingPolicyProperty,
   CXRefQualifierKind,
@@ -55,21 +53,62 @@ import {
   NULLBUF,
   throwIfError,
 } from "./utils.ts";
-export * from "./CompilationDatabase.ts";
-export * from "./ModuleMapDescriptor.ts";
-export * from "./VirtualFileOverlay.ts";
+export * from "./BuildSystem.ts";
+export * from "./CXCompilationDatabase.ts";
 export type {
+  CX_CXXAccessSpecifier,
+  CX_StorageClass,
+  CXAvailabilityKind,
+  CXCallingConv,
+  CXChildVisitResult,
+  CXCodeComplete_Flags,
   CXCodeCompleteResults,
+  CXCommentInlineCommandRenderKind,
+  CXCommentKind,
+  CXCommentParamPassDirection,
+  CXCompletionChunkKind,
+  CXCompletionContext,
   CXCompletionString,
+  CXCursor_ExceptionSpecificationKind,
+  CXCursorAndRangeVisitorCallbackDefinition,
+  CXCursorKind,
+  CXCursorVisitorCallbackDefinition,
+  CXDiagnosticDisplayOptions,
+  CXDiagnosticSeverity,
+  CXErrorCode,
   CXEvalResult,
+  CXEvalResultKind,
+  CXFieldVisitorCallbackDefinition,
+  CXGlobalOptFlags,
+  CXInclusionVisitorCallbackDefinition,
   CXIndexAction,
+  CXLanguageKind,
+  CXLinkageKind,
+  CXLoadDiag_Error,
   CXModule,
+  CXNameRefFlags,
+  CXObjCDeclQualifierKind,
+  CXObjCPropertyAttrKind,
   CXPrintingPolicy,
+  CXPrintingPolicyProperty,
+  CXRefQualifierKind,
+  CXReparse_Flags,
+  CXResult,
   CXRewriter,
+  CXSaveError,
   CXSourceRangeList,
+  CXTemplateArgumentKind,
+  CXTLSKind,
   CXToken,
+  CXTokenKind,
+  CXTranslationUnit_Flags,
   CXTUResourceUsage,
   CXType,
+  CXTypeKind,
+  CXTypeLayoutError,
+  CXTypeNullabilityKind,
+  CXVisibilityKind,
+  CXVisitorResult,
 };
 
 const CONSTRUCTOR = Symbol("[[constructor]]");
@@ -173,7 +212,7 @@ const CX_FIELD_VISITOR_CALLBACK = new Deno.UnsafeCallback(
  * If no error handler is intalled, the default strategy is to print error
  * message to stderr and call exit(1).
  */
-export const setAbortOnFatalError = (value: boolean) => {
+export const setAbortOnFatalError = (value: boolean): void => {
   if (value) {
     libclang.symbols.clang_install_aborting_llvm_fatal_error_handler();
   } else {
@@ -230,6 +269,10 @@ export interface GlobalOptions {
 const INDEX_FINALIZATION_REGISTRY = new FinalizationRegistry<Deno.PointerValue>(
   (pointer) => libclang.symbols.clang_disposeIndex(pointer),
 );
+/**
+ * An "index" that consists of a set of translation units that would
+ * typically be linked together into an executable or library.
+ */
 export class CXIndex {
   #pointer: Deno.PointerValue;
   #disposed = false;
@@ -420,7 +463,8 @@ export class CXIndex {
    * Destroy the given index.
    *
    * Destroying the index will destroy all the translation units created
-   * within that index.
+   * within that index. It is not strictly necessary to call this method,
+   * the memory will be released as part of JavaScript garbage collection.
    */
   dispose(): void {
     if (this.#disposed) {
@@ -1250,6 +1294,9 @@ export class CXTranslationUnit {
    * {@link CXTUResourceUsage}) disposed as well as
    * using those is no longer safe. However, this marking
    * is not yet fully implemented and should not be relied on.
+   *
+   * It is not strictly necessary to call this method, the memory
+   * will be released as part of JavaScript garbage collection.
    */
   dispose(): void {
     if (this.#disposed) {
@@ -1680,7 +1727,9 @@ class CXCodeCompleteResults {
    * Free this set of code-completion results.
    *
    * Calling any methods on the {@link CXCodeCompleteResults}
-   * after disposing will result in undefined behaviour.
+   * after disposing will result in undefined behaviour. It
+   * is not strictly necessary to call this method, the memory
+   * will be released as part of JavaScript garbage collection.
    */
   dispose(): void {
     libclang.symbols.clang_disposeCodeCompleteResults(this.#pointer);
@@ -1702,6 +1751,11 @@ interface CXTUResourceUsageEntry {
 const RESOURCE_USAGE_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Uint8Array
 >((buffer) => libclang.symbols.clang_disposeCXTUResourceUsage(buffer));
+/**
+ * The memory usage of a CXTranslationUnit, broken into categories.
+ *
+ * @hideconstructor
+ */
 class CXTUResourceUsage {
   static #constructable = false;
   #buffer: Uint8Array;
@@ -1733,10 +1787,17 @@ class CXTUResourceUsage {
     return result;
   }
 
-  get length() {
+  /**
+   * The number of resource usage entries in this {@link CXTUResourceUsage}.
+   */
+  get length(): number {
     return this.#length;
   }
 
+  /**
+   * Returns the human-readable string name and number of bytes
+   * of the memory category at the given {@link index}.
+   */
   at(index: number): CXTUResourceUsageEntry {
     if (this.#disposed) {
       throw new Error(
@@ -1760,6 +1821,12 @@ class CXTUResourceUsage {
     };
   }
 
+  /**
+   * Disposes this {@link CXTUResourceUsage}.
+   *
+   * It is not strictly necessary to call this method, the memory
+   * will be released as part of JavaScript garbage collection.
+   */
   dispose(): void {
     if (this.#disposed) {
       return;
@@ -1800,7 +1867,7 @@ export class CXFile {
   /**
    * private
    */
-  get [POINTER]() {
+  get [POINTER](): Deno.PointerValue {
     return this.#pointer;
   }
 
@@ -1814,7 +1881,7 @@ export class CXFile {
   /**
    * Returns `true` if this and {@link other} point to the same file.
    */
-  equals(other: CXFile) {
+  equals(other: CXFile): boolean {
     if (this.#disposed || other.#disposed) {
       throw new Error("Cannot compare disposed files");
     }
@@ -1972,7 +2039,7 @@ const OVERRIDDEN_CURSORS_FINALIZATION_REGISTRY = new FinalizationRegistry<
     count: number;
   }
 >(
-  (key) => {
+  (key): void => {
     key.count--;
     if (key.count === 0) {
       libclang.symbols.clang_disposeOverriddenCursors(key.pointer);
@@ -4075,8 +4142,7 @@ class CXEvalResult {
    *
    * Calling any other methods after calling {@link dispose()} causes
    * undefined behaviour. It is not strictly necessary to call this method,
-   * the Eval memory will be disposed of when the {@link CXEvalResult} gets
-   * garbage collected.
+   * the memory will be released as part of JavaScript garbage collection.
    */
   dispose(): void {
     libclang.symbols.clang_EvalResult_dispose(this.#pointer);
@@ -4884,7 +4950,7 @@ class CXSourceRangeList {
   /**
    * The number of ranges in this array.
    */
-  get length() {
+  get length(): number {
     return this.#length;
   }
 
@@ -4952,7 +5018,7 @@ class CXSourceRangeList {
    * Destroy this {@link CXSourceRangeList}.
    *
    * It is not strictly necessary to call this method. The memory
-   * will be released when the instance gets garbage collected.
+   * will be released as part of JavaScript garbage collection.
    */
   dispose(): void {
     if (this.#disposed) {
@@ -5033,7 +5099,7 @@ export class CXSourceRange {
   /**
    * @private
    */
-  get [BUFFER]() {
+  get [BUFFER](): Uint8Array {
     return this.#buffer;
   }
 
@@ -5472,8 +5538,8 @@ class CXType {
   /**
    * Determine whether two {@link CXType}s represent the same type.
    */
-  equals(other: CXType) {
-    libclang.symbols.clang_equalTypes(this.#buffer, other.#buffer);
+  equals(other: CXType): boolean {
+    return libclang.symbols.clang_equalTypes(this.#buffer, other.#buffer) !== 0;
   }
 
   /**
@@ -5926,11 +5992,25 @@ class CXType {
 const PRINTING_POLICY_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
 >((pointer) => libclang.symbols.clang_PrintingPolicy_dispose(pointer));
+
+/**
+ * Opaque pointer representing a policy that controls pretty printing
+ * for {@link CXCursor.getPrettyPrinted}.
+ *
+ * Created using {@link CXCursor.getPrintingPolicy}.
+ *
+ * See also {@link CXPrintingPolicyProperty}.
+ *
+ * @hideconstructor
+ */
 class CXPrintingPolicy {
   static #constructable = false;
   #pointer: Deno.PointerValue;
   #disposed = false;
 
+  /**
+   * @private
+   */
   constructor(pointer: Deno.PointerValue) {
     if (CXPrintingPolicy.#constructable !== true) {
       throw new Error("CXPrintingPolicy is not constructable");
@@ -6518,6 +6598,12 @@ class CXPrintingPolicy {
     );
   }
 
+  /**
+   * Release a printing policy.
+   *
+   * It is not strictly necessary to call this method, the memory
+   * will be released as part of JavaScript garbage collection.
+   */
   dispose(): void {
     if (this.#disposed) {
       return;
@@ -6530,6 +6616,11 @@ class CXPrintingPolicy {
 const DIAGNOSTIC_SET_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
 >((pointer) => libclang.symbols.clang_disposeDiagnosticSet(pointer));
+/**
+ * A group of {@link CXDiagnostic}s.
+ *
+ * @hideconstructor
+ */
 export class CXDiagnosticSet {
   static #constructable = false;
   tu: null | CXTranslationUnit;
@@ -6560,11 +6651,20 @@ export class CXDiagnosticSet {
     return result;
   }
 
+  /**
+   * Number of {@link CXDiagnostic}s in this set.
+   */
   get length(): number {
     return this.#length;
   }
 
-  at(index: number) {
+  /**
+   * Retrieve a {@link CXDiagnostic} associated with the given {@link index}.
+   *
+   * @param index The zero-based diagnostic number to retrieve.
+   * @returns The requested diagnostic.
+   */
+  at(index: number): CXDiagnostic {
     if (this.#disposed) {
       throw new Error(
         "Cannot get CXDiagnostic at index from a disposed CXDiagnosticSet",
@@ -6578,7 +6678,15 @@ export class CXDiagnosticSet {
     );
   }
 
-  static loadDiagnostics(fileName: string) {
+  /**
+   * Deserialize a set of diagnostics from a Clang diagnostics bitcode
+   * file.
+   *
+   * @param fileName The name of the file to deserialize.
+   *
+   * @returns A loaded {@link CXDiagnosticSet} if successful. An error is thrown otherwise.
+   */
+  static loadDiagnostics(fileName: string): CXDiagnosticSet {
     const errorStringOut = new Uint8Array(8 * 2 + 4);
     const errorOut = errorStringOut.subarray(8 * 2);
     const pointer = libclang.symbols.clang_loadDiagnostics(
@@ -6616,6 +6724,12 @@ export class CXDiagnosticSet {
     return CXDiagnosticSet[CONSTRUCTOR](null, pointer);
   }
 
+  /**
+   * Release this {@link CXDiagnosticSet} and all of its contained diagnostics.
+   *
+   * It is not strictly necessary to call this method. The memory
+   * will be released as part of JavaScript garbage collection.
+   */
   dispose(): void {
     if (this.#disposed) {
       return;
@@ -6629,6 +6743,10 @@ export class CXDiagnosticSet {
 const DIAGNOSTIC_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
 >((pointer) => libclang.symbols.clang_disposeDiagnostic(pointer));
+/**
+ * A single diagnostic, containing the diagnostic's severity,
+ * location, text, source ranges, and fix-it hints.
+ */
 export class CXDiagnostic {
   static #constructable = false;
   tu: null | CXTranslationUnit;
@@ -6657,6 +6775,9 @@ export class CXDiagnostic {
     return result;
   }
 
+  /**
+   * Retrieve the child diagnostics of this {@link CXDiagnostic}.
+   */
   getChildDiagnostics(): null | CXDiagnosticSet {
     if (this.#disposed) {
       throw new Error("Cannot get children of diposed CXDiagnostic");
@@ -6672,12 +6793,71 @@ export class CXDiagnostic {
     return diagnosticSet;
   }
 
+  /**
+   * Format the given diagnostic in a manner that is suitable for display.
+   *
+   * This routine will format the given diagnostic to a string, rendering
+   * the diagnostic according to the various options given. The
+   * `clang_defaultDiagnosticDisplayOptions(`) function returns the set of
+   * options that most closely mimics the behavior of the clang compiler.
+   *
+   * @param [options] An optional options object that control the diagnostic display,
+   * see {@link CXDiagnosticDisplayOptions}.
+   * @returns A string containing the formatted diagnostic.
+   */
   formatDiagnostic(options?: {
+    /**
+     * Display the source-location information where the
+     * diagnostic was located.
+     *
+     * When set, diagnostics will be prefixed by the file, line, and
+     * (optionally) column to which the diagnostic refers. For example,
+     *
+     * ```cpp
+     * test.c:28: warning: extra tokens at end of #endif directive
+     * ```
+     * This option corresponds to the clang flag `-fshow-source-location.`
+     */
     displaySourceLocation: boolean;
+    /**
+     * If displaying the source-location information of the
+     * diagnostic, also include the column number.
+     *
+     * This option corresponds to the clang flag `-fshow-column.`
+     */
     displayColumn: boolean;
+    /**
+     * If displaying the source-location information of the
+     * diagnostic, also include information about source ranges in a
+     * machine-parsable format.
+     *
+     * This option corresponds to the clang flag
+     * `-fdiagnostics-print-source-range-info.`
+     */
     displaySourceRanges: boolean;
+    /**
+     * Display the option name associated with this diagnostic, if any.
+     *
+     * The option name displayed (e.g., -Wconversion) will be placed in brackets
+     * after the diagnostic text. This option corresponds to the clang flag
+     * `-fdiagnostics-show-option.`
+     */
     displayOption: boolean;
+    /**
+     * Display the category number associated with this diagnostic, if any.
+     *
+     * The category number is displayed within brackets after the diagnostic text.
+     * This option corresponds to the clang flag
+     * `-fdiagnostics-show-category=id.`
+     */
     displayCategoryId: boolean;
+    /**
+     * Display the category name associated with this diagnostic, if any.
+     *
+     * The category name is displayed within brackets after the diagnostic text.
+     * This option corresponds to the clang flag
+     * `-fdiagnostics-show-category=name.`
+     */
     displayCategoryName: boolean;
   }): string {
     if (this.#disposed) {
@@ -6714,6 +6894,16 @@ export class CXDiagnostic {
     );
   }
 
+  /**
+   * Retrieve the category number for this diagnostic.
+   *
+   * Diagnostics can be categorized into groups along with other, related
+   * diagnostics (e.g., diagnostics under the same warning flag). This method
+   * retrieves the category number for this diagnostic.
+   *
+   * @returns The number of the category that contains this diagnostic, or zero
+   * if this diagnostic is uncategorized.
+   */
   getCategory(): number {
     if (this.#disposed) {
       throw new Error("Cannot get category of disposed CXDiagnostic");
@@ -6722,7 +6912,12 @@ export class CXDiagnostic {
   }
 
   /**
-   * @deprecated This is now deprecated. Use {@link getCategoryText} instead.
+   * Retrieve the name of this diagnostic category.
+   *
+   * @deprecated This is now deprecated. Use {@link getCategoryText()}
+   * instead.
+   *
+   * @returns The name of this diagnostic category.
    */
   getCategoryName(): string {
     if (this.#disposed) {
@@ -6733,6 +6928,11 @@ export class CXDiagnostic {
     ));
   }
 
+  /**
+   * Retrieve the diagnostic category text of this diagnostic.
+   *
+   * @returns The text of this diagnostic category.
+   */
   getCategoryText(): string {
     if (this.#disposed) {
       throw new Error("Cannot get category text of disposed CXDiagnostic");
@@ -6742,6 +6942,12 @@ export class CXDiagnostic {
     ));
   }
 
+  /**
+   * Retrieve the source location of this diagnostic.
+   *
+   * This location is where Clang would print the caret ('^') when
+   * displaying this diagnostic on the command line.
+   */
   getLocation(): CXSourceLocation {
     if (this.#disposed) {
       throw new Error("Cannot get location of disposed CXDiagnostic");
@@ -6752,6 +6958,10 @@ export class CXDiagnostic {
     );
   }
 
+  /**
+   * Determine the number of source ranges associated with this
+   * diagnostic.
+   */
   getNumberOfRanges(): number {
     if (this.#disposed) {
       throw new Error(
@@ -6761,6 +6971,13 @@ export class CXDiagnostic {
     return libclang.symbols.clang_getDiagnosticNumRanges(this.#pointer);
   }
 
+  /**
+   * Retrieve the name of the command-line option that enabled and/or disabled this
+   * diagnostic.
+   *
+   * @returns A pair of strings that contains the command-line option used to enable
+   * and/or disable this warning, such as "-Wconversion" or "-pedantic".
+   */
   getOptions(): {
     disabledBy: string;
     enabledBy: string;
@@ -6781,6 +6998,16 @@ export class CXDiagnostic {
     };
   }
 
+  /**
+   * Retrieve a source range associated with this diagnostic.
+   *
+   * A diagnostic's source ranges highlight important elements in the source
+   * code. On the command line, Clang displays source ranges by
+   * underlining them with '~' characters.
+   *
+   * @param index The zero-based index specifying which range to retrieve.
+   * @returns The requested source range.
+   */
   getRange(index: number): CXSourceRange {
     if (this.#disposed) {
       throw new Error("Cannot get range of disposed CXDiagnostic");
@@ -6793,6 +7020,9 @@ export class CXDiagnostic {
     )!;
   }
 
+  /**
+   * Determine the severity of this diagnostic.
+   */
   getSeverity(): CXDiagnosticSeverity {
     if (this.#disposed) {
       throw new Error("Cannot get severity of disposed CXDiagnostic");
@@ -6800,6 +7030,9 @@ export class CXDiagnostic {
     return libclang.symbols.clang_getDiagnosticSeverity(this.#pointer);
   }
 
+  /**
+   * Retrieve the text of this diagnostic.
+   */
   getSpelling(): string {
     if (this.#disposed) {
       throw new Error("Cannot get spelling of disposed CXDiagnostic");
@@ -6809,6 +7042,10 @@ export class CXDiagnostic {
     ));
   }
 
+  /**
+   * Determine the number of fix-it hints associated with this
+   * diagnostic.
+   */
   getNumberOfFixIts(): number {
     if (this.#disposed) {
       throw new Error("Cannot get number of FixIts of disposed CXDiagnostic");
@@ -6816,8 +7053,34 @@ export class CXDiagnostic {
     return libclang.symbols.clang_getDiagnosticNumFixIts(this.#pointer);
   }
 
+  /**
+   * Retrieve the replacement information for a given fix-it.
+   *
+   * Fix-its are described in terms of a source range whose contents
+   * should be replaced by a string. This approach generalizes over
+   * three kinds of operations: removal of source code (the range covers
+   * the code to be removed and the replacement string is empty),
+   * replacement of source code (the range covers the code to be
+   * replaced and the replacement string provides the new code), and
+   * insertion (both the start and end of the range point at the
+   * insertion location, and the replacement string provides the text to
+   * insert).
+   *
+   * @param index The zero-based index of the fix-it.
+   * @returns An object containing the string containing text that should
+   * replace the source code indicated by the range in the object.
+   */
   getFixIt(index: number): {
+    /**
+     * The string that should replace the source code indicated by {@link sourceRange}.
+     */
     replacementText: string;
+    /**
+     * The source range whose contents should be
+     * replaced with the {@link replacementText} string. Note that source
+     * ranges are half-open ranges [a, b), so the source code should be
+     * replaced from a and up to (but not including) b.
+     */
     sourceRange: CXSourceRange;
   } {
     if (this.#disposed) {
@@ -6839,6 +7102,12 @@ export class CXDiagnostic {
     };
   }
 
+  /**
+   * Destroy a diagnostic.
+   *
+   * It is not strictly necessary to call this method. The memory
+   * will be released as part of JavaScript garbage collection.
+   */
   dispose(): void {
     if (this.#disposed) {
       return;
@@ -6852,11 +7121,22 @@ export class CXDiagnostic {
 const REMAPPINGS_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
 >((pointer) => libclang.symbols.clang_remap_dispose(pointer));
+/**
+ * A remapping of original source files and their translated files.
+ */
 export class CXRemapping {
   #pointer: Deno.PointerValue;
   #length: number;
   #disposed = false;
 
+  /**
+   * Retrieve a remapping.
+   *
+   * @param fileNames A path that contains metadata about remappings, or an array of
+   * file paths containing remapping info.
+   * @returns The requested remapping. An error is thrown if an error occurred while
+   * retrieving the remapping.
+   */
   constructor(fileNames: string | string[]) {
     if (typeof fileNames === "string") {
       this.#pointer = libclang.symbols.clang_getRemappings(cstr(fileNames));
@@ -6875,11 +7155,26 @@ export class CXRemapping {
     );
   }
 
+  /**
+   * The number of remappings.
+   */
   get length(): number {
     return this.#length;
   }
 
-  getFileNames(index: number): { original: string; transformed: string } {
+  /**
+   * Get the original and the associated filename from this remapping.
+   */
+  getFileNames(index: number): {
+    /**
+     * The original filename of the remapping at {@link index}.
+     */
+    original: string;
+    /**
+     * The filename that the {@link original} is associated with.
+     */
+    transformed: string;
+  } {
     if (this.#disposed) {
       throw new Error("Cannot get file names of disposed CXRemapping");
     } else if (index < 0 || this.length <= index) {
@@ -6902,6 +7197,12 @@ export class CXRemapping {
     };
   }
 
+  /**
+   * Dispose the remapping.
+   *
+   * It is not strictly necessary to call this method. The memory
+   * will be released as part of JavaScript garbage collection.
+   */
   dispose(): void {
     if (this.#disposed) {
       return;
@@ -6933,6 +7234,12 @@ const disposeToken = (pointer: Deno.PointerValue) => {
 const TOKEN_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
 >((pointer) => disposeToken(pointer));
+
+/**
+ * Describes a single preprocessing token.
+ *
+ * @hideconstructor
+ */
 class CXToken {
   static #constructable = false;
   tu: CXTranslationUnit;
@@ -6941,6 +7248,9 @@ class CXToken {
   #kind: CXTokenKind;
   #disposed = false;
 
+  /**
+   * @private
+   */
   constructor(
     tu: CXTranslationUnit,
     pointer: Deno.PointerValue,
@@ -6980,17 +7290,23 @@ class CXToken {
     return result;
   }
 
-  get kind() {
+  /**
+   * The kind of this token.
+   */
+  get kind(): CXTokenKind {
     return this.#kind;
   }
 
   /**
    * @private
    */
-  get [BUFFER]() {
+  get [BUFFER](): Uint8Array {
     return this.#buffer;
   }
 
+  /**
+   * Retrieve a source range that covers this token.
+   */
   getExtent(): CXSourceRange {
     if (this.#disposed) {
       throw new Error("Cannot get extent of disposed CXToken");
@@ -7001,6 +7317,9 @@ class CXToken {
     )!;
   }
 
+  /**
+   * Retrieve the source location of this token.
+   */
   getLocation(): CXSourceLocation {
     if (this.#disposed) {
       throw new Error("Cannot get location of disposed CXToken");
@@ -7011,6 +7330,12 @@ class CXToken {
     );
   }
 
+  /**
+   * Determine the spelling of this token.
+   *
+   * The spelling of a token is the textual representation of that token, e.g.,
+   * the text of an identifier or keyword.
+   */
   getSpelling(): string {
     if (this.#disposed) {
       throw new Error("Cannot get spelling of disposed CXToken");
@@ -7020,6 +7345,12 @@ class CXToken {
     );
   }
 
+  /**
+   * Free this token.
+   *
+   * It is not strictly necessary to call this method. The memory
+   * will be released as part of JavaScript garbage collection.
+   */
   dispose(): void {
     if (this.#disposed) {
       return;
@@ -7034,11 +7365,17 @@ const REWRITER_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
 >((pointer) => libclang.symbols.clang_CXRewriter_dispose(pointer));
 
+/**
+ * @hideconstructor
+ */
 class CXRewriter {
   static #constructable = false;
   tu: CXTranslationUnit;
   #pointer: Deno.PointerValue;
 
+  /**
+   * @private
+   */
   constructor(
     tu: CXTranslationUnit,
     pointer: Deno.PointerValue,
@@ -7064,6 +7401,21 @@ class CXRewriter {
     return result;
   }
 
+  /**
+   * Insert the specified string at the specified location in the original buffer.
+   */
+  insertTextBefore(location: CXSourceLocation, insert: string): void {
+    libclang.symbols.clang_CXRewriter_insertTextBefore(
+      this.#pointer,
+      location[BUFFER],
+      cstr(insert),
+    );
+  }
+
+  /**
+   * Replace the specified range of characters in the input with the specified
+   * replacement.
+   */
   replaceText(
     range: CXSourceRange,
     replacement: string,
@@ -7074,17 +7426,42 @@ class CXRewriter {
       cstr(replacement),
     );
   }
+
+  /**
+   * Remove the specified range.
+   */
   removeText(range: CXSourceRange): void {
     libclang.symbols.clang_CXRewriter_removeText(this.#pointer, range[BUFFER]);
   }
-  overwriteChangedFiles(): boolean {
-    return libclang.symbols.clang_CXRewriter_overwriteChangedFiles(
+
+  /**
+   * Save all changed files to disk.
+   *
+   * An error is thrown if all files could not be saved successfully.
+   */
+  overwriteChangedFiles(): void {
+    const result = libclang.symbols.clang_CXRewriter_overwriteChangedFiles(
       this.#pointer,
-    ) > 0;
+    );
+
+    if (result !== 0) {
+      throw new Error("Could not overwrite some changed files.");
+    }
   }
+
+  /**
+   * Write out rewritten version of the main file to stdout.
+   */
   writeMainFileToStdOut(): void {
     libclang.symbols.clang_CXRewriter_writeMainFileToStdOut(this.#pointer);
   }
+
+  /**
+   * Free this CXRewriter.
+   *
+   * It is not strictly necessary to call this method. The memory
+   * will be released as part of JavaScript garbage collection.
+   */
   dispose(): void {
     libclang.symbols.clang_CXRewriter_dispose(this.#pointer);
     REWRITER_FINALIZATION_REGISTRY.unregister(this);

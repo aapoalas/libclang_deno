@@ -2135,7 +2135,7 @@ export const CXChildVisitResultT = unsignedInt;
 /**
  * Properties for the printing policy.
  *
- * See `clang::PrintingPolicy` for more information.
+ * See {@link https://clang.llvm.org/doxygen/structclang_1_1PrintingPolicy.html clang::PrintingPolicy} for more information.
  */
 export const enum CXPrintingPolicyProperty {
   CXPrintingPolicy_Indentation,
@@ -2169,12 +2169,12 @@ export const enum CXPrintingPolicyProperty {
 /**
  * Properties for the printing policy.
  *
- * See `clang::PrintingPolicy` for more information.
+ * See {@link https://clang.llvm.org/doxygen/structclang_1_1PrintingPolicy.html clang::PrintingPolicy} for more information.
  */
 export const CXPrintingPolicyPropertyT = unsignedInt;
 
 /**
- * Property attributes for a `CXCursor_ObjCPropertyDecl.`
+ * Property attributes for a {@link CXCursorKind.CXCursor_ObjCPropertyDecl}.
  */
 export const enum CXObjCPropertyAttrKind {
   CXObjCPropertyAttr_noattr = 0x0000,
@@ -2193,7 +2193,7 @@ export const enum CXObjCPropertyAttrKind {
   CXObjCPropertyAttr_class = 0x1000,
 }
 /**
- * Property attributes for a `CXCursor_ObjCPropertyDecl.`
+ * Property attributes for a {@link CXCursorKind.CXCursor_ObjCPropertyDecl}.
  */
 export const CXObjCPropertyAttrKindT = unsignedInt;
 
