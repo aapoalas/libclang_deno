@@ -4458,12 +4458,31 @@ export class CXComment {
           this.#buffer,
         ),
       );
-    } else if (kind === CXCommentKind.CXComment_BlockCommand) {
+    } else if (
+      kind === CXCommentKind.CXComment_BlockCommand ||
+      kind === CXCommentKind.CXComment_ParamCommand ||
+      kind === CXCommentKind.CXComment_TParamCommand ||
+      kind === CXCommentKind.CXComment_VerbatimBlockCommand ||
+      kind === CXCommentKind.CXComment_VerbatimLine
+    ) {
       return cxstringToString(
         libclang.symbols.clang_BlockCommandComment_getCommandName(this.#buffer),
       );
     } else {
-      throw new Error("Not InlineCommand or BlockCommand");
+      console.log(
+        this.getKindSpelling(),
+        cxstringToString(
+        libclang.symbols.clang_InlineCommandComment_getCommandName(
+          this.#buffer,
+        ),
+      ),
+        cxstringToString(
+          libclang.symbols.clang_BlockCommandComment_getCommandName(
+            this.#buffer,
+          ),
+        ),
+      );
+      throw new Error("Not InlineCommand, BlockCommand, ParamCommand, TParamCommand, or VerbatimBlockCommand");
     }
   }
 
@@ -4500,13 +4519,19 @@ export class CXComment {
           .clang_InlineCommandComment_getNumArgs(
             this.#buffer,
           ));
-    } else if (kind === CXCommentKind.CXComment_BlockCommand) {
+    } else if (
+      kind === CXCommentKind.CXComment_BlockCommand ||
+      kind === CXCommentKind.CXComment_ParamCommand ||
+      kind === CXCommentKind.CXComment_TParamCommand ||
+      kind === CXCommentKind.CXComment_VerbatimBlockCommand ||
+      kind === CXCommentKind.CXComment_VerbatimLine
+    ) {
       return this.#argCount ??
         (this.#argCount = libclang.symbols.clang_BlockCommandComment_getNumArgs(
           this.#buffer,
         ));
     } else {
-      throw new Error("Not InlineCommand or BlockCommand");
+      throw new Error("Not InlineCommand, BlockCommand, ParamCommand, TParamCommand, or VerbatimBlockCommand");
     }
   }
 
@@ -4533,7 +4558,13 @@ export class CXComment {
           index,
         ),
       );
-    } else if (kind === CXCommentKind.CXComment_BlockCommand) {
+    } else if (
+      kind === CXCommentKind.CXComment_BlockCommand ||
+      kind === CXCommentKind.CXComment_ParamCommand ||
+      kind === CXCommentKind.CXComment_TParamCommand ||
+      kind === CXCommentKind.CXComment_VerbatimBlockCommand ||
+      kind === CXCommentKind.CXComment_VerbatimLine
+    ) {
       return cxstringToString(
         libclang.symbols.clang_BlockCommandComment_getArgText(
           this.#buffer,
@@ -4541,7 +4572,7 @@ export class CXComment {
         ),
       );
     } else {
-      throw new Error("Not InlineCommand or BlockCommand");
+      throw new Error("Not InlineCommand, BlockCommand, ParamCommand, TParamCommand, or VerbatimBlockCommand");
     }
   }
 

@@ -118,7 +118,7 @@ Deno.test("class CXTranslationUnit", async (t) => {
     const index = new CXIndex();
     const tu = index.parseTranslationUnit("./test/assets/test.h");
     const tu2 = index.parseTranslationUnit("./test/assets/test.hpp");
-    console.log("Diag count:", tu2.getNumDiagnostics());
+    console.log("Diag count:", tu2.getNumberOfDiagnostics());
     const file = tu.getFile("./test/assets/test.h");
     assertNotEquals(file, null);
     const contents = file!.getContents();
