@@ -70,17 +70,13 @@ export type {
   CXCompletionContext,
   CXCompletionString,
   CXCursor_ExceptionSpecificationKind,
-  CXCursorAndRangeVisitorCallbackDefinition,
   CXCursorKind,
-  CXCursorVisitorCallbackDefinition,
   CXDiagnosticDisplayOptions,
   CXDiagnosticSeverity,
   CXErrorCode,
   CXEvalResult,
   CXEvalResultKind,
-  CXFieldVisitorCallbackDefinition,
   CXGlobalOptFlags,
-  CXInclusionVisitorCallbackDefinition,
   CXIndexAction,
   CXLanguageKind,
   CXLinkageKind,
@@ -252,7 +248,7 @@ export interface GlobalOptions {
    * Used to indicate that threads that libclang creates for indexing
    * purposes should use background priority.
    *
-   * Affects {@link CXIndexAction#indexSourceFile}, {@link CXIndexAction#indexTranslationUnit},
+   * Affects {@link CXIndexAction#indexSourceFile}, {@link CXIndexAction.indexTranslationUnit},
    * {@link CXIndex#parseTranslationUnit}, {@link CXTranslationUnit#save}.
    */
   threadBackgroundPriorityForIndexing: boolean;
@@ -484,10 +480,19 @@ const INDEX_ACTION_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
 >((pointer) => libclang.symbols.clang_IndexAction_dispose(pointer));
 
+/**
+ * An indexing action/session, to be applied to one or multiple
+ * translation units.
+ *
+ * @hideconstructor
+ */
 class CXIndexAction {
   static #constructable = false;
   #pointer: Deno.PointerValue;
 
+  /**
+   * @private Private API, cannot be used from outside.
+   */
   constructor(
     pointer: Deno.PointerValue,
   ) {
@@ -499,7 +504,7 @@ class CXIndexAction {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](
     pointer: Deno.PointerValue,
@@ -544,6 +549,26 @@ export interface TargetInfo {
   pointerWidth: number;
 }
 
+/**
+ * Provides the contents of a file that has not yet been saved to disk.
+ *
+ * Each {@link UnsavedFile} instance provides the name of a file on the
+ * system along with the current contents of that file that have not
+ * yet been saved to disk.
+ */
+export interface UnsavedFile {
+  /**
+   * The file whose contents have not yet been saved.
+   *
+   * This file must already exist in the file system.
+   */
+  filename: string;
+  /**
+   * A buffer containing the unsaved contents of this file.
+   */
+  contents: Uint8Array;
+}
+
 interface Dependent {
   [DISPOSE]?(): void;
 }
@@ -566,6 +591,9 @@ export class CXTranslationUnit {
   #disposed = false;
   #suspended = false;
 
+  /**
+   * @private Private API, cannot be used from outside.
+   */
   constructor(pointer: Deno.PointerValue) {
     if (!CXTranslationUnit.#constructable) {
       throw new Error("CXTranslationUnit is not constructable");
@@ -575,7 +603,7 @@ export class CXTranslationUnit {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](pointer: Deno.PointerValue): CXTranslationUnit {
     CXTranslationUnit.#constructable = true;
@@ -601,7 +629,10 @@ export class CXTranslationUnit {
    *
    * @param fileName The file to which the translation unit will be saved.
    */
-  save(fileName: string): void {
+  save(
+    fileName: string,
+    options: number = libclang.symbols.clang_defaultSaveOptions(this.#pointer),
+  ): void {
     if (this.#disposed) {
       throw new Error("Cannot save disposed CXTranslationUnit");
     } else if (this.#suspended) {
@@ -611,7 +642,7 @@ export class CXTranslationUnit {
     const result = libclang.symbols.clang_saveTranslationUnit(
       this.#pointer,
       saveFileName,
-      0,
+      options,
     );
     if (result === CXSaveError.CXSaveError_InvalidTU) {
       throw new Error(
@@ -663,7 +694,7 @@ export class CXTranslationUnit {
    *
    * This routine can be used to re-parse the source files that originally
    * created the translation unit, for example because those source files
-   * have changed (either on disk or as passed via `unsaved_files`). The
+   * have changed (either on disk or as passed via `unsavedFiles`). The
    * source code will be reparsed with the same command-line options as it
    * was originally parsed.
    *
@@ -679,6 +710,7 @@ export class CXTranslationUnit {
    * is used as a default.
    */
   reparse(
+    unsavedFiles: UnsavedFile[] = [],
     options: CXReparse_Flags = libclang.symbols.clang_defaultReparseOptions(
       this.#pointer,
     ),
@@ -686,10 +718,30 @@ export class CXTranslationUnit {
     if (this.#disposed) {
       throw new Error("Cannot reparse disposed CXTranslationUnit");
     }
+
+    const unsavedFilesCount = unsavedFiles.length;
+    const unsavedFilesBuffer: Uint8Array = unsavedFilesCount
+      ? new Uint8Array(24 * unsavedFilesCount)
+      : NULLBUF;
+    let nameBuffers: undefined | Uint8Array[];
+    if (unsavedFilesCount) {
+      const unsavedFiles64 = new BigUint64Array(unsavedFilesBuffer.buffer);
+      nameBuffers = Array.from({ length: unsavedFilesCount });
+      for (let i = 0; i < unsavedFilesCount; i++) {
+        const unsavedFile = unsavedFiles[i];
+        nameBuffers[i] = cstr(unsavedFile.filename);
+        unsavedFiles64[i * 3] = BigInt(Deno.UnsafePointer.of(nameBuffers[i]));
+        unsavedFiles64[i * 3 + 1] = BigInt(
+          Deno.UnsafePointer.of(unsavedFile.contents),
+        );
+        unsavedFiles64[i * 3 + 2] = BigInt(unsavedFile.contents.length);
+      }
+    }
+
     const result = libclang.symbols.clang_reparseTranslationUnit(
       this.#pointer,
-      0,
-      NULLBUF,
+      unsavedFilesCount,
+      unsavedFilesBuffer,
       options,
     );
     throwIfError(result, "Reparsing CXTranslationUnit failed");
@@ -1170,7 +1222,7 @@ export class CXTranslationUnit {
    * @param column The column at which code-completion should occur.
    * Note that the column should point just after the syntactic construct that
    * initiated code completion, and not in the middle of a lexical token.
-   * @param [_unsavedFiles] (UNSUPPORTED) The files that have not yet been saved to disk
+   * @param [unsavedFiles] The files that have not yet been saved to disk
    * but may be required for parsing or code completion, including the
    * contents of those files.
    * @param [flags] Extra options that control the behavior of code
@@ -1185,20 +1237,39 @@ export class CXTranslationUnit {
     fileName: string,
     line: number,
     column: number,
-    _unsavedFiles: never[] = [],
+    unsavedFiles: UnsavedFile[] = [],
     flags: CXCodeComplete_Flags[],
   ): CXCodeCompleteResults | null {
     const options: number = flags
       ? flags.reduce((acc, flag) => acc | flag, 0)
       : libclang.symbols.clang_defaultCodeCompleteOptions();
 
+    const unsavedFilesCount = unsavedFiles.length;
+    const unsavedFilesBuffer: Uint8Array = unsavedFilesCount
+      ? new Uint8Array(24 * unsavedFilesCount)
+      : NULLBUF;
+    let nameBuffers: undefined | Uint8Array[];
+    if (unsavedFilesCount) {
+      const unsavedFiles64 = new BigUint64Array(unsavedFilesBuffer.buffer);
+      nameBuffers = Array.from({ length: unsavedFilesCount });
+      for (let i = 0; i < unsavedFilesCount; i++) {
+        const unsavedFile = unsavedFiles[i];
+        nameBuffers[i] = cstr(unsavedFile.filename);
+        unsavedFiles64[i * 3] = BigInt(Deno.UnsafePointer.of(nameBuffers[i]));
+        unsavedFiles64[i * 3 + 1] = BigInt(
+          Deno.UnsafePointer.of(unsavedFile.contents),
+        );
+        unsavedFiles64[i * 3 + 2] = BigInt(unsavedFile.contents.length);
+      }
+    }
+
     const result = libclang.symbols.clang_codeCompleteAt(
       this.#pointer,
       cstr(fileName),
       line,
       column,
-      NULLBUF,
-      0,
+      unsavedFilesBuffer,
+      unsavedFilesCount,
       options,
     );
     if (result === NULL) {
@@ -1252,14 +1323,14 @@ export class CXTranslationUnit {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   [REGISTER](dependent: Dependent) {
     this.#dependents.add(new WeakRef(dependent));
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   [DEREGISTER](dependent: Dependent) {
     for (const weakRef of this.#dependents) {
@@ -1271,7 +1342,7 @@ export class CXTranslationUnit {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   [DISPOSE](): void {
     for (const dependent of this.#dependents) {
@@ -1310,6 +1381,12 @@ const COMPLETION_RESULTS_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
 >((pointer) => libclang.symbols.clang_disposeCodeCompleteResults(pointer));
 
+/**
+ * Contains the results of code-completion.
+ *
+ * This data structure contains the results of code completion, as
+ * produced by {@link CXTranslationUnit.codeCompleteAt()}.
+ */
 class CXCodeCompleteResults {
   static #constructable = false;
   #pointer: Deno.PointerValue;
@@ -1321,6 +1398,9 @@ class CXCodeCompleteResults {
     completionString: CXCompletionString;
   }[];
 
+  /**
+   * @private Private API, cannot be used from outside.
+   */
   constructor(
     tu: CXTranslationUnit,
     pointer: Deno.PointerValue,
@@ -1362,7 +1442,7 @@ class CXCodeCompleteResults {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](
     tu: CXTranslationUnit,
@@ -1763,6 +1843,9 @@ class CXTUResourceUsage {
   #pointer: Deno.PointerValue;
   #disposed = false;
 
+  /**
+   * @private Private API, cannot be used from outside.
+   */
   constructor(buffer: Uint8Array) {
     if (CXTUResourceUsage.#constructable !== true) {
       throw new Error("CXTUResourceUsage is not constructable");
@@ -1778,7 +1861,7 @@ class CXTUResourceUsage {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](buffer: Uint8Array): CXTUResourceUsage {
     CXTUResourceUsage.#constructable = true;
@@ -1837,12 +1920,18 @@ class CXTUResourceUsage {
   }
 }
 
+/**
+ * A particular source file that is part of a translation unit.
+ */
 export class CXFile {
   static #constructable = false;
   tu: CXTranslationUnit;
   #pointer: Deno.PointerValue;
   #disposed = false;
 
+  /**
+   * @private Private API, cannot be used from outside.
+   */
   constructor(tu: CXTranslationUnit, pointer: Deno.PointerValue) {
     if (!CXFile.#constructable) {
       throw new Error("CXFile is not constructable");
@@ -1852,7 +1941,7 @@ export class CXFile {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](
     tu: CXTranslationUnit,
@@ -2112,6 +2201,9 @@ export class CXCursor {
   #kind?: CXCursorKind;
   #hash?: number;
 
+  /**
+   * @private Private API, cannot be used from outside.
+   */
   constructor(tu: null | CXTranslationUnit, buffer: Uint8Array) {
     if (CXCursor.#constructable !== true) {
       throw new Error("CXCursor is not constructable");
@@ -2121,7 +2213,7 @@ export class CXCursor {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](
     tu: null | CXTranslationUnit,
@@ -3894,7 +3986,7 @@ class CXCompletionString {
   #pointer: Deno.PointerValue;
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   constructor(
     pointer: Deno.PointerValue,
@@ -3906,7 +3998,7 @@ class CXCompletionString {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](
     pointer: Deno.PointerValue,
@@ -4055,7 +4147,7 @@ class CXEvalResult {
   #pointer: Deno.PointerValue;
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   constructor(
     pointer: Deno.PointerValue,
@@ -4068,7 +4160,7 @@ class CXEvalResult {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](
     pointer: Deno.PointerValue,
@@ -4159,7 +4251,7 @@ class CXModule {
   #pointer: Deno.PointerValue;
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   constructor(tu: CXTranslationUnit, pointer: Deno.PointerValue) {
     if (CXModule.#constructable !== true) {
@@ -4170,7 +4262,7 @@ class CXModule {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](
     tu: CXTranslationUnit,
@@ -4277,7 +4369,7 @@ export class CXComment {
   #argCount?: number;
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   constructor(tu: null | CXTranslationUnit, buffer: Uint8Array) {
     if (CXComment.#constructable !== true) {
@@ -4288,7 +4380,7 @@ export class CXComment {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](
     tu: null | CXTranslationUnit,
@@ -4472,17 +4564,19 @@ export class CXComment {
       console.log(
         this.getKindSpelling(),
         cxstringToString(
-        libclang.symbols.clang_InlineCommandComment_getCommandName(
-          this.#buffer,
+          libclang.symbols.clang_InlineCommandComment_getCommandName(
+            this.#buffer,
+          ),
         ),
-      ),
         cxstringToString(
           libclang.symbols.clang_BlockCommandComment_getCommandName(
             this.#buffer,
           ),
         ),
       );
-      throw new Error("Not InlineCommand, BlockCommand, ParamCommand, TParamCommand, or VerbatimBlockCommand");
+      throw new Error(
+        "Not InlineCommand, BlockCommand, ParamCommand, TParamCommand, or VerbatimBlockCommand",
+      );
     }
   }
 
@@ -4531,7 +4625,9 @@ export class CXComment {
           this.#buffer,
         ));
     } else {
-      throw new Error("Not InlineCommand, BlockCommand, ParamCommand, TParamCommand, or VerbatimBlockCommand");
+      throw new Error(
+        "Not InlineCommand, BlockCommand, ParamCommand, TParamCommand, or VerbatimBlockCommand",
+      );
     }
   }
 
@@ -4572,7 +4668,9 @@ export class CXComment {
         ),
       );
     } else {
-      throw new Error("Not InlineCommand, BlockCommand, ParamCommand, TParamCommand, or VerbatimBlockCommand");
+      throw new Error(
+        "Not InlineCommand, BlockCommand, ParamCommand, TParamCommand, or VerbatimBlockCommand",
+      );
     }
   }
 
@@ -4986,7 +5084,7 @@ class CXSourceRangeList {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   constructor(
     tu: CXTranslationUnit,
@@ -5005,7 +5103,7 @@ class CXSourceRangeList {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](
     tu: CXTranslationUnit,
@@ -5074,7 +5172,7 @@ export class CXSourceRange {
   #buffer: Uint8Array;
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   constructor(tu: null | CXTranslationUnit, buffer: Uint8Array) {
     if (CXSourceRange.#constructable !== true) {
@@ -5085,7 +5183,7 @@ export class CXSourceRange {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](
     tu: null | CXTranslationUnit,
@@ -5128,7 +5226,7 @@ export class CXSourceRange {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   get [BUFFER](): Uint8Array {
     return this.#buffer;
@@ -5186,6 +5284,9 @@ export class CXSourceLocation {
   tu: null | CXTranslationUnit;
   #buffer: Uint8Array;
 
+  /**
+   * @private Private API, cannot be used from outside.
+   */
   constructor(tu: null | CXTranslationUnit, buffer: Uint8Array) {
     if (CXSourceLocation.#constructable !== true) {
       throw new Error("CXSourceLocation is not constructable");
@@ -5195,7 +5296,7 @@ export class CXSourceLocation {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](
     tu: null | CXTranslationUnit,
@@ -5208,7 +5309,7 @@ export class CXSourceLocation {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   get [BUFFER](): Uint8Array {
     return this.#buffer;
@@ -5532,7 +5633,7 @@ class CXType {
   tu: CXTranslationUnit;
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   constructor(tu: CXTranslationUnit, buffer: Uint8Array) {
     if (CXType.#constructable !== true) {
@@ -5543,7 +5644,7 @@ class CXType {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](
     tu: CXTranslationUnit,
@@ -6040,7 +6141,7 @@ class CXPrintingPolicy {
   #disposed = false;
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   constructor(pointer: Deno.PointerValue) {
     if (CXPrintingPolicy.#constructable !== true) {
@@ -6051,7 +6152,7 @@ class CXPrintingPolicy {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](pointer: Deno.PointerValue): CXPrintingPolicy {
     CXPrintingPolicy.#constructable = true;
@@ -6659,6 +6760,9 @@ export class CXDiagnosticSet {
   #length: number;
   #disposed = false;
 
+  /**
+   * @private Private API, cannot be used from outside.
+   */
   constructor(tu: null | CXTranslationUnit, pointer: Deno.PointerValue) {
     if (CXDiagnosticSet.#constructable !== true) {
       throw new Error("CXDiagnosticSet is not constructable");
@@ -6670,7 +6774,7 @@ export class CXDiagnosticSet {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](
     tu: null | CXTranslationUnit,
@@ -6784,6 +6888,9 @@ export class CXDiagnostic {
   #pointer: Deno.PointerValue;
   #disposed = false;
 
+  /**
+   * @private Private API, cannot be used from outside.
+   */
   constructor(tu: null | CXTranslationUnit, pointer: Deno.PointerValue) {
     if (CXDiagnostic.#constructable !== true) {
       throw new Error("CXDiagnostic is not constructable");
@@ -6794,7 +6901,7 @@ export class CXDiagnostic {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](
     tu: null | CXTranslationUnit,
@@ -7280,7 +7387,7 @@ class CXToken {
   #disposed = false;
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   constructor(
     tu: CXTranslationUnit,
@@ -7308,7 +7415,7 @@ class CXToken {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](
     tu: CXTranslationUnit,
@@ -7329,7 +7436,7 @@ class CXToken {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   get [BUFFER](): Uint8Array {
     return this.#buffer;
@@ -7405,7 +7512,7 @@ class CXRewriter {
   #pointer: Deno.PointerValue;
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   constructor(
     tu: CXTranslationUnit,
@@ -7420,7 +7527,7 @@ class CXRewriter {
   }
 
   /**
-   * @private
+   * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](
     tu: CXTranslationUnit,
