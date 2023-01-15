@@ -33,26 +33,53 @@ if (!libclangPath) {
 
 let libclang: ReturnType<typeof Deno.dlopen<typeof IMPORTS>>;
 
-if (libclangPath.includes(".so") || libclangPath.endsWith(".dll")) {
-  // Explicit path, try without catching
-  libclang = Deno.dlopen(libclangPath, IMPORTS);
-} else if (Deno.build.os === "windows") {
+if (Deno.build.os === "windows") {
+  if (libclangPath.includes(".dll")) {
+    try {
+      libclang = Deno.dlopen(libclangPath, IMPORTS);
+    } catch {
+      // Ignore
+    }
+  }
   libclang = Deno.dlopen(
     join(libclangPath, "libclang.dll"),
     IMPORTS,
   );
+} else if (Deno.build.os === "darwin") {
+  if (libclangPath.includes(".dylib")) {
+    try {
+      libclang = Deno.dlopen(libclangPath, IMPORTS);
+    } catch {
+      // Ignore
+    }
+  }
+  libclang = Deno.dlopen(
+    join(libclangPath, "libclang.dylib"),
+    IMPORTS,
+  );
 } else {
-  // Try 14.0.6 first, then 14, then 13
+  if (libclangPath.includes(".so")) {
+    try {
+      libclang = Deno.dlopen(libclangPath, IMPORTS);
+    } catch {
+      // Ignore
+    }
+  }
+  // Try plain libclang first, then 14.0.6, then 14, and finally try 13.
   try {
-    libclang = Deno.dlopen(
-      join(libclangPath, "libclang.so.14.0.6"),
-      IMPORTS,
-    );
+    libclang = Deno.dlopen(join(libclangPath, "libclang.so"), IMPORTS);
   } catch {
     try {
-      libclang = Deno.dlopen(join(libclangPath, "libclang.so.14"), IMPORTS);
+      libclang = Deno.dlopen(
+        join(libclangPath, "libclang.so.14.0.6"),
+        IMPORTS,
+      );
     } catch {
-      libclang = Deno.dlopen(join(libclangPath, "libclang.so.13"), IMPORTS);
+      try {
+        libclang = Deno.dlopen(join(libclangPath, "libclang.so.14"), IMPORTS);
+      } catch {
+        libclang = Deno.dlopen(join(libclangPath, "libclang.so.13"), IMPORTS);
+      }
     }
   }
 }

@@ -1,6 +1,6 @@
 {
   "lock": true,
   "tasks": {
-    "build": "./deno run --unstable --allow-env=LIBCLANG_PATH --allow-run=deno --allow-ffi --allow-write=lib/include build/build.ts"
+    "build": "deno run --unstable --allow-env=LIBCLANG_PATH --allow-run=deno --allow-ffi --allow-write=lib/include build/build.ts"
   }
 }

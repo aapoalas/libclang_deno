@@ -83,7 +83,7 @@ HEADER_FILES.forEach((fileName) => {
           name = name.substring("enum ".length);
         }
         if (!TYPE_MEMORY.has(name)) {
-          const type = toAnyType(TYPE_MEMORY, cx.getType());
+          const type = toAnyType(TYPE_MEMORY, cx.getType()!);
           TYPE_MEMORY.set(name, type);
         }
         break;
@@ -93,7 +93,7 @@ HEADER_FILES.forEach((fileName) => {
 
         if (!TYPE_MEMORY.has(typedefName)) {
           const originalTypeDeclaration = cx
-            .getTypedefDeclarationOfUnderlyingType();
+            .getTypedefDeclarationOfUnderlyingType()!;
           let structDeclAnyType = toAnyType(
             TYPE_MEMORY,
             originalTypeDeclaration,
@@ -217,11 +217,11 @@ HEADER_FILES.forEach((fileName) => {
       }
       case CXCursorKind.CXCursor_FunctionDecl: {
         const parameters: FunctionParameter[] = [];
-        const resultAnyType = toAnyType(TYPE_MEMORY, cx.getResultType());
+        const resultAnyType = toAnyType(TYPE_MEMORY, cx.getResultType()!);
         const length = cx.getNumberOfArguments();
         for (let i = 0; i < length; i++) {
-          const argument = cx.getArgument(i);
-          const argumentAnyType = toAnyType(TYPE_MEMORY, argument.getType());
+          const argument = cx.getArgument(i)!;
+          const argumentAnyType = toAnyType(TYPE_MEMORY, argument.getType()!);
           parameters.push({
             comment: commentToJSDcoString(
               argument.getParsedComment(),
