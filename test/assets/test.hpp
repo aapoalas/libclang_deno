@@ -5,6 +5,9 @@
 namespace N {
 class my_class {
 public:
+#ifdef __linux__
+  [[deprecated("Boost it")]]
+#endif
   void do_something();
 private:
   int foo;

@@ -3,7 +3,10 @@ import {
   assertNotEquals,
   assertThrows,
 } from "https://deno.land/std@0.163.0/testing/asserts.ts";
-import { CXChildVisitResult } from "../lib/include/typeDefinitions.ts";
+import {
+  CXChildVisitResult,
+  CXCursorKind,
+} from "../lib/include/typeDefinitions.ts";
 import { CXDiagnosticSet, CXIndex } from "../lib/mod.ts";
 
 Deno.test("class CXIndex", async (t) => {
@@ -118,7 +121,7 @@ Deno.test("class CXTranslationUnit", async (t) => {
     const index = new CXIndex();
     const tu = index.parseTranslationUnit("./test/assets/test.h");
     const tu2 = index.parseTranslationUnit("./test/assets/test.hpp");
-    console.log("Diag count:", tu2.getNumberOfDiagnostics());
+    //console.log("Diag count:", tu2.getNumberOfDiagnostics());
     const file = tu.getFile("./test/assets/test.h");
     assertNotEquals(file, null);
     const contents = file!.getContents();
@@ -126,21 +129,34 @@ Deno.test("class CXTranslationUnit", async (t) => {
     assertEquals(contents.length, 171);
     const cursor = tu.getCursor();
     assertEquals(cursor.getBriefCommentText(), "");
-    console.log(cursor.kind);
+    //console.log(cursor.kind);
 
     cursor.visitChildren((cursor) => {
-      console.log(cursor.kind);
+      //console.log(cursor.kind);
       return CXChildVisitResult.CXChildVisit_Recurse;
+    });
+
+    tu2.getCursor().visitChildren((cursor) => {
+      switch (cursor.kind) {
+        case CXCursorKind.CXCursor_Namespace:
+        case CXCursorKind.CXCursor_ClassDecl:
+          return CXChildVisitResult.CXChildVisit_Recurse;
+        case CXCursorKind.CXCursor_CXXMethod:
+          console.log(cursor.getPlatformAvailability());
+          console.log(cursor.getCXXManglings());
+      }
+      console.log(cursor.getKindSpelling());
+      return CXChildVisitResult.CXChildVisit_Continue;
     });
 
     assertThrows(() => CXDiagnosticSet.loadDiagnostics("test-diag.foo"));
 
-    console.log(tu.getAllSkippedRanges());
+    //console.log(tu.getAllSkippedRanges());
     const resourceUsage = tu.getResourceUsage();
     const length = resourceUsage.length;
-    console.log("ResourceUsage length:", length);
+    //console.log("ResourceUsage length:", length);
     for (let i = 0; i < length; i++) {
-      console.log(resourceUsage.at(i));
+      //console.log(resourceUsage.at(i));
     }
     resourceUsage.dispose();
     tu.dispose();

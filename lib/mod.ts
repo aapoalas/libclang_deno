@@ -2739,9 +2739,11 @@ export class CXCursor {
       }
       const platform = cxstringToString(
         availabilityBuffer.subarray(0, 16),
+        false,
       );
       const message = cxstringToString(
         availabilityBuffer.subarray(72 - 16),
+        false,
       );
       const view = new DataView(
         availabilityBuffer.buffer,

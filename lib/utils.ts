@@ -58,22 +58,25 @@ export const cstrArray = (strings: string[]) => {
   }
 };
 
-export const cxstringToString = (cxstring: Uint8Array): string => {
+export const cxstringToString = (
+  cxstring: Uint8Array,
+  dispose = true,
+): string => {
   const cstring = libclang.symbols.clang_getCString(cxstring);
-  if (cstring === NULL) {
+  let string = "";
+  if (cstring !== NULL) {
+    try {
+      string = Deno.UnsafePointerView.getCString(cstring);
+    } catch {
+      const buf = new Uint8Array(
+        Deno.UnsafePointerView.getArrayBuffer(cstring, 1024),
+      );
+      string = cstrToString(buf.subarray(buf.indexOf(0)));
+    }
+  }
+  if (dispose) {
     libclang.symbols.clang_disposeString(cxstring);
-    return "";
   }
-  let string: string;
-  try {
-    string = Deno.UnsafePointerView.getCString(cstring);
-  } catch {
-    const buf = new Uint8Array(
-      Deno.UnsafePointerView.getArrayBuffer(cstring, 1024),
-    );
-    string = cstrToString(buf.subarray(buf.indexOf(0)));
-  }
-  libclang.symbols.clang_disposeString(cxstring);
   return string;
 };
 export const cstrToString = (cstr: Uint8Array): string =>
