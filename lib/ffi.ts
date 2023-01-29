@@ -60,7 +60,6 @@ if (Deno.build.os === "windows") {
     );
   }
 } else {
-  performance.mark("start");
   try {
     if (libclangPath.includes(".so")) {
       libclang = Deno.dlopen(libclangPath, IMPORTS);
@@ -92,7 +91,6 @@ if (Deno.build.os === "windows") {
       }
     }
   }
-  console.log(performance.measure("Startup", "start"));
 }
 
 export { libclang };
