@@ -2,14 +2,16 @@ name: Build using prebuild openCV
 
 on:
   push:
-    branches: [ "testing" ]
+    branches: [ "testing", "main" ]
     paths:
+      - ".github/workflows/testWindows.yml"
       - "build/**"
       - "lib/**"
       - "test/**"
   pull_request:
-    branches: [ "testing" ]
+    branches: [ "testing", "main" ]
     paths:
+      - ".github/workflows/testWindows.yml"
       - "build/**"
       - "lib/**"
       - "test/**"
@@ -28,7 +30,7 @@ jobs:
 
     - name: Install LLVM
       run: |
-        choco install -y --version 14.0.6 llvm
+        choco install -y --allow-downgrade --version 14.0.6 llvm
 
     # - name: add LLVM path to PATH environment variable
     #   uses: myci-actions/export-env-var-powershell@1
