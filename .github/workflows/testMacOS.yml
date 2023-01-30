@@ -29,5 +29,11 @@ jobs:
     - uses: denoland/setup-deno@v1
       with:
         deno-version: 1.30.0
+    - name: debug path
+      run: brew --prefix llvm@14
+    - name: list lib
+      run: ls $(brew --prefix llvm@14)
+    - name: list lib/lib
+      run: ls $(brew --prefix llvm@14)/lib
     - name: run test
       run: deno task test
