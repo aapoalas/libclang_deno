@@ -4,7 +4,7 @@
  * md5 59beb52cef40898b0f24cdffc6cf2984
  * `dumpbin /exports libclang.dll`
  */
-export const winSubset = [
+export const WINDOWS_SUBSET = [
     'clang_annotateTokens',
     'clang_BlockCommandComment_getArgText',
     'clang_BlockCommandComment_getCommandName',
