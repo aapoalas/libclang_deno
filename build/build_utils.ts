@@ -188,6 +188,7 @@ const toEnumType = (
 ) => {
   const enumType = typeDeclaration.getEnumDeclarationIntegerType();
   const values: EnumValue[] = [];
+  if (!enumType) throw Error('internal error "enumType" is null');
   const isUnsignedInt = enumType.kind === CXTypeKind.CXType_Bool ||
     enumType.kind === CXTypeKind.CXType_Char_U ||
     enumType.kind === CXTypeKind.CXType_UChar ||
@@ -286,6 +287,7 @@ export const toAnyType = (
   const typekind = type.kind;
   if (typekind === CXTypeKind.CXType_Elaborated) {
     const typeDeclaration = type.getTypeDeclaration();
+    if (!typeDeclaration) throw Error('internal error "typeDeclaration" is null');
     if (typeDeclaration.kind === CXCursorKind.CXCursor_EnumDecl) {
       const name = type.getSpelling().substring(5); // drop `enum ` prefix
       if (typeMemory.has(name)) {
@@ -310,6 +312,7 @@ export const toAnyType = (
         };
         return voidType;
       }
+      if (!structDeclaration) throw Error('internal error "structDeclaration" is null');
       const structType: StructType = {
         fields,
         kind: "struct",
@@ -328,9 +331,11 @@ export const toAnyType = (
           );
         }
         const fieldType = fieldCursor.getType();
+        if (!fieldType) throw Error('internal error "fieldType" is null');
         if (fieldType.kind === CXTypeKind.CXType_ConstantArray) {
           const length = fieldType.getArraySize();
           const elementType = fieldType.getArrayElementType();
+          if (!elementType) throw Error('internal error "elementType" is null');
           const baseName = fieldCursor.getDisplayName();
           const baseOffset = fieldCursor.getOffsetOfField() / 8;
           const elementSize = elementType.getSizeOf();
@@ -374,6 +379,9 @@ export const toAnyType = (
     }
   } else if (typekind === CXTypeKind.CXType_FunctionProto) {
     const typeDeclaration = type.getTypeDeclaration();
+    if (!typeDeclaration) throw Error('internal error "typeDeclaration" is null');
+    const resultType = type.getResultType();
+    if (!resultType) throw Error('internal error "resultType" is null');
     const result: FunctionType = {
       comment: commentToJSDcoString(
         typeDeclaration.getParsedComment(),
@@ -383,11 +391,12 @@ export const toAnyType = (
       name: type.getSpelling(),
       parameters: [],
       reprName: `${type.getSpelling()}T`,
-      result: toAnyType(typeMemory, type.getResultType()),
+      result: toAnyType(typeMemory, resultType),
     };
     const length = type.getNumberOfArgumentTypes();
     for (let i = 0; i < length; i++) {
       const argument = type.getArgumentType(i);
+      if (!argument) throw Error('internal error "argument" is null');
       result.parameters.push({
         comment: null,
         name: argument.getSpelling(),
@@ -397,6 +406,7 @@ export const toAnyType = (
     return result;
   } else if (typekind === CXTypeKind.CXType_Pointer) {
     const pointee = type.getPointeeType();
+    if (!pointee) throw Error('internal error "pointee" is null')
 
     if (
       pointee.kind === CXTypeKind.CXType_Char_S
@@ -421,7 +431,7 @@ export const toAnyType = (
       return cstringResult;
     } else if (
       pointee.kind === CXTypeKind.CXType_Pointer &&
-      pointee.getPointeeType().kind === CXTypeKind.CXType_Char_S
+      pointee.getPointeeType()!.kind === CXTypeKind.CXType_Char_S
     ) {
       // `const char **` or `char **`
       const cstringArrayResult: TypeReference = {
@@ -467,9 +477,11 @@ export const toAnyType = (
     if (!typeMemory.has(name)) {
       // Check for potentially needed system header definitions.
       const typedecl = type.getTypeDeclaration();
+      if (!typedecl) throw Error('internal error "typedecl" is null')
       const location = typedecl.getLocation();
       if (location.isInSystemHeader()) {
         const sourceType = typedecl.getTypedefDeclarationOfUnderlyingType();
+        if (!sourceType) throw Error('internal error "sourceType" is null')
         const sourceAnyType = toAnyType(typeMemory, sourceType);
         typeMemory.set(name, sourceAnyType);
       }
@@ -486,6 +498,7 @@ export const toAnyType = (
       return typeMemory.get(name)!;
     }
     const typeDeclaration = type.getTypeDeclaration();
+    if (!typeDeclaration) throw Error('internal error "typeDeclaration" is null');
     const result = toEnumType(typeMemory, name, typeDeclaration);
     typeMemory.set(name, result);
     return result;
