@@ -16,9 +16,6 @@ on:
       - "lib/**"
       - "test/**"
 
-env:
-  LIBCLANG_PATH: C:\Program Files\LLVM\bin\
-
 jobs:
   build:
     runs-on: windows-latest
@@ -38,5 +35,7 @@ jobs:
     #    name: PATH
     #    value: $env:PATH;$env:LIBCLANG_PATH
 
-    - name: run test
-      run: deno task test
+    - name: run test LIBCLANG_PATH pointing to directory
+      run: |
+        $Env:LIBCLANG_PATH="C:\Program Files\LLVM\bin\"
+        deno task test
