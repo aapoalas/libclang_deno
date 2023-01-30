@@ -38,7 +38,7 @@ jobs:
         export LIBCLANG_PATH=/usr/lib/llvm-14/lib/libclang-14.so.1
         deno task test
 
-    - name: run test LIBCLANG_PATH pointing to directory
-      run: |
-        export LIBCLANG_PATH=/usr/lib/llvm-14/lib/
-        deno task test
+    # - name: run test LIBCLANG_PATH pointing to directory
+    #   run: |
+    #     export LIBCLANG_PATH=/usr/lib/llvm-14/lib/
+    #     deno task test

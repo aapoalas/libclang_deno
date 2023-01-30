@@ -16,10 +16,9 @@ on:
       - "lib/**"
       - "test/**"
 
-env:
+#env:
   # LIBCLANG_PATH: ${{ brew --prefix llvm@14 }}/lib/libclang.dylib
   # LIBCLANG_PATH: /opt/homebrew/opt/llvm@14/lib/libclang.dylib
-  LIBCLANG_PATH: /usr/local/opt/llvm@14/lib/libclang.dylib
 
 jobs:
   build:
@@ -38,4 +37,6 @@ jobs:
     - name: list lib/lib
       run: ls $(brew --prefix llvm@14)/lib
     - name: run test
-      run: deno task test
+      run: |
+        export LIBCLANG_PATH="/usr/local/opt/llvm@14/lib/libclang.dylib"
+        deno task test
