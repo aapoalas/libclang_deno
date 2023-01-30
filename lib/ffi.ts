@@ -35,7 +35,10 @@ if (!libclangPath) {
   );
 }
 
-let libclang = null as unknown as ReturnType<typeof Deno.dlopen<typeof IMPORTS>>;
+type clangExpUnix = typeof IMPORTS
+type clangExpCommon = Pick<clangExpUnix, WindowsSubSet>
+
+let libclang = null as unknown as ReturnType<typeof Deno.dlopen<clangExpUnix | clangExpCommon>>;
 
 if (Deno.build.os === "windows") {
   // drop all the exports that are not in the winSubset and cast to the original type to keep intellisense
