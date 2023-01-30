@@ -1,4 +1,7 @@
 import { join } from "https://deno.land/std@0.170.0/path/mod.ts";
+// is deprecated, but we need to improve error handling
+import { existsSync } from "https://deno.land/std@0.170.0/fs/mod.ts";
+
 import * as BuildSystem from "./include/BuildSystem.h.ts";
 import * as CXCompilationDatabase from "./include/CXCompilationDatabase.h.ts";
 import * as CXDiagnostic from "./include/CXDiagnostic.h.ts";
@@ -32,7 +35,7 @@ if (!libclangPath) {
   );
 }
 
-let libclang: ReturnType<typeof Deno.dlopen<typeof IMPORTS>>;
+let libclang = null as unknown as ReturnType<typeof Deno.dlopen<typeof IMPORTS>>;
 
 if (Deno.build.os === "windows") {
   const exportSet = new Set(winSubset);
@@ -64,35 +67,25 @@ if (Deno.build.os === "windows") {
     );
   }
 } else {
-  try {
-    if (libclangPath.includes(".so")) {
-      libclang = Deno.dlopen(libclangPath, IMPORTS);
-    } else {
-      throw null;
-    }
-  } catch {
+  const isFullPath = libclangPath.includes(".so");
+  if (isFullPath) {
+    // if LIBCLANG_PATH point to a so file, we try to load it directly
+    libclang = Deno.dlopen(libclangPath, IMPORTS);
+  } else {
     // Try plain libclang first, then 14.0.6, then 14, and finally try 13.
-    try {
-      libclang = Deno.dlopen(join(libclangPath, "libclang.so"), IMPORTS);
-    } catch {
+    let LastError: null | Error = null;
+    for (const file in ["libclang.so", "libclang.so.14.0.6", "libclang.so.14", "libclang.so.13"]) {
+      const fullpath = join(libclangPath, file)
+      if (!existsSync(fullpath))
+        continue
       try {
-        libclang = Deno.dlopen(
-          join(libclangPath, "libclang.so.14.0.6"),
-          IMPORTS,
-        );
-      } catch {
-        try {
-          libclang = Deno.dlopen(
-            join(libclangPath, "libclang.so.14"),
-            IMPORTS,
-          );
-        } catch {
-          libclang = Deno.dlopen(
-            join(libclangPath, "libclang.so.13"),
-            IMPORTS,
-          );
-        }
+        libclang = Deno.dlopen(join(libclangPath, "libclang.so"), IMPORTS);
+      } catch (e) {
+        LastError = e;
       }
+    }
+    if (LastError && !libclang) {
+      throw LastError;
     }
   }
 }
