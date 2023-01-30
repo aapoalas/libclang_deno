@@ -17,7 +17,7 @@ on:
       - "test/**"
 
 env:
-  LIBCLANG_PATH: $(brew --prefix llvm@14)/bin/clang
+  LIBCLANG_PATH: $(brew --prefix llvm@14)/lib/libLLVM.dylib
 
 jobs:
   build:

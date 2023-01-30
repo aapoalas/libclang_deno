@@ -17,8 +17,7 @@ on:
       - "test/**"
 
 env:
-  LIBCLANG_PATH: /usr/lib/llvm-14/lib/
-
+  LIBCLANG_PATH: /usr/lib/llvm-14/lib/libclang-14.so.1
 jobs:
   build:
     runs-on: ubuntu-latest
