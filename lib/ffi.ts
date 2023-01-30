@@ -41,31 +41,22 @@ if (Deno.build.os === "windows") {
   const exportSet = new Set(winSubset);
   // drop all the exports that are not in the winSubset and cast to the original type to keep intellisense
   const IMPORTS_WIN = Object.fromEntries(Object.entries(IMPORTS).filter(([key]) => exportSet.has(key))) as typeof IMPORTS
-  try {
-    if (libclangPath.includes(".dll")) {
-      libclang = Deno.dlopen(libclangPath, IMPORTS_WIN);
-    } else {
-      throw null;
-    }
-  } catch {
+  if (libclangPath.includes(".dll")) {
+    libclang = Deno.dlopen(libclangPath, IMPORTS_WIN);
+  } else {
     libclang = Deno.dlopen(
       join(libclangPath, "libclang.dll"),
       IMPORTS_WIN,
     );
-  }
 } else if (Deno.build.os === "darwin") {
-  try {
-    if (libclangPath.includes(".dylib")) {
-      libclang = Deno.dlopen(libclangPath, IMPORTS);
-    } else {
-      throw null;
-    }
-  } catch {
+  if (libclangPath.includes(".dylib")) {
+    libclang = Deno.dlopen(libclangPath, IMPORTS);
+  } else {
     libclang = Deno.dlopen(
       join(libclangPath, "libclang.dylib"),
       IMPORTS,
     );
-  }
+   }
 } else {
   const isFullPath = libclangPath.includes(".so");
   if (isFullPath) {
