@@ -2,14 +2,14 @@ name: Testing LLVM on Ubuntu
 
 on:
   push:
-    branches: [ "testing", "main" ]
+    branches: [ "testing", "main", "deno.json" ]
     paths:
       - ".github/workflows/testUbuntu.yml"
       - "build/**"
       - "lib/**"
       - "test/**"
   pull_request:
-    branches: [ "testing", "main" ]
+    branches: [ "testing", "main", "deno.json" ]
     paths:
       - ".github/workflows/testUbuntu.yml"
       - "build/**"
