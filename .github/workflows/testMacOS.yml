@@ -16,13 +16,9 @@ on:
       - "lib/**"
       - "test/**"
 
-#env:
-  # LIBCLANG_PATH: ${{ brew --prefix llvm@14 }}/lib/libclang.dylib
-  # LIBCLANG_PATH: /opt/homebrew/opt/llvm@14/lib/libclang.dylib
-
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-12
     steps:
     - uses: actions/checkout@v3
     - uses: denoland/setup-deno@v1
@@ -38,5 +34,5 @@ jobs:
       run: ls $(brew --prefix llvm@14)/lib
     - name: run test
       run: |
-        export LIBCLANG_PATH="/usr/local/opt/llvm@14/lib/libclang.dylib"
+        export LIBCLANG_PATH="$(brew --prefix llvm@14)/lib/libclang.dylib"
         deno task test
