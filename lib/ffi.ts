@@ -12,7 +12,7 @@ import * as Documentation from "./include/Documentation.h.ts";
 import * as FatalErrorHandler from "./include/FatalErrorHandler.h.ts";
 import * as Index from "./include/Index.h.ts";
 import * as Rewrite from "./include/Rewrite.h.ts";
-import { WINDOWS_SUBSET } from "./winSubset.ts";
+import { WindowsSubSet, WINDOWS_SUBSET } from "./winSubset.ts";
 
 const IMPORTS = {
   ...BuildSystem,
@@ -39,7 +39,7 @@ let libclang = null as unknown as ReturnType<typeof Deno.dlopen<typeof IMPORTS>>
 
 if (Deno.build.os === "windows") {
   // drop all the exports that are not in the winSubset and cast to the original type to keep intellisense
-  const IMPORTS_WIN = Object.fromEntries(Object.entries(IMPORTS).filter(([key]) => WINDOWS_SUBSET.includes(key))) as typeof IMPORTS
+  const IMPORTS_WIN = Object.fromEntries(Object.entries(IMPORTS).filter((entry: [string, unknown]) => WINDOWS_SUBSET.includes(entry[0] as WindowsSubSet))) as typeof IMPORTS
   if (libclangPath.includes(".dll")) {
     libclang = Deno.dlopen(libclangPath, IMPORTS_WIN);
   } else {

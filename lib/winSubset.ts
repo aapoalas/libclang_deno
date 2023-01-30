@@ -396,3 +396,5 @@ export const WINDOWS_SUBSET = [
     'clang_VirtualFileOverlay_writeToBuffer',
     'clang_visitChildren',
 ] as const;
+
+export type WindowsSubSet = typeof WINDOWS_SUBSET[number]
