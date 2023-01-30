@@ -32,7 +32,11 @@ jobs:
       run: ls $(brew --prefix llvm@14)
     - name: list lib/lib
       run: ls $(brew --prefix llvm@14)/lib
-    - name: run test
+    - name: run test LIBCLANG_PATH pointing to file
       run: |
         export LIBCLANG_PATH="$(brew --prefix llvm@14)/lib/libclang.dylib"
         deno task test
+    - name: run test LIBCLANG_PATH pointing to directory
+      run: |
+        export LIBCLANG_PATH="$(brew --prefix llvm@14)/lib/"
+        deno task test        
