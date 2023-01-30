@@ -12,7 +12,19 @@ import * as Documentation from "./include/Documentation.h.ts";
 import * as FatalErrorHandler from "./include/FatalErrorHandler.h.ts";
 import * as Index from "./include/Index.h.ts";
 import * as Rewrite from "./include/Rewrite.h.ts";
-import { WindowsSubSet, WINDOWS_SUBSET } from "./winSubset.ts";
+
+/**
+ * Windows dll have a few missing symbols
+ * windows dll come from `choco install --version 14.0.6 llvm`
+ * md5 59beb52cef40898b0f24cdffc6cf2984
+ * `dumpbin /exports libclang.dll`
+ */
+export const WINDOWS_MISSING_SET = [
+  "clang_install_aborting_llvm_fatal_error_handler",
+  "clang_uninstall_llvm_fatal_error_handler"
+] as const;
+
+export type WindowsMissingSet = typeof WINDOWS_MISSING_SET[number]
 
 const IMPORTS = {
   ...BuildSystem,
@@ -36,13 +48,14 @@ if (!libclangPath) {
 }
 
 type clangExpUnix = typeof IMPORTS
-type clangExpCommon = Pick<clangExpUnix, WindowsSubSet>
+type clangExpCommon = Omit<clangExpUnix, WindowsMissingSet>
 
 let libclang = null as unknown as ReturnType<typeof Deno.dlopen<clangExpUnix | clangExpCommon>>;
 
 if (Deno.build.os === "windows") {
   // drop all the exports that are not in the winSubset and cast to the original type to keep intellisense
-  const IMPORTS_WIN = Object.fromEntries(Object.entries(IMPORTS).filter((entry: [string, unknown]) => WINDOWS_SUBSET.includes(entry[0] as WindowsSubSet))) as typeof IMPORTS
+  const IMPORTS_WIN = Object.fromEntries(Object.entries(IMPORTS).filter((entry: [string, unknown]) => !WINDOWS_MISSING_SET.includes(entry[0] as WindowsMissingSet))) as typeof IMPORTS
+  
   if (libclangPath.includes(".dll")) {
     libclang = Deno.dlopen(libclangPath, IMPORTS_WIN);
   } else {
