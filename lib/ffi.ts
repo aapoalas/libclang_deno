@@ -48,6 +48,7 @@ if (Deno.build.os === "windows") {
       join(libclangPath, "libclang.dll"),
       IMPORTS_WIN,
     );
+  }
 } else if (Deno.build.os === "darwin") {
   if (libclangPath.includes(".dylib")) {
     libclang = Deno.dlopen(libclangPath, IMPORTS);
