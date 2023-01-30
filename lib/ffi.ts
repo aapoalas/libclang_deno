@@ -38,9 +38,8 @@ if (!libclangPath) {
 let libclang = null as unknown as ReturnType<typeof Deno.dlopen<typeof IMPORTS>>;
 
 if (Deno.build.os === "windows") {
-  const exportSet = new Set(WINDOWS_SUBSET);
   // drop all the exports that are not in the winSubset and cast to the original type to keep intellisense
-  const IMPORTS_WIN = Object.fromEntries(Object.entries(IMPORTS).filter(([key]) => exportSet.has(key))) as typeof IMPORTS
+  const IMPORTS_WIN = Object.fromEntries(Object.entries(IMPORTS).filter(([key]) => WINDOWS_SUBSET.includes(key))) as typeof IMPORTS
   if (libclangPath.includes(".dll")) {
     libclang = Deno.dlopen(libclangPath, IMPORTS_WIN);
   } else {
