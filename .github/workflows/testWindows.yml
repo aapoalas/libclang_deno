@@ -1,0 +1,40 @@
+name: Build using prebuild openCV
+
+on:
+  push:
+    branches: [ "testing" ]
+    paths:
+      - "build/**"
+      - "lib/**"
+      - "test/**"
+  pull_request:
+    branches: [ "testing" ]
+    paths:
+      - "build/**"
+      - "lib/**"
+      - "test/**"
+
+env:
+  LIBCLANG_PATH: C:\Program Files\LLVM\bin\
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: denoland/setup-deno@v1
+      with:
+        deno-version: 1.30.0
+
+    - name: Install LLVM
+      run: |
+        choco install -y --version 14.0.6 llvm
+
+    # - name: add LLVM path to PATH environment variable
+    #   uses: myci-actions/export-env-var-powershell@1
+    #   with:
+    #    name: PATH
+    #    value: $env:PATH;$env:LIBCLANG_PATH
+
+    - name: run test
+      run: deno task test
