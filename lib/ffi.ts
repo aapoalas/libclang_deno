@@ -66,14 +66,15 @@ if (Deno.build.os === "windows") {
   } else {
     // Try plain libclang first, then 14.0.6, then 14, and finally try 13.
     let LastError: null | Error = null;
-    for (const file in ["libclang.so", "libclang.so.14.0.6", "libclang.so.14", "libclang-14.so.1", "libclang.so.13"]) {
+    for (const file of ["libclang-14.so.1", "libclang.so", "libclang.so.14.0.6", "libclang.so.14", "libclang.so.13"]) {
       const fullpath = join(libclangPath, file)
-      //if (!existsSync(fullpath))  continue
+      // if (!existsSync(fullpath)) continue
       try {
         libclang = Deno.dlopen(fullpath, IMPORTS);
       } catch (e) {
         LastError = e;
       }
+      break;
     }
     if (LastError && !libclang) {
       throw LastError;
