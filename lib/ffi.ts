@@ -19,12 +19,12 @@ import * as Rewrite from "./include/Rewrite.h.ts";
  * md5 59beb52cef40898b0f24cdffc6cf2984
  * `dumpbin /exports libclang.dll`
  */
-export const WINDOWS_MISSING_SET = [
+const WINDOWS_MISSING_SET = [
   "clang_install_aborting_llvm_fatal_error_handler",
   "clang_uninstall_llvm_fatal_error_handler",
 ] as const;
 
-export type WindowsMissingSet = typeof WINDOWS_MISSING_SET[number];
+type WindowsMissingSet = typeof WINDOWS_MISSING_SET[number];
 
 const IMPORTS = {
   ...BuildSystem,
@@ -47,11 +47,11 @@ if (!libclangPath) {
   );
 }
 
-type clangExpUnix = typeof IMPORTS;
-type clangExpCommon = Omit<clangExpUnix, WindowsMissingSet>;
+export type clangExportUnix = typeof IMPORTS;
+export type clangExportCommon = Omit<clangExportUnix, WindowsMissingSet>;
 
 let libclang = null as unknown as ReturnType<
-  typeof Deno.dlopen<clangExpUnix | clangExpCommon>
+  typeof Deno.dlopen<clangExportUnix | clangExportCommon>
 >;
 
 if (Deno.build.os === "windows") {
