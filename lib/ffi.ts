@@ -1,6 +1,6 @@
 import { join } from "https://deno.land/std@0.170.0/path/mod.ts";
-// is deprecated, but we need to improve error handling
-import { existsSync } from "https://deno.land/std@0.170.0/fs/mod.ts";
+// can be use to improve error handling but requiere extra --allow-read permission
+// import { existsSync } from "https://deno.land/std@0.170.0/fs/mod.ts";
 
 import * as BuildSystem from "./include/BuildSystem.h.ts";
 import * as CXCompilationDatabase from "./include/CXCompilationDatabase.h.ts";
@@ -68,10 +68,9 @@ if (Deno.build.os === "windows") {
     let LastError: null | Error = null;
     for (const file in ["libclang.so", "libclang.so.14.0.6", "libclang.so.14", "libclang.so.13"]) {
       const fullpath = join(libclangPath, file)
-      if (!existsSync(fullpath))
-        continue
+      //if (!existsSync(fullpath))  continue
       try {
-        libclang = Deno.dlopen(join(libclangPath, "libclang.so"), IMPORTS);
+        libclang = Deno.dlopen(fullpath, IMPORTS);
       } catch (e) {
         LastError = e;
       }
