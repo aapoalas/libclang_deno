@@ -1,5 +1,5 @@
 import { join } from "https://deno.land/std@0.170.0/path/mod.ts";
-// can be use to improve error handling but requiere extra --allow-read permission
+// can be use to improve error handling but requires extra --allow-read permission
 // import { existsSync } from "https://deno.land/std@0.170.0/fs/mod.ts";
 
 import * as BuildSystem from "./include/BuildSystem.h.ts";
