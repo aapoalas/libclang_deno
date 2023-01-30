@@ -125,7 +125,7 @@ Deno.test("class CXTranslationUnit", async (t) => {
     const file = tu.getFile("./test/assets/test.h");
     assertNotEquals(file, null);
     // Remove \r for windows hosts
-    const contents = file!.getContents().replaceAll('\r\n', '\n');
+    const contents = file!.getContents().replaceAll("\r\n", "\n");
     assertEquals(contents.startsWith("// my_class.h"), true);
     assertEquals(contents.length, 171);
     const cursor = tu.getCursor();

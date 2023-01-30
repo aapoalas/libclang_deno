@@ -212,11 +212,13 @@ const CX_FIELD_VISITOR_CALLBACK = new Deno.UnsafeCallback(
  */
 export const setAbortOnFatalError = (value: boolean): void => {
   if (value) {
-    if ('clang_install_aborting_llvm_fatal_error_handler' in libclang.symbols)
-    libclang.symbols.clang_install_aborting_llvm_fatal_error_handler();
+    if ("clang_install_aborting_llvm_fatal_error_handler" in libclang.symbols) {
+      libclang.symbols.clang_install_aborting_llvm_fatal_error_handler();
+    }
   } else {
-    if ('clang_uninstall_llvm_fatal_error_handler' in libclang.symbols)
+    if ("clang_uninstall_llvm_fatal_error_handler" in libclang.symbols) {
       libclang.symbols.clang_uninstall_llvm_fatal_error_handler();
+    }
   }
 };
 

@@ -21,10 +21,10 @@ import * as Rewrite from "./include/Rewrite.h.ts";
  */
 export const WINDOWS_MISSING_SET = [
   "clang_install_aborting_llvm_fatal_error_handler",
-  "clang_uninstall_llvm_fatal_error_handler"
+  "clang_uninstall_llvm_fatal_error_handler",
 ] as const;
 
-export type WindowsMissingSet = typeof WINDOWS_MISSING_SET[number]
+export type WindowsMissingSet = typeof WINDOWS_MISSING_SET[number];
 
 const IMPORTS = {
   ...BuildSystem,
@@ -47,15 +47,21 @@ if (!libclangPath) {
   );
 }
 
-type clangExpUnix = typeof IMPORTS
-type clangExpCommon = Omit<clangExpUnix, WindowsMissingSet>
+type clangExpUnix = typeof IMPORTS;
+type clangExpCommon = Omit<clangExpUnix, WindowsMissingSet>;
 
-let libclang = null as unknown as ReturnType<typeof Deno.dlopen<clangExpUnix | clangExpCommon>>;
+let libclang = null as unknown as ReturnType<
+  typeof Deno.dlopen<clangExpUnix | clangExpCommon>
+>;
 
 if (Deno.build.os === "windows") {
   // drop all the exports that are not in the winSubset and cast to the original type to keep intellisense
-  const IMPORTS_WIN = Object.fromEntries(Object.entries(IMPORTS).filter((entry: [string, unknown]) => !WINDOWS_MISSING_SET.includes(entry[0] as WindowsMissingSet))) as typeof IMPORTS
-  
+  const IMPORTS_WIN = Object.fromEntries(
+    Object.entries(IMPORTS).filter((entry: [string, unknown]) =>
+      !WINDOWS_MISSING_SET.includes(entry[0] as WindowsMissingSet)
+    ),
+  ) as typeof IMPORTS;
+
   if (libclangPath.includes(".dll")) {
     libclang = Deno.dlopen(libclangPath, IMPORTS_WIN);
   } else {
@@ -72,7 +78,7 @@ if (Deno.build.os === "windows") {
       join(libclangPath, "libclang.dylib"),
       IMPORTS,
     );
-   }
+  }
 } else {
   const isFullPath = libclangPath.includes(".so");
   if (isFullPath) {
@@ -81,8 +87,16 @@ if (Deno.build.os === "windows") {
   } else {
     // Try plain libclang first, then 14.0.6, then 14, and finally try 13.
     let LastError: null | Error = null;
-    for (const file of ["libclang-14.so.1", "libclang.so", "libclang.so.14.0.6", "libclang.so.14", "libclang.so.13"]) {
-      const fullpath = join(libclangPath, file)
+    for (
+      const file of [
+        "libclang-14.so.1",
+        "libclang.so",
+        "libclang.so.14.0.6",
+        "libclang.so.14",
+        "libclang.so.13",
+      ]
+    ) {
+      const fullpath = join(libclangPath, file);
       // if (!existsSync(fullpath)) continue
       try {
         libclang = Deno.dlopen(fullpath, IMPORTS);
