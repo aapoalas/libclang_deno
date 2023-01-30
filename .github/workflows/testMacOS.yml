@@ -17,9 +17,9 @@ on:
       - "test/**"
 
 env:
-  # LIBCLANG_PATH: ${{ brew --prefix llvm@14 }}/lib/libLLVM.dylib
-  # LIBCLANG_PATH: /opt/homebrew/opt/llvm@14/lib/libLLVM.dylib
-  LIBCLANG_PATH: /usr/local/opt/llvm@14/lib/libLLVM.dylib
+  # LIBCLANG_PATH: ${{ brew --prefix llvm@14 }}/lib/libclang.dylib
+  # LIBCLANG_PATH: /opt/homebrew/opt/llvm@14/lib/libclang.dylib
+  LIBCLANG_PATH: /usr/local/opt/llvm@14/lib/libclang.dylib
 
 jobs:
   build:
