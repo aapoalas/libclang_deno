@@ -132,7 +132,7 @@ Deno.test("class CXTranslationUnit", async (t) => {
     assertEquals(cursor.getBriefCommentText(), "");
     //console.log(cursor.kind);
 
-    cursor.visitChildren((cursor) => {
+    cursor.visitChildren((_cursor) => {
       //console.log(cursor.kind);
       return CXChildVisitResult.CXChildVisit_Recurse;
     });
