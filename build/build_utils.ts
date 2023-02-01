@@ -287,7 +287,9 @@ export const toAnyType = (
   const typekind = type.kind;
   if (typekind === CXTypeKind.CXType_Elaborated) {
     const typeDeclaration = type.getTypeDeclaration();
-    if (!typeDeclaration) throw Error('internal error "typeDeclaration" is null');
+    if (!typeDeclaration) {
+      throw Error('internal error "typeDeclaration" is null');
+    }
     if (typeDeclaration.kind === CXCursorKind.CXCursor_EnumDecl) {
       const name = type.getSpelling().substring(5); // drop `enum ` prefix
       if (typeMemory.has(name)) {
@@ -312,7 +314,9 @@ export const toAnyType = (
         };
         return voidType;
       }
-      if (!structDeclaration) throw Error('internal error "structDeclaration" is null');
+      if (!structDeclaration) {
+        throw Error('internal error "structDeclaration" is null');
+      }
       const structType: StructType = {
         fields,
         kind: "struct",
@@ -379,7 +383,9 @@ export const toAnyType = (
     }
   } else if (typekind === CXTypeKind.CXType_FunctionProto) {
     const typeDeclaration = type.getTypeDeclaration();
-    if (!typeDeclaration) throw Error('internal error "typeDeclaration" is null');
+    if (!typeDeclaration) {
+      throw Error('internal error "typeDeclaration" is null');
+    }
     const resultType = type.getResultType();
     if (!resultType) throw Error('internal error "resultType" is null');
     const result: FunctionType = {
@@ -406,7 +412,7 @@ export const toAnyType = (
     return result;
   } else if (typekind === CXTypeKind.CXType_Pointer) {
     const pointee = type.getPointeeType();
-    if (!pointee) throw Error('internal error "pointee" is null')
+    if (!pointee) throw Error('internal error "pointee" is null');
 
     if (
       pointee.kind === CXTypeKind.CXType_Char_S
@@ -477,11 +483,11 @@ export const toAnyType = (
     if (!typeMemory.has(name)) {
       // Check for potentially needed system header definitions.
       const typedecl = type.getTypeDeclaration();
-      if (!typedecl) throw Error('internal error "typedecl" is null')
+      if (!typedecl) throw Error('internal error "typedecl" is null');
       const location = typedecl.getLocation();
       if (location.isInSystemHeader()) {
         const sourceType = typedecl.getTypedefDeclarationOfUnderlyingType();
-        if (!sourceType) throw Error('internal error "sourceType" is null')
+        if (!sourceType) throw Error('internal error "sourceType" is null');
         const sourceAnyType = toAnyType(typeMemory, sourceType);
         typeMemory.set(name, sourceAnyType);
       }
@@ -498,7 +504,9 @@ export const toAnyType = (
       return typeMemory.get(name)!;
     }
     const typeDeclaration = type.getTypeDeclaration();
-    if (!typeDeclaration) throw Error('internal error "typeDeclaration" is null');
+    if (!typeDeclaration) {
+      throw Error('internal error "typeDeclaration" is null');
+    }
     const result = toEnumType(typeMemory, name, typeDeclaration);
     typeMemory.set(name, result);
     return result;
