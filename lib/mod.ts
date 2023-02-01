@@ -209,16 +209,20 @@ const CX_FIELD_VISITOR_CALLBACK = new Deno.UnsafeCallback(
  * When called with `false`, removes the currently installed error handler (if any).
  * If no error handler is intalled, the default strategy is to print error
  * message to stderr and call exit(1).
+ *
+ * **WARNING**: This API is not supported on Windows and will throw an error
+ * if called.
  */
-export const setAbortOnFatalError = (value: boolean): void => {
+export const setAbortOnFatalError = (
+  value: boolean,
+): typeof Deno.build.os extends "windows" ? never : void => {
+  if (Deno.build.os === "windows") {
+    throw new Error("'setAbortOnFatalError' API is not supported on Windows");
+  }
   if (value) {
-    if ("clang_install_aborting_llvm_fatal_error_handler" in libclang.symbols) {
-      libclang.symbols.clang_install_aborting_llvm_fatal_error_handler();
-    }
+    libclang.symbols.clang_install_aborting_llvm_fatal_error_handler();
   } else {
-    if ("clang_uninstall_llvm_fatal_error_handler" in libclang.symbols) {
-      libclang.symbols.clang_uninstall_llvm_fatal_error_handler();
-    }
+    libclang.symbols.clang_uninstall_llvm_fatal_error_handler();
   }
 };
 

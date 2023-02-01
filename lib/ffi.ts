@@ -1,7 +1,4 @@
 import { join } from "https://deno.land/std@0.170.0/path/mod.ts";
-// can be use to improve error handling but requires extra --allow-read permission
-// import { existsSync } from "https://deno.land/std@0.170.0/fs/mod.ts";
-
 import * as BuildSystem from "./include/BuildSystem.h.ts";
 import * as CXCompilationDatabase from "./include/CXCompilationDatabase.h.ts";
 import * as CXDiagnostic from "./include/CXDiagnostic.h.ts";
@@ -12,19 +9,6 @@ import * as Documentation from "./include/Documentation.h.ts";
 import * as FatalErrorHandler from "./include/FatalErrorHandler.h.ts";
 import * as Index from "./include/Index.h.ts";
 import * as Rewrite from "./include/Rewrite.h.ts";
-
-/**
- * Windows dll have a few missing symbols
- * windows dll come from `choco install --version 14.0.6 llvm`
- * md5 59beb52cef40898b0f24cdffc6cf2984
- * `dumpbin /exports libclang.dll`
- */
-const WINDOWS_MISSING_SET = [
-  "clang_install_aborting_llvm_fatal_error_handler",
-  "clang_uninstall_llvm_fatal_error_handler",
-] as const;
-
-type WindowsMissingSet = typeof WINDOWS_MISSING_SET[number];
 
 const IMPORTS = {
   ...BuildSystem,
@@ -47,20 +31,25 @@ if (!libclangPath) {
   );
 }
 
-export type clangExportUnix = typeof IMPORTS;
-export type clangExportCommon = Omit<clangExportUnix, WindowsMissingSet>;
+type ClangSymbols = typeof IMPORTS;
 
-let libclang = null as unknown as ReturnType<
-  typeof Deno.dlopen<clangExportUnix | clangExportCommon>
+let libclang: ReturnType<
+  typeof Deno.dlopen<ClangSymbols>
 >;
 
 if (Deno.build.os === "windows") {
-  // drop all the exports that are not in the winSubset and cast to the original type to keep intellisense
+  /**
+   * Windows DLL does not have error handler related symbols.
+   * Windows DLL from `choco install --version 14.0.6 llvm`
+   * md5 59beb52cef40898b0f24cdffc6cf2984
+   * `dumpbin /exports libclang.dll`
+   */
   const IMPORTS_WIN = Object.fromEntries(
-    Object.entries(IMPORTS).filter((entry: [string, unknown]) =>
-      !WINDOWS_MISSING_SET.includes(entry[0] as WindowsMissingSet)
+    Object.entries(IMPORTS).filter(([symbol]: [string, unknown]) =>
+      symbol === "clang_install_aborting_llvm_fatal_error_handler" ||
+      symbol === "clang_uninstall_llvm_fatal_error_handler"
     ),
-  ) as typeof IMPORTS;
+  ) as ClangSymbols;
 
   if (libclangPath.includes(".dll")) {
     libclang = Deno.dlopen(libclangPath, IMPORTS_WIN);
@@ -85,28 +74,27 @@ if (Deno.build.os === "windows") {
     // if LIBCLANG_PATH point to a so file, we try to load it directly
     libclang = Deno.dlopen(libclangPath, IMPORTS);
   } else {
-    // Try plain libclang first, then 14.0.6, then 14, and finally try 13.
-    let LastError: null | Error = null;
+    // Try various known libclang shared object names.
+    let lastError: null | Error = null;
     for (
       const file of [
-        "libclang-14.so.1",
         "libclang.so",
+        "libclang-14.so.1",
         "libclang.so.14.0.6",
         "libclang.so.14",
         "libclang.so.13",
       ]
     ) {
       const fullpath = join(libclangPath, file);
-      // if (!existsSync(fullpath)) continue
       try {
         libclang = Deno.dlopen(fullpath, IMPORTS);
       } catch (e) {
-        LastError = e;
+        lastError = e;
       }
       break;
     }
-    if (LastError && !libclang) {
-      throw LastError;
+    if (lastError && !libclang!) {
+      throw lastError;
     }
   }
 }
