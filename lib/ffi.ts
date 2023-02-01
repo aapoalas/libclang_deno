@@ -46,8 +46,8 @@ if (Deno.build.os === "windows") {
    */
   const IMPORTS_WIN = Object.fromEntries(
     Object.entries(IMPORTS).filter(([symbol]: [string, unknown]) =>
-      symbol === "clang_install_aborting_llvm_fatal_error_handler" ||
-      symbol === "clang_uninstall_llvm_fatal_error_handler"
+      symbol !== "clang_install_aborting_llvm_fatal_error_handler" &&
+      symbol !== "clang_uninstall_llvm_fatal_error_handler"
     ),
   ) as ClangSymbols;
 
