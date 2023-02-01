@@ -1,0 +1,44 @@
+name: Testing LLVM on Ubuntu
+
+on:
+  push:
+    branches: [ "testing", "main", "deno.json" ]
+    paths:
+      - ".github/workflows/testUbuntu.yml"
+      - "build/**"
+      - "lib/**"
+      - "test/**"
+  pull_request:
+    branches: [ "testing", "main", "deno.json" ]
+    paths:
+      - ".github/workflows/testUbuntu.yml"
+      - "build/**"
+      - "lib/**"
+      - "test/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: denoland/setup-deno@v1
+      with:
+        deno-version: 1.30.0
+
+    - name: Uninstall old LLVM
+      run: |
+        sudo apt-get remove -y libclang*
+
+    - name: Install LLVM
+      run: |
+        sudo apt-get install -y libclang1-14
+
+    - name: run test LIBCLANG_PATH pointing to file
+      run: |
+        export LIBCLANG_PATH=/usr/lib/llvm-14/lib/libclang-14.so.1
+        deno task test
+
+    - name: run test LIBCLANG_PATH pointing to directory
+      run: |
+        export LIBCLANG_PATH=/usr/lib/llvm-14/lib/
+        deno task test

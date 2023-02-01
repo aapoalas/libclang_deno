@@ -124,14 +124,15 @@ Deno.test("class CXTranslationUnit", async (t) => {
     //console.log("Diag count:", tu2.getNumberOfDiagnostics());
     const file = tu.getFile("./test/assets/test.h");
     assertNotEquals(file, null);
-    const contents = file!.getContents();
+    // Remove \r for windows hosts
+    const contents = file!.getContents().replaceAll("\r\n", "\n");
     assertEquals(contents.startsWith("// my_class.h"), true);
     assertEquals(contents.length, 171);
     const cursor = tu.getCursor();
     assertEquals(cursor.getBriefCommentText(), "");
     //console.log(cursor.kind);
 
-    cursor.visitChildren((cursor) => {
+    cursor.visitChildren((_cursor) => {
       //console.log(cursor.kind);
       return CXChildVisitResult.CXChildVisit_Recurse;
     });

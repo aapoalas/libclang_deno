@@ -1,0 +1,42 @@
+name: Testing LLVM on MacOS
+
+on:
+  push:
+    branches: [ "testing", "main" ]
+    paths:
+      - ".github/workflows/testMacOS.yml"
+      - "build/**"
+      - "lib/**"
+      - "test/**"
+  pull_request:
+    branches: [ "testing", "main" ]
+    paths:
+      - ".github/workflows/testMacOS.yml"
+      - "build/**"
+      - "lib/**"
+      - "test/**"
+
+jobs:
+  build:
+    runs-on: macos-12
+    steps:
+    - uses: actions/checkout@v3
+    - uses: denoland/setup-deno@v1
+      with:
+        deno-version: 1.30.0
+    - name: install llvm@14
+      run: brew install llvm@14
+    - name: debug path
+      run: brew --prefix llvm@14
+    - name: list lib
+      run: ls $(brew --prefix llvm@14)
+    - name: list lib/lib
+      run: ls $(brew --prefix llvm@14)/lib
+    - name: run test LIBCLANG_PATH pointing to file
+      run: |
+        export LIBCLANG_PATH="$(brew --prefix llvm@14)/lib/libclang.dylib"
+        deno task test
+    - name: run test LIBCLANG_PATH pointing to directory
+      run: |
+        export LIBCLANG_PATH="$(brew --prefix llvm@14)/lib/"
+        deno task test        
