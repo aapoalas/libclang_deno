@@ -29,18 +29,9 @@ jobs:
       run: |
         choco install -y --allow-downgrade --version 14.0.6 llvm
 
-    # - name: add LLVM path to PATH environment variable
-    #   uses: myci-actions/export-env-var-powershell@1
-    #   with:
-    #    name: PATH
-    #    value: $env:PATH;$env:LIBCLANG_PATH
-
-    - name: run test LIBCLANG_PATH pointing to file
+    - name: test
       run: |
-        $Env:LIBCLANG_PATH="C:\Program Files\LLVM\bin\libclang.dll"
-        deno task test
-
-    - name: run test LIBCLANG_PATH pointing to directory
-      run: |
-        $Env:LIBCLANG_PATH="C:\Program Files\LLVM\bin\"
+        $Env:LIBCLANG_PATH="C:\Program Files\LLVM\bin"
+        $Env:TEST_DIR=$Env:LIBCLANG_PATH
+        $Env:TEST_PATH="$Env:LIBCLANG_PATH\libclang.dll"
         deno task test
