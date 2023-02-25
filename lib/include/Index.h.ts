@@ -352,7 +352,7 @@ export const clang_getTranslationUnitSpelling = {
  * '-c'
  * '-emit-ast'
  * '-fsyntax-only'
- * '-o <output file>' (both '-o' and '<output file>' are ignored)
+ * '-o \<output file>' (both '-o' and '\<output file>' are ignored)
  *
  * @param CIdx The index object with which the translation unit will be
  * associated.
@@ -364,7 +364,7 @@ export const clang_getTranslationUnitSpelling = {
  * passed to the `clang` executable if it were being invoked out-of-process.
  * These command-line options will be parsed and will affect how the translation
  * unit is parsed. Note that the following options are ignored: '-c',
- * '-emit-ast', '-fsyntax-only' (which is the default), and '-o <output file>'.
+ * '-emit-ast', '-fsyntax-only' (which is the default), and '-o \<output file>'.
  * @param num_unsaved_files the number of unsaved file entries in `unsaved_files.`
  * @param unsaved_files the files that have not yet been saved to disk
  * but may be required for code completion, including the contents of
@@ -467,7 +467,7 @@ export const clang_parseTranslationUnit = {
  * passed to the `clang` executable if it were being invoked out-of-process.
  * These command-line options will be parsed and will affect how the translation
  * unit is parsed. Note that the following options are ignored: '-c',
- * '-emit-ast', '-fsyntax-only' (which is the default), and '-o <output file>'.
+ * '-emit-ast', '-fsyntax-only' (which is the default), and '-o \<output file>'.
  * @param num_command_line_args The number of command-line arguments in
  * `command_line_args.`
  * @param unsaved_files the files that have not yet been saved to disk
@@ -3108,6 +3108,57 @@ const clang_CXXMethod_isCopyAssignmentOperator = {
  */
 // deno-lint-ignore no-unused-vars
 const clang_CXXMethod_isMoveAssignmentOperator = {
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
+} as const;
+
+/**
+ * Determines if a C++ constructor or conversion function was declared
+ * explicit, returning 1 if such is the case and 0 otherwise.
+ *
+ * Constructors or conversion functions are declared explicit through
+ * the use of the explicit specifier.
+ *
+ * For example, the following constructor and conversion function are
+ * not explicit as they lack the explicit specifier:
+ *
+ * class Foo {
+ * Foo();
+ * operator int();
+ * };
+ *
+ * While the following constructor and conversion function are
+ * explicit as they are declared with the explicit specifier.
+ *
+ * class Foo {
+ * explicit Foo();
+ * explicit operator int();
+ * };
+ *
+ * This function will return 0 when given a cursor pointing to one of
+ * the former declarations and it will return 1 for a cursor pointing
+ * to the latter declarations.
+ *
+ * The explicit specifier allows the user to specify a
+ * conditional compile-time expression whose value decides
+ * whether the marked element is explicit or not.
+ *
+ * For example:
+ *
+ * constexpr bool foo(int i) { return i % 2 == 0; }
+ *
+ * class Foo {
+ * explicit(foo(1)) Foo();
+ * explicit(foo(2)) operator int();
+ * }
+ *
+ * This function will return 0 for the constructor and 1 for
+ * the conversion function.
+ */
+// deno-lint-ignore no-unused-vars
+const clang_CXXMethod_isExplicit = {
   parameters: [
     CXCursorT, // C
   ],

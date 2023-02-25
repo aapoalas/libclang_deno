@@ -433,22 +433,22 @@ export const clang_HTMLTagComment_getAsString = {
  *
  * @li "word-returns" for the "Returns" word in \\returns paragraph.
  *
- * Function argument documentation is rendered as a list with arguments
+ * Function argument documentation is rendered as a \<dl\> list with arguments
  * sorted in function prototype order. CSS classes used:
  *
- * @li "param-name-index-NUMBER" for parameter name ();
+ * @li "param-name-index-NUMBER" for parameter name (\<dt\>);
  *
- * @li "param-descr-index-NUMBER" for parameter description ();
+ * @li "param-descr-index-NUMBER" for parameter description (\<dd\>);
  *
  * @li "param-name-index-invalid" and "param-descr-index-invalid" are used if
  * parameter index is invalid.
  *
- * Template parameter documentation is rendered as a list with
+ * Template parameter documentation is rendered as a \<dl\> list with
  * parameters sorted in template parameter list order. CSS classes used:
  *
- * @li "tparam-name-index-NUMBER" for parameter name ();
+ * @li "tparam-name-index-NUMBER" for parameter name (\<dt\>);
  *
- * @li "tparam-descr-index-NUMBER" for parameter description ();
+ * @li "tparam-descr-index-NUMBER" for parameter description (\<dd\>);
  *
  * @li "tparam-name-index-other" and "tparam-descr-index-other" are used for
  * names inside template template parameters;

@@ -33,9 +33,8 @@ export const double = "f64" as const;
 /**
  * Error codes returned by libclang routines.
  *
- * Zero (`CXError_Success`) is the only error code indicating success.
- * Other error codes, including not yet assigned non-zero values, indicate
- * errors.
+ * Zero (`CXError_Success`) is the only error code indicating success. Other
+ * error codes, including not yet assigned non-zero values, indicate errors.
  */
 export const enum CXErrorCode {
   /**
@@ -66,9 +65,8 @@ export const enum CXErrorCode {
 /**
  * Error codes returned by libclang routines.
  *
- * Zero (`CXError_Success`) is the only error code indicating success.
- * Other error codes, including not yet assigned non-zero values, indicate
- * errors.
+ * Zero (`CXError_Success`) is the only error code indicating success. Other
+ * error codes, including not yet assigned non-zero values, indicate errors.
  */
 export const CXErrorCodeT = unsignedInt;
 
@@ -2223,7 +2221,7 @@ export const enum CXNameRefFlags {
    */
   CXNameRange_WantQualifier = 1,
   /**
-   * Include the explicit template arguments, e.g. <int> in x.f<int>,
+   * Include the explicit template arguments, e.g. \<int> in x.f<int>,
    * in the range.
    */
   CXNameRange_WantTemplateArgs = 2,
