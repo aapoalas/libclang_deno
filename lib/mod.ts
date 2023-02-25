@@ -49,7 +49,6 @@ import {
   CStringArray,
   cxstringSetToStringArray,
   cxstringToString,
-  NULL,
   NULLBUF,
   throwIfError,
 } from "./utils.ts";
@@ -174,7 +173,7 @@ const CX_INCLUSION_VISITOR_CALLBACK = new Deno.UnsafeCallback(
         CXSourceLocation[CONSTRUCTOR](
           tu,
           new Uint8Array(Deno.UnsafePointerView.getArrayBuffer(
-            inclusionStackPointer,
+            inclusionStackPointer!,
             3 * 8,
             i * 3 * 8,
           )),
@@ -290,7 +289,7 @@ export class CXIndex {
       Number(excludeDeclarationsFromPCH),
       Number(displayDiagnostics),
     );
-    if (this.#pointer === NULL) {
+    if (this.#pointer === null) {
       throw new Error("Creating CXIndex failed: Unknown error occurred");
     }
     INDEX_FINALIZATION_REGISTRY.register(this, this.#pointer, this);
@@ -380,7 +379,7 @@ export class CXIndex {
       OUT,
     );
 
-    const pointer = Number(OUT_64[0]);
+    const pointer = Deno.UnsafePointer.create(OUT_64[0])!;
     throwIfError(result, "Parsing CXTranslationUnit failed");
 
     const tu = CXTranslationUnit[CONSTRUCTOR](pointer);
@@ -440,7 +439,7 @@ export class CXIndex {
     );
     throwIfError(result, "Parsing CXTranslationUnit failed");
 
-    const pointer = Number(OUT_64[0]);
+    const pointer = Deno.UnsafePointer.create(OUT_64[0])!;
     const tu = CXTranslationUnit[CONSTRUCTOR](pointer);
     this.translationUnits.set(astFileName, tu);
     return tu;
@@ -526,7 +525,7 @@ class CXIndexAction {
   }
 
   // indexSourceFile(callbacks: [], options: CXIndexOptFlags[])  {
-  //   libclang.symbols.clang_indexSourceFile(this.#pointer, NULL, new Uint8Array(), 0, options.reduce((acc, flag) => acc | flag, 0), NULL, arg_6, arg_7, arg_8, arg_9, arg_10, arg_11, arg_12);
+  //   libclang.symbols.clang_indexSourceFile(this.#pointer, null, new Uint8Array(), 0, options.reduce((acc, flag) => acc | flag, 0), null, arg_6, arg_7, arg_8, arg_9, arg_10, arg_11, arg_12);
   // }
 
   // indexSourceFileFullArgv(arg_0: CXIndexAction, arg_1: CXClientData, arg_2: buf(IndexerCallbacks), arg_3: unsigned, arg_4: unsigned, arg_5: constCharPtr, arg_6: string, arg_7: int, arg_8: CXUnsavedFile, arg_9: unsigned, arg_10: CXTranslationUnit, arg_11: unsigned, arg_12: asd)  { libclang.symbols.clang_indexSourceFileFullArgv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8, arg_9, arg_10, arg_11, arg_12); }
@@ -597,14 +596,14 @@ const TU_FINALIZATION_REGISTRY = new FinalizationRegistry<Deno.PointerValue>(
 export class CXTranslationUnit {
   static #constructable = false;
   #dependents: DependentsSet = new Set();
-  #pointer: Deno.PointerValue;
+  #pointer: NonNullable<Deno.PointerValue>;
   #disposed = false;
   #suspended = false;
 
   /**
    * @private Private API, cannot be used from outside.
    */
-  constructor(pointer: Deno.PointerValue) {
+  constructor(pointer: NonNullable<Deno.PointerValue>) {
     if (!CXTranslationUnit.#constructable) {
       throw new Error("CXTranslationUnit is not constructable");
     }
@@ -615,14 +614,16 @@ export class CXTranslationUnit {
   /**
    * @private Private API, cannot be used from outside.
    */
-  static [CONSTRUCTOR](pointer: Deno.PointerValue): CXTranslationUnit {
+  static [CONSTRUCTOR](
+    pointer: NonNullable<Deno.PointerValue>,
+  ): CXTranslationUnit {
     CXTranslationUnit.#constructable = true;
     const result = new CXTranslationUnit(pointer);
     CXTranslationUnit.#constructable = false;
     return result;
   }
 
-  get [POINTER](): Deno.PointerValue {
+  get [POINTER](): NonNullable<Deno.PointerValue> {
     return this.#pointer;
   }
 
@@ -740,9 +741,11 @@ export class CXTranslationUnit {
       for (let i = 0; i < unsavedFilesCount; i++) {
         const unsavedFile = unsavedFiles[i];
         nameBuffers[i] = cstr(unsavedFile.filename);
-        unsavedFiles64[i * 3] = BigInt(Deno.UnsafePointer.of(nameBuffers[i]));
+        unsavedFiles64[i * 3] = BigInt(
+          Deno.UnsafePointer.value(Deno.UnsafePointer.of(nameBuffers[i])),
+        );
         unsavedFiles64[i * 3 + 1] = BigInt(
-          Deno.UnsafePointer.of(unsavedFile.contents),
+          Deno.UnsafePointer.value(Deno.UnsafePointer.of(unsavedFile.contents)),
         );
         unsavedFiles64[i * 3 + 2] = BigInt(unsavedFile.contents.length);
       }
@@ -816,13 +819,13 @@ export class CXTranslationUnit {
     const listPointer = libclang.symbols.clang_getAllSkippedRanges(
       this.#pointer,
     );
-    const view = new Deno.UnsafePointerView(listPointer);
+    const view = new Deno.UnsafePointerView(listPointer!);
     const count = view.getUint32();
     if (count === 0) {
       libclang.symbols.clang_disposeSourceRangeList(listPointer);
       return null;
     }
-    const rangesPointer = Number(view.getBigUint64(8));
+    const rangesPointer = Deno.UnsafePointer.create(view.getBigUint64(8))!;
     return CXSourceRangeList[CONSTRUCTOR](
       this,
       listPointer,
@@ -885,7 +888,7 @@ export class CXTranslationUnit {
     }
     const file_name = cstr(fileName);
     const handle = libclang.symbols.clang_getFile(this.#pointer, file_name);
-    if (handle === NULL) {
+    if (handle === null) {
       return null;
     }
     const file = CXFile[CONSTRUCTOR](this, handle);
@@ -1058,7 +1061,7 @@ export class CXTranslationUnit {
       this.#pointer,
       location[BUFFER],
     );
-    if (tokenPointer === NULL) {
+    if (tokenPointer === null) {
       return null;
     }
     return CXToken[CONSTRUCTOR](
@@ -1091,7 +1094,10 @@ export class CXTranslationUnit {
       OUT,
       OUT.subarray(8),
     );
-    const tokensPointer = Number(OUT_64[0]);
+    const tokensPointer = Deno.UnsafePointer.create(OUT_64[0]);
+    if (tokensPointer === null) {
+      return [];
+    }
     const numTokens = new Uint32Array(OUT.buffer, 8, 1)[0];
     return Array.from({ length: numTokens }, (_, index) => {
       const tokenBuffer = new Uint8Array(
@@ -1127,7 +1133,7 @@ export class CXTranslationUnit {
       this.#pointer,
       file[POINTER],
     );
-    if (result === NULL) {
+    if (result === null) {
       return null;
     }
     return CXModule[CONSTRUCTOR](this, result);
@@ -1150,7 +1156,7 @@ export class CXTranslationUnit {
       libclang.symbols.clang_getInclusions(
         this.#pointer,
         CX_INCLUSION_VISITOR_CALLBACK.pointer,
-        NULL,
+        null,
       );
     } finally {
       CURRENT_TU = savedTu;
@@ -1175,7 +1181,9 @@ export class CXTranslationUnit {
     CURRENT_TU = this;
     // @ts-expect-error The sourceRange is guaranteed to be non-null.
     CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK = callback;
-    OUT_64[1] = BigInt(CX_CURSOR_AND_RANGE_VISITOR_CALLBACK.pointer);
+    OUT_64[1] = BigInt(
+      Deno.UnsafePointer.value(CX_CURSOR_AND_RANGE_VISITOR_CALLBACK.pointer),
+    );
     try {
       const result = libclang.symbols.clang_findIncludesInFile(
         this.#pointer,
@@ -1265,9 +1273,11 @@ export class CXTranslationUnit {
       for (let i = 0; i < unsavedFilesCount; i++) {
         const unsavedFile = unsavedFiles[i];
         nameBuffers[i] = cstr(unsavedFile.filename);
-        unsavedFiles64[i * 3] = BigInt(Deno.UnsafePointer.of(nameBuffers[i]));
+        unsavedFiles64[i * 3] = BigInt(
+          Deno.UnsafePointer.value(Deno.UnsafePointer.of(nameBuffers[i])),
+        );
         unsavedFiles64[i * 3 + 1] = BigInt(
-          Deno.UnsafePointer.of(unsavedFile.contents),
+          Deno.UnsafePointer.value(Deno.UnsafePointer.of(unsavedFile.contents)),
         );
         unsavedFiles64[i * 3 + 2] = BigInt(unsavedFile.contents.length);
       }
@@ -1282,7 +1292,7 @@ export class CXTranslationUnit {
       unsavedFilesCount,
       options,
     );
-    if (result === NULL) {
+    if (result === null) {
       return null;
     }
 
@@ -1388,7 +1398,7 @@ export class CXTranslationUnit {
 }
 
 const COMPLETION_RESULTS_FINALIZATION_REGISTRY = new FinalizationRegistry<
-  Deno.PointerValue
+  NonNullable<Deno.PointerValue>
 >((pointer) => libclang.symbols.clang_disposeCodeCompleteResults(pointer));
 
 /**
@@ -1399,8 +1409,8 @@ const COMPLETION_RESULTS_FINALIZATION_REGISTRY = new FinalizationRegistry<
  */
 class CXCodeCompleteResults {
   static #constructable = false;
-  #pointer: Deno.PointerValue;
-  #resultsPointer: Deno.PointerValue;
+  #pointer: NonNullable<Deno.PointerValue>;
+  #resultsPointer: NonNullable<Deno.PointerValue>;
   #numberOfResults: number;
   tu: CXTranslationUnit;
   #resultsArray?: {
@@ -1413,14 +1423,14 @@ class CXCodeCompleteResults {
    */
   constructor(
     tu: CXTranslationUnit,
-    pointer: Deno.PointerValue,
+    pointer: NonNullable<Deno.PointerValue>,
   ) {
     if (CXCodeCompleteResults.#constructable !== true) {
       throw new Error("CXCodeCompleteResults is not constructable");
     }
     this.#pointer = pointer;
     const view = new Deno.UnsafePointerView(pointer);
-    this.#resultsPointer = view.getBigUint64();
+    this.#resultsPointer = view.getPointer()!;
     this.#numberOfResults = view.getUint32(8);
     this.tu = tu;
     COMPLETION_RESULTS_FINALIZATION_REGISTRY.register(this, pointer, this);
@@ -1438,7 +1448,7 @@ class CXCodeCompleteResults {
       const view = new Deno.UnsafePointerView(this.#resultsPointer);
       for (let i = 0; i < this.#numberOfResults; i++) {
         const kind = view.getUint32(i * 2 * 8);
-        const completionStringPointer = view.getBigUint64((i * 2 + 1) * 8);
+        const completionStringPointer = view.getPointer((i * 2 + 1) * 8);
         this.#resultsArray.push({
           kind,
           completionString: CXCompletionString[CONSTRUCTOR](
@@ -1456,7 +1466,7 @@ class CXCodeCompleteResults {
    */
   static [CONSTRUCTOR](
     tu: CXTranslationUnit,
-    pointer: Deno.PointerValue,
+    pointer: NonNullable<Deno.PointerValue>,
   ): CXCodeCompleteResults {
     CXCodeCompleteResults.#constructable = true;
     const result = new CXCodeCompleteResults(tu, pointer);
@@ -1578,7 +1588,7 @@ class CXCodeCompleteResults {
       this.#pointer,
       index,
     );
-    if (result === NULL) {
+    if (result === null) {
       throw new Error("Unexpected null code-complete diagnostic");
     }
     return CXDiagnostic[CONSTRUCTOR](
@@ -1867,7 +1877,7 @@ class CXTUResourceUsage {
     const u32Buf = new Uint32Array(buffer.buffer, 8, 1);
     this.#length = u32Buf[0];
     const u64Buf = new BigUint64Array(buffer.buffer, 16, 1);
-    this.#pointer = Number(u64Buf[0]);
+    this.#pointer = Deno.UnsafePointer.create(u64Buf[0]);
   }
 
   /**
@@ -1901,14 +1911,14 @@ class CXTUResourceUsage {
       throw new Error("Invalid argument, index must be unsigned integer");
     }
     const buffer = Deno.UnsafePointerView.getArrayBuffer(
-      this.#pointer,
+      this.#pointer!,
       16,
       16 * index,
     );
     const [kind, , bytes] = new Uint32Array(buffer, 0, 3);
     return {
       kind: Deno.UnsafePointerView.getCString(
-        libclang.symbols.clang_getTUResourceUsageName(kind),
+        libclang.symbols.clang_getTUResourceUsageName(kind)!,
       ),
       bytes,
     };
@@ -2043,7 +2053,7 @@ export class CXFile {
       this.#pointer,
       OUT,
     );
-    if (pointer === NULL) {
+    if (pointer === null) {
       throw new Error("File not loaded");
     }
     const byteLength = Number(OUT_64[0]);
@@ -2085,12 +2095,18 @@ export class CXFile {
       this.tu[POINTER],
       this.#pointer,
     );
+    if (listPointer === null) {
+      return null;
+    }
     const view = new Deno.UnsafePointerView(listPointer);
     const count = view.getUint32();
     if (count === 0) {
       return null;
     }
-    const rangesPointer = Number(view.getBigUint64(8));
+    const rangesPointer = view.getPointer(8);
+    if (rangesPointer === null) {
+      return null;
+    }
     return CXSourceRangeList[CONSTRUCTOR](
       this.tu,
       listPointer,
@@ -2852,7 +2868,7 @@ export class CXCursor {
       throw new Error("Cannot get included file of null cursor");
     }
     const result = libclang.symbols.clang_getIncludedFile(this.#buffer);
-    if (result === NULL) {
+    if (result === null) {
       throw new Error("Got null included file");
     }
     return CXFile[CONSTRUCTOR](
@@ -2898,10 +2914,13 @@ export class CXCursor {
     libclang.symbols.clang_getOverriddenCursors(this.#buffer, OUT, OUT_2);
     const length = out32[0];
     const cursors: CXCursor[] = [];
-    const overriddenCursorsPointer = Number(OUT_64[0]);
-    if (length === 0 || overriddenCursorsPointer === NULL) {
+    const overriddenCursorsPointerValue = Number(OUT_64[0]);
+    if (length === 0 || overriddenCursorsPointerValue === 0) {
       return cursors;
     }
+    const overriddenCursorsPointer = Deno.UnsafePointer.create(
+      overriddenCursorsPointerValue,
+    )!;
     const key = {
       pointer: overriddenCursorsPointer,
       count: length,
@@ -3224,7 +3243,7 @@ export class CXCursor {
     return cxstringToString(
       libclang.symbols.clang_getCursorPrettyPrinted(
         this.#buffer,
-        printingPolicy ? printingPolicy[POINTER] : NULL,
+        printingPolicy ? printingPolicy[POINTER] : null,
       ),
     );
   }
@@ -3321,7 +3340,7 @@ export class CXCursor {
       const result = libclang.symbols.clang_visitChildren(
         this.#buffer,
         CX_CURSOR_VISITOR_CALLBACK.pointer,
-        NULL,
+        null,
       ) > 0;
       return result;
     } finally {
@@ -3542,7 +3561,7 @@ export class CXCursor {
    *
    * If this cursor does not reference an enum constant declaration, an error is thrown.
    */
-  getEnumConstantDeclarationValue(): Deno.PointerValue {
+  getEnumConstantDeclarationValue(): number | bigint {
     if (this.kind !== CXCursorKind.CXCursor_EnumConstantDecl) {
       throw new Error("Not an EnumConstantDecl");
     }
@@ -3555,7 +3574,7 @@ export class CXCursor {
    *
    * If this cursor does not reference an enum constant declaration, an error is thrown.
    */
-  getEnumConstantDeclarationUnsignedValue(): Deno.PointerValue {
+  getEnumConstantDeclarationUnsignedValue(): number | bigint {
     if (this.kind !== CXCursorKind.CXCursor_EnumConstantDecl) {
       throw new Error("Not an EnumConstantDecl");
     }
@@ -3697,7 +3716,7 @@ export class CXCursor {
    * If called with I = 1 or 2, -7 or true will be returned, respectively.
    * For I == 0, this function's behavior is undefined.
    */
-  getTemplateArgumentValue(index: number): Deno.PointerValue {
+  getTemplateArgumentValue(index: number): number | bigint {
     return libclang.symbols.clang_Cursor_getTemplateArgumentValue(
       this.#buffer,
       index,
@@ -3725,7 +3744,7 @@ export class CXCursor {
    * If called with I = 1 or 2, 2147483649 or 1 will be returned, respectively.
    * For I == 0, this function's behavior is undefined.
    */
-  getTemplateArgumentUnsignedValue(index: number): Deno.PointerValue {
+  getTemplateArgumentUnsignedValue(index: number): number | bigint {
     return libclang.symbols.clang_Cursor_getTemplateArgumentUnsignedValue(
       this.#buffer,
       index,
@@ -3903,8 +3922,8 @@ export class CXCursor {
     );
     const out32 = new Uint32Array(OUT, 16, 4);
     return [
-      Deno.UnsafePointerView.getCString(OUT_64[0]),
-      Deno.UnsafePointerView.getCString(OUT_64[1]),
+      Deno.UnsafePointerView.getCString(Deno.UnsafePointer.create(OUT_64[0])!),
+      Deno.UnsafePointerView.getCString(Deno.UnsafePointer.create(OUT_64[1])!),
       ...out32 as unknown as [number, number, number, number],
     ];
   }
@@ -3920,7 +3939,7 @@ export class CXCursor {
     const result = libclang.symbols.clang_getCursorCompletionString(
       this.#buffer,
     );
-    if (result === NULL) {
+    if (result === null) {
       return null;
     }
     return CXCompletionString[CONSTRUCTOR](
@@ -3963,7 +3982,9 @@ export class CXCursor {
     const savedCallback = CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK;
     CURRENT_TU = this.tu;
     CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK = callback;
-    OUT_64[1] = BigInt(CX_CURSOR_AND_RANGE_VISITOR_CALLBACK.pointer);
+    OUT_64[1] = BigInt(
+      Deno.UnsafePointer.value(CX_CURSOR_AND_RANGE_VISITOR_CALLBACK.pointer),
+    );
     try {
       const result = libclang.symbols.clang_findReferencesInFile(
         this.#buffer,
@@ -4056,7 +4077,7 @@ class CXCompletionString {
       this.#pointer,
       index,
     );
-    if (result === NULL) {
+    if (result === null) {
       return null;
     }
     return CXCompletionString[CONSTRUCTOR](result);
@@ -4236,9 +4257,12 @@ class CXEvalResult {
    * kind is other than Int or float.
    */
   getAsStr(): string {
-    return Deno.UnsafePointerView.getCString(
-      libclang.symbols.clang_EvalResult_getAsStr(this.#pointer),
-    );
+    const cstr = libclang.symbols.clang_EvalResult_getAsStr(this.#pointer);
+    return cstr
+      ? Deno.UnsafePointerView.getCString(
+        cstr,
+      )
+      : "";
   }
 
   /**
@@ -4334,7 +4358,7 @@ class CXModule {
    */
   getParent(): null | CXModule {
     const pointer = libclang.symbols.clang_Module_getParent(this.#pointer);
-    if (pointer === NULL) {
+    if (pointer === null) {
       return null;
     }
     return CXModule[CONSTRUCTOR](this.tu, pointer);
@@ -4353,7 +4377,7 @@ class CXModule {
       this.#pointer,
       index,
     );
-    if (pointer === NULL) {
+    if (pointer === null) {
       throw new Error("Could not get top level header");
     }
     return CXFile[CONSTRUCTOR](this.tu, pointer);
@@ -5084,7 +5108,7 @@ class CXSourceRangeList {
   static #constructable = false;
   tu: CXTranslationUnit;
   #pointer: Deno.PointerValue;
-  #arrayPointer: Deno.PointerValue;
+  #arrayPointer: NonNullable<Deno.PointerValue>;
   #length: number;
   #disposed = false;
 
@@ -5101,7 +5125,7 @@ class CXSourceRangeList {
   constructor(
     tu: CXTranslationUnit,
     pointer: Deno.PointerValue,
-    arrayPointer: Deno.PointerValue,
+    arrayPointer: NonNullable<Deno.PointerValue>,
     length: number,
   ) {
     if (CXSourceRangeList.#constructable !== true) {
@@ -5120,7 +5144,7 @@ class CXSourceRangeList {
   static [CONSTRUCTOR](
     tu: CXTranslationUnit,
     pointer: Deno.PointerValue,
-    arrayPointer: Deno.PointerValue,
+    arrayPointer: NonNullable<Deno.PointerValue>,
     length: number,
   ): CXSourceRangeList {
     CXSourceRangeList.#constructable = true;
@@ -5401,7 +5425,9 @@ export class CXSourceLocation {
     );
     const file = CXFile[CONSTRUCTOR](
       this.tu,
-      Number(new BigUint64Array(cxfileOut.buffer, 0, 1)[0]),
+      Deno.UnsafePointer.create(
+        new BigUint64Array(cxfileOut.buffer, 0, 1)[0],
+      ),
     );
     const unsignedArray = new Uint32Array(cxfileOut.buffer, 8, 3);
     const [line, column, offset] = unsignedArray;
@@ -5454,7 +5480,9 @@ export class CXSourceLocation {
     );
     const file = CXFile[CONSTRUCTOR](
       this.tu,
-      Number(new BigUint64Array(cxfileOut.buffer, 0, 1)[0]),
+      Deno.UnsafePointer.create(
+        new BigUint64Array(cxfileOut.buffer, 0, 1)[0],
+      ),
     );
     const unsignedArray = new Uint32Array(cxfileOut.buffer, 8, 3);
     const [line, column, offset] = unsignedArray;
@@ -5566,7 +5594,9 @@ export class CXSourceLocation {
     );
     const file = CXFile[CONSTRUCTOR](
       this.tu,
-      Number(new BigUint64Array(cxfileOut.buffer, 0, 1)[0]),
+      Deno.UnsafePointer.create(
+        new BigUint64Array(cxfileOut.buffer, 0, 1)[0],
+      ),
     );
     const unsignedArray = new Uint32Array(cxfileOut.buffer, 8, 3);
     const [line, column, offset] = unsignedArray;
@@ -5620,7 +5650,9 @@ export class CXSourceLocation {
     );
     const file = CXFile[CONSTRUCTOR](
       this.tu,
-      Number(new BigUint64Array(cxfileOut.buffer, 0, 1)[0]),
+      Deno.UnsafePointer.create(
+        new BigUint64Array(cxfileOut.buffer, 0, 1)[0],
+      ),
     );
     const unsignedArray = new Uint32Array(cxfileOut.buffer, 8, 3);
     const [line, column, offset] = unsignedArray;
@@ -6123,7 +6155,7 @@ class CXType {
       const result = libclang.symbols.clang_Type_visitFields(
         this.#buffer,
         CX_FIELD_VISITOR_CALLBACK.pointer,
-        NULL,
+        null,
       );
       return result > 0;
     } finally {
@@ -6841,7 +6873,7 @@ export class CXDiagnosticSet {
       errorOut,
       errorStringOut,
     );
-    if (pointer === NULL) {
+    if (pointer === null) {
       // Error
       const errorNumber = errorOut[0];
       const errorString = cxstringToString(errorStringOut);
@@ -6933,7 +6965,7 @@ export class CXDiagnostic {
       throw new Error("Cannot get children of diposed CXDiagnostic");
     }
     const pointer = libclang.symbols.clang_getChildDiagnostics(this.#pointer);
-    if (pointer === NULL) {
+    if (pointer === null) {
       return null;
     }
     const diagnosticSet = CXDiagnosticSet[CONSTRUCTOR](this.tu, pointer);
@@ -7296,7 +7328,7 @@ export class CXRemapping {
         fileNames.length,
       );
     }
-    if (this.#pointer === NULL) {
+    if (this.#pointer === null) {
       throw new Error("Failed to create get CXRemappings");
     }
     REMAPPINGS_FINALIZATION_REGISTRY.register(this, this.#pointer, this);

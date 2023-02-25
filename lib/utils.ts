@@ -2,7 +2,6 @@ import { libclang } from "./ffi.ts";
 import { CXErrorCode } from "./include/typeDefinitions.ts";
 
 export const NULLBUF = new Uint8Array();
-export const NULL = Deno.UnsafePointer.of(NULLBUF);
 
 const ENCODER = new TextEncoder();
 const DECODER = new TextDecoder();
@@ -26,7 +25,9 @@ export class CStringArray extends Uint8Array {
     const stringsBuffer = new Uint8Array(this.buffer).subarray(
       strings.length * 8,
     );
-    const basePointer = BigInt(Deno.UnsafePointer.of(stringsBuffer));
+    const basePointer = BigInt(
+      Deno.UnsafePointer.value(Deno.UnsafePointer.of(stringsBuffer)),
+    );
     let index = 0;
     let offset = 0;
     for (const string of strings) {
@@ -52,11 +53,6 @@ export const cstrInto = (
 ): TextEncoderEncodeIntoResult => ENCODER.encodeInto(`${string}\0`, buffer);
 export const charBuffer = (string: string): Uint8Array =>
   ENCODER.encode(string);
-export const cstrArray = (strings: string[]) => {
-  if (strings.length === 0) {
-    return new Uint8Array();
-  }
-};
 
 export const cxstringToString = (
   cxstring: Uint8Array,
@@ -64,15 +60,8 @@ export const cxstringToString = (
 ): string => {
   const cstring = libclang.symbols.clang_getCString(cxstring);
   let string = "";
-  if (cstring !== NULL) {
-    try {
-      string = Deno.UnsafePointerView.getCString(cstring);
-    } catch {
-      const buf = new Uint8Array(
-        Deno.UnsafePointerView.getArrayBuffer(cstring, 1024),
-      );
-      string = cstrToString(buf.subarray(buf.indexOf(0)));
-    }
+  if (cstring !== null) {
+    string = Deno.UnsafePointerView.getCString(cstring);
   }
   if (dispose) {
     libclang.symbols.clang_disposeString(cxstring);
@@ -87,7 +76,7 @@ export const charBufferToString = (cstr: Uint8Array): string =>
 export const cxstringSetToStringArray = (
   cxstringSetPointer: Deno.PointerValue,
 ): string[] => {
-  if (cxstringSetPointer === NULL) {
+  if (cxstringSetPointer === null) {
     return [];
   }
 
@@ -97,7 +86,10 @@ export const cxstringSetToStringArray = (
     //libclang.symbols.clang_disposeStringSet(cxstringSetPointer);
     return [];
   }
-  const stringsPointer = Number(view.getBigUint64(0));
+  const stringsPointer = view.getPointer(0);
+  if (stringsPointer === null) {
+    return [];
+  }
   const strings = [];
   for (let i = 0; i < count; i++) {
     const cxstring = new Uint8Array(
@@ -112,7 +104,7 @@ export const cxstringSetToStringArray = (
 export const wrapPointerInBuffer = (pointer: Deno.PointerValue): Uint8Array => {
   const buf = new Uint8Array(8);
   const u64Buf = new BigUint64Array(buf.buffer);
-  u64Buf[0] = BigInt(pointer);
+  u64Buf[0] = pointer ? BigInt(Deno.UnsafePointer.value(pointer)) : 0n;
   return buf;
 };
 

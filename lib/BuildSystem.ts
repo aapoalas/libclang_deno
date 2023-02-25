@@ -87,7 +87,9 @@ export class CXVirtualFileOverlay {
       ),
       "Writing VirtualFileOverlay to buffer failed",
     );
-    const pointer = Number(new BigUint64Array(OUT.buffer)[0]);
+    const pointer = Deno.UnsafePointer.create(
+      new BigUint64Array(OUT.buffer)[0],
+    )!;
     const length = new Uint32Array(OUT.buffer, 8, 1)[0];
     const charBuffer = new Uint8Array(
       Deno.UnsafePointerView.getArrayBuffer(pointer, length),
@@ -194,7 +196,9 @@ export class CXModuleMapDescriptor {
       ),
       "Writing ModuleMapDescriptor to buffer failed",
     );
-    const pointer = Number(new BigUint64Array(OUT.buffer)[0]);
+    const pointer = Deno.UnsafePointer.create(
+      new BigUint64Array(OUT.buffer)[0],
+    )!;
     const length = new Uint32Array(OUT.buffer, 8, 1)[0];
     const charBuffer = new Uint8Array(
       Deno.UnsafePointerView.getArrayBuffer(pointer, length),

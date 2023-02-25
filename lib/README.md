@@ -4,13 +4,15 @@ Deno bindings for [Clang](https://clang.llvm.org/)'s C API `libclang`. Full
 project details are found on the
 [libclang-deno GitHub page](https://github.com/aapoalas/libclang-deno).
 
+Starting with beta.8 the bindings require Deno version 1.31.0 or higher.
+
 ### Startup
 
 To use `libclang` in your Deno program, import the `mod.ts` file into your
 program:
 
 ```ts
-import * as libclang from "https://deno.land/x/libclang@1.0.0-beta.7/mod.ts";
+import * as libclang from "https://deno.land/x/libclang@1.0.0-beta.8/mod.ts";
 ```
 
 You must run your program with the `LIBCLANG_PATH` environment variable set to
@@ -24,7 +26,7 @@ The following code will walk through all the cursors in a given header and log
 their kind and spelling:
 
 ```ts
-import * as libclang from "https://deno.land/x/libclang@1.0.0-beta.7/mod.ts";
+import * as libclang from "https://deno.land/x/libclang@1.0.0-beta.8/mod.ts";
 
 const index = new libclang.CXIndex();
 

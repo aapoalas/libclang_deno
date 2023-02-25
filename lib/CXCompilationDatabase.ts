@@ -1,5 +1,5 @@
 import { libclang } from "./ffi.ts";
-import { cstr, cxstringToString, NULL } from "./utils.ts";
+import { cstr, cxstringToString } from "./utils.ts";
 
 const COMPILATION_DATABASE_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
@@ -64,7 +64,7 @@ export class CXCompilationDatabase {
       out,
     );
     const errorCode = out[0] || out[1] || out[2] || out[3]; // Small enough that one of these contains the entire code.
-    if (this.#pointer === NULL || errorCode) {
+    if (this.#pointer === null || errorCode) {
       throw new Error(
         `Failed to create CXCompilationDatabase from directory: Could not load database`,
         { cause: errorCode },
