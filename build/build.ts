@@ -525,7 +525,7 @@ for (const [fileName, apiFunctions] of FUNCTIONS_MAP) {
     let isAvailable = true;
     try {
       Deno.dlopen(
-        "/lib64/libclang.so.14.0.6",
+        "/lib64/libclang.so",
         {
           [name]: {
             type: "pointer",
