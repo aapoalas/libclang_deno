@@ -19,22 +19,22 @@
 #include "clang-c/ExternC.h"
 #include "clang-c/Platform.h"
 
-    LLVM_CLANG_C_EXTERN_C_BEGIN
+LLVM_CLANG_C_EXTERN_C_BEGIN
 
-    /** \defgroup COMPILATIONDB CompilationDatabase functions
-     * \ingroup CINDEX
-     *
-     * @{
-     */
+/** \defgroup COMPILATIONDB CompilationDatabase functions
+ * \ingroup CINDEX
+ *
+ * @{
+ */
 
-    /**
-     * A compilation database holds all information used to compile files in a
-     * project. For each file in the database, it can be queried for the working
-     * directory or the command line used for the compiler invocation.
-     *
-     * Must be freed by \c clang_CompilationDatabase_dispose
-     */
-    typedef void *CXCompilationDatabase;
+/**
+ * A compilation database holds all information used to compile files in a
+ * project. For each file in the database, it can be queried for the working
+ * directory or the command line used for the compiler invocation.
+ *
+ * Must be freed by \c clang_CompilationDatabase_dispose
+ */
+typedef void *CXCompilationDatabase;
 
 /**
  * Contains the results of a search in the compilation database

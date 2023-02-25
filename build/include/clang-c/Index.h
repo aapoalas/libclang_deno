@@ -34,7 +34,7 @@
  * compatible, thus CINDEX_VERSION_MAJOR is expected to remain stable.
  */
 #define CINDEX_VERSION_MAJOR 0
-#define CINDEX_VERSION_MINOR 62
+#define CINDEX_VERSION_MINOR 63
 
 #define CINDEX_VERSION_ENCODE(major, minor) (((major)*10000) + ((minor)*1))
 
@@ -48,33 +48,32 @@
 #define CINDEX_VERSION_STRING                                                  \
   CINDEX_VERSION_STRINGIZE(CINDEX_VERSION_MAJOR, CINDEX_VERSION_MINOR)
 
-    LLVM_CLANG_C_EXTERN_C_BEGIN
+LLVM_CLANG_C_EXTERN_C_BEGIN
 
-    /** \defgroup CINDEX libclang: C Interface to Clang
-     *
-     * The C Interface to Clang provides a relatively small API that exposes
-     * facilities for parsing source code into an abstract syntax tree (AST),
-     * loading already-parsed ASTs, traversing the AST, associating
-     * physical source locations with elements within the AST, and other
-     * facilities that support Clang-based development tools.
-     *
-     * This C interface to Clang will never provide all of the information
-     * representation stored in Clang's C++ AST, nor should it: the intent is to
-     * maintain an API that is relatively stable from one release to the next,
-     * providing only the basic functionality needed to support development
-     * tools.
-     *
-     * To avoid namespace pollution, data types are prefixed with "CX" and
-     * functions are prefixed with "clang_".
-     *
-     * @{
-     */
+/** \defgroup CINDEX libclang: C Interface to Clang
+ *
+ * The C Interface to Clang provides a relatively small API that exposes
+ * facilities for parsing source code into an abstract syntax tree (AST),
+ * loading already-parsed ASTs, traversing the AST, associating
+ * physical source locations with elements within the AST, and other
+ * facilities that support Clang-based development tools.
+ *
+ * This C interface to Clang will never provide all of the information
+ * representation stored in Clang's C++ AST, nor should it: the intent is to
+ * maintain an API that is relatively stable from one release to the next,
+ * providing only the basic functionality needed to support development tools.
+ *
+ * To avoid namespace pollution, data types are prefixed with "CX" and
+ * functions are prefixed with "clang_".
+ *
+ * @{
+ */
 
-    /**
-     * An "index" that consists of a set of translation units that would
-     * typically be linked together into an executable or library.
-     */
-    typedef void *CXIndex;
+/**
+ * An "index" that consists of a set of translation units that would
+ * typically be linked together into an executable or library.
+ */
+typedef void *CXIndex;
 
 /**
  * An opaque type representing target information for a given translation
@@ -470,7 +469,7 @@ clang_getTranslationUnitSpelling(CXTranslationUnit CTUnit);
  *   '-c'
  *   '-emit-ast'
  *   '-fsyntax-only'
- *   '-o <output file>'  (both '-o' and '<output file>' are ignored)
+ *   '-o \<output file>'  (both '-o' and '\<output file>' are ignored)
  *
  * \param CIdx The index object with which the translation unit will be
  * associated.
@@ -485,7 +484,7 @@ clang_getTranslationUnitSpelling(CXTranslationUnit CTUnit);
  * passed to the \c clang executable if it were being invoked out-of-process.
  * These command-line options will be parsed and will affect how the translation
  * unit is parsed. Note that the following options are ignored: '-c',
- * '-emit-ast', '-fsyntax-only' (which is the default), and '-o <output file>'.
+ * '-emit-ast', '-fsyntax-only' (which is the default), and '-o \<output file>'.
  *
  * \param num_unsaved_files the number of unsaved file entries in \p
  * unsaved_files.
@@ -724,7 +723,7 @@ CINDEX_LINKAGE CXTranslationUnit clang_parseTranslationUnit(
  * passed to the \c clang executable if it were being invoked out-of-process.
  * These command-line options will be parsed and will affect how the translation
  * unit is parsed. Note that the following options are ignored: '-c',
- * '-emit-ast', '-fsyntax-only' (which is the default), and '-o <output file>'.
+ * '-emit-ast', '-fsyntax-only' (which is the default), and '-o \<output file>'.
  *
  * \param num_command_line_args The number of command-line arguments in
  * \c command_line_args.
@@ -970,9 +969,9 @@ CINDEX_LINKAGE
 const char *clang_getTUResourceUsageName(enum CXTUResourceUsageKind kind);
 
 typedef struct CXTUResourceUsageEntry {
-  /** The memory usage category. */
+  /* The memory usage category. */
   enum CXTUResourceUsageKind kind;
-  /** Amount of resources used.
+  /* Amount of resources used.
       The units will depend on the resource kind. */
   unsigned long amount;
 } CXTUResourceUsageEntry;
@@ -981,13 +980,13 @@ typedef struct CXTUResourceUsageEntry {
  * The memory usage of a CXTranslationUnit, broken into categories.
  */
 typedef struct CXTUResourceUsage {
-  /** Private data member, used for queries. */
+  /* Private data member, used for queries. */
   void *data;
 
-  /** The number of entries in the 'entries' array. */
+  /* The number of entries in the 'entries' array. */
   unsigned numEntries;
 
-  /** An array of key-value pairs, representing the breakdown of memory
+  /* An array of key-value pairs, representing the breakdown of memory
             usage. */
   CXTUResourceUsageEntry *entries;
 
@@ -1474,7 +1473,7 @@ enum CXCursorKind {
    */
   CXCursor_SizeOfPackExpr = 143,
 
-  /** Represents a C++ lambda expression that produces a local function
+  /* Represents a C++ lambda expression that produces a local function
    * object.
    *
    * \code
@@ -2731,7 +2730,7 @@ enum CXTypeKind {
    */
   CXType_Elaborated = 119,
 
-  /** OpenCL PipeType. */
+  /* OpenCL PipeType. */
   CXType_Pipe = 120,
 
   /* OpenCL builtin types. */
@@ -2929,7 +2928,7 @@ enum CXTemplateArgumentKind {
   CXTemplateArgumentKind_TemplateExpansion,
   CXTemplateArgumentKind_Expression,
   CXTemplateArgumentKind_Pack,
-  /** Indicates an error case, preventing the kind from being deduced. */
+  /* Indicates an error case, preventing the kind from being deduced. */
   CXTemplateArgumentKind_Invalid
 };
 
@@ -4345,6 +4344,51 @@ CINDEX_LINKAGE unsigned clang_CXXMethod_isCopyAssignmentOperator(CXCursor C);
 CINDEX_LINKAGE unsigned clang_CXXMethod_isMoveAssignmentOperator(CXCursor C);
 
 /**
+ * Determines if a C++ constructor or conversion function was declared
+ * explicit, returning 1 if such is the case and 0 otherwise.
+ *
+ * Constructors or conversion functions are declared explicit through
+ * the use of the explicit specifier.
+ *
+ * For example, the following constructor and conversion function are
+ * not explicit as they lack the explicit specifier:
+ *
+ *     class Foo {
+ *         Foo();
+ *         operator int();
+ *     };
+ *
+ * While the following constructor and conversion function are
+ * explicit as they are declared with the explicit specifier.
+ *
+ *     class Foo {
+ *         explicit Foo();
+ *         explicit operator int();
+ *     };
+ *
+ * This function will return 0 when given a cursor pointing to one of
+ * the former declarations and it will return 1 for a cursor pointing
+ * to the latter declarations.
+ *
+ * The explicit specifier allows the user to specify a
+ * conditional compile-time expression whose value decides
+ * whether the marked element is explicit or not.
+ *
+ * For example:
+ *
+ *     constexpr bool foo(int i) { return i % 2 == 0; }
+ *
+ *     class Foo {
+ *          explicit(foo(1)) Foo();
+ *          explicit(foo(2)) operator int();
+ *     }
+ *
+ * This function will return 0 for the constructor and 1 for
+ * the conversion function.
+ */
+CINDEX_LINKAGE unsigned clang_CXXMethod_isExplicit(CXCursor C);
+
+/**
  * Determine if a C++ record is abstract, i.e. whether a class or struct
  * has a pure virtual member function.
  */
@@ -4439,7 +4483,7 @@ enum CXNameRefFlags {
   CXNameRange_WantQualifier = 0x1,
 
   /**
-   * Include the explicit template arguments, e.g. <int> in x.f<int>,
+   * Include the explicit template arguments, e.g. \<int> in x.f<int>,
    * in the range.
    */
   CXNameRange_WantTemplateArgs = 0x2,

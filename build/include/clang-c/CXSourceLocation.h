@@ -19,29 +19,29 @@
 #include "clang-c/ExternC.h"
 #include "clang-c/Platform.h"
 
-    LLVM_CLANG_C_EXTERN_C_BEGIN
+LLVM_CLANG_C_EXTERN_C_BEGIN
 
-    /**
-     * \defgroup CINDEX_LOCATIONS Physical source locations
-     *
-     * Clang represents physical source locations in its abstract syntax tree in
-     * great detail, with file, line, and column information for the majority of
-     * the tokens parsed in the source code. These data types and functions are
-     * used to represent source location information, either for a particular
-     * point in the program or for a range of points in the program, and extract
-     * specific location information from those data types.
-     *
-     * @{
-     */
+/**
+ * \defgroup CINDEX_LOCATIONS Physical source locations
+ *
+ * Clang represents physical source locations in its abstract syntax tree in
+ * great detail, with file, line, and column information for the majority of
+ * the tokens parsed in the source code. These data types and functions are
+ * used to represent source location information, either for a particular
+ * point in the program or for a range of points in the program, and extract
+ * specific location information from those data types.
+ *
+ * @{
+ */
 
-    /**
-     * Identifies a specific source location within a translation
-     * unit.
-     *
-     * Use clang_getExpansionLocation() or clang_getSpellingLocation()
-     * to map a source location to a particular file, line, and column.
-     */
-    typedef struct {
+/**
+ * Identifies a specific source location within a translation
+ * unit.
+ *
+ * Use clang_getExpansionLocation() or clang_getSpellingLocation()
+ * to map a source location to a particular file, line, and column.
+ */
+typedef struct {
   const void *ptr_data[2];
   unsigned int_data;
 } CXSourceLocation;

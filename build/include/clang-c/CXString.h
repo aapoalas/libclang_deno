@@ -17,24 +17,24 @@
 #include "clang-c/ExternC.h"
 #include "clang-c/Platform.h"
 
-    LLVM_CLANG_C_EXTERN_C_BEGIN
+LLVM_CLANG_C_EXTERN_C_BEGIN
 
-    /**
-     * \defgroup CINDEX_STRING String manipulation routines
-     * \ingroup CINDEX
-     *
-     * @{
-     */
+/**
+ * \defgroup CINDEX_STRING String manipulation routines
+ * \ingroup CINDEX
+ *
+ * @{
+ */
 
-    /**
-     * A character string.
-     *
-     * The \c CXString type is used to return strings from the interface when
-     * the ownership of that string might differ from one call to the next.
-     * Use \c clang_getCString() to retrieve the string data and, once finished
-     * with the string data, call \c clang_disposeString() to free the string.
-     */
-    typedef struct {
+/**
+ * A character string.
+ *
+ * The \c CXString type is used to return strings from the interface when
+ * the ownership of that string might differ from one call to the next.
+ * Use \c clang_getCString() to retrieve the string data and, once finished
+ * with the string data, call \c clang_disposeString() to free the string.
+ */
+typedef struct {
   const void *data;
   unsigned private_flags;
 } CXString;

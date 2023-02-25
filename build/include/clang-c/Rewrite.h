@@ -16,9 +16,9 @@
 #include "clang-c/Index.h"
 #include "clang-c/Platform.h"
 
-    LLVM_CLANG_C_EXTERN_C_BEGIN
+LLVM_CLANG_C_EXTERN_C_BEGIN
 
-    typedef void *CXRewriter;
+typedef void *CXRewriter;
 
 /**
  * Create CXRewriter.

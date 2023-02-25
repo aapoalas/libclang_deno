@@ -19,19 +19,18 @@
 #include "clang-c/ExternC.h"
 #include "clang-c/Platform.h"
 
-    LLVM_CLANG_C_EXTERN_C_BEGIN
+LLVM_CLANG_C_EXTERN_C_BEGIN
 
-        /**
-         * \defgroup BUILD_SYSTEM Build system utilities
-         * @{
-         */
+/**
+ * \defgroup BUILD_SYSTEM Build system utilities
+ * @{
+ */
 
-        /**
-         * Return the timestamp for use with Clang's
-         * \c -fbuild-session-timestamp= option.
-         */
-        CINDEX_LINKAGE unsigned long long
-        clang_getBuildSessionTimestamp(void);
+/**
+ * Return the timestamp for use with Clang's
+ * \c -fbuild-session-timestamp= option.
+ */
+CINDEX_LINKAGE unsigned long long clang_getBuildSessionTimestamp(void);
 
 /**
  * Object encapsulating information about overlaying virtual

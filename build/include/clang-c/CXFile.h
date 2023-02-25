@@ -20,18 +20,18 @@
 #include "clang-c/ExternC.h"
 #include "clang-c/Platform.h"
 
-    LLVM_CLANG_C_EXTERN_C_BEGIN
+LLVM_CLANG_C_EXTERN_C_BEGIN
 
-    /**
-     * \defgroup CINDEX_FILES File manipulation routines
-     *
-     * @{
-     */
+/**
+ * \defgroup CINDEX_FILES File manipulation routines
+ *
+ * @{
+ */
 
-    /**
-     * A particular source file that is part of a translation unit.
-     */
-    typedef void *CXFile;
+/**
+ * A particular source file that is part of a translation unit.
+ */
+typedef void *CXFile;
 
 /**
  * Retrieve the complete file and path name of the given file.
