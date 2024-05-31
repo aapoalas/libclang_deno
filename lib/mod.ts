@@ -2914,8 +2914,8 @@ export class CXCursor {
     libclang.symbols.clang_getOverriddenCursors(this.#buffer, OUT, OUT_2);
     const length = out32[0];
     const cursors: CXCursor[] = [];
-    const overriddenCursorsPointerValue = Number(OUT_64[0]);
-    if (length === 0 || overriddenCursorsPointerValue === 0) {
+    const overriddenCursorsPointerValue = OUT_64[0];
+    if (length === 0 || overriddenCursorsPointerValue === 0n) {
       return cursors;
     }
     const overriddenCursorsPointer = Deno.UnsafePointer.create(
