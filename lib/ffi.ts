@@ -38,25 +38,12 @@ let libclang: ReturnType<
 >;
 
 if (Deno.build.os === "windows") {
-  /**
-   * Windows DLL does not have error handler related symbols.
-   * Windows DLL from `choco install --version 14.0.6 llvm`
-   * md5 59beb52cef40898b0f24cdffc6cf2984
-   * `dumpbin /exports libclang.dll`
-   */
-  const IMPORTS_WIN = Object.fromEntries(
-    Object.entries(IMPORTS).filter(([symbol]: [string, unknown]) =>
-      symbol !== "clang_install_aborting_llvm_fatal_error_handler" &&
-      symbol !== "clang_uninstall_llvm_fatal_error_handler"
-    ),
-  ) as ClangSymbols;
-
   if (libclangPath.includes(".dll")) {
-    libclang = Deno.dlopen(libclangPath, IMPORTS_WIN);
+    libclang = Deno.dlopen(libclangPath, IMPORTS);
   } else {
     libclang = Deno.dlopen(
       join(libclangPath, "libclang.dll"),
-      IMPORTS_WIN,
+      IMPORTS,
     );
   }
 } else if (Deno.build.os === "darwin") {

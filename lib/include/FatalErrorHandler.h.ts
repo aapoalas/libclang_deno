@@ -5,6 +5,7 @@
 export const clang_install_aborting_llvm_fatal_error_handler = {
   parameters: [],
   result: "void",
+  optional: true,
 } as const;
 
 /**
@@ -15,4 +16,5 @@ export const clang_install_aborting_llvm_fatal_error_handler = {
 export const clang_uninstall_llvm_fatal_error_handler = {
   parameters: [],
   result: "void",
+  optional: true,
 } as const;

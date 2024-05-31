@@ -219,9 +219,21 @@ export const setAbortOnFatalError = (
     throw new Error("'setAbortOnFatalError' API is not supported on Windows");
   }
   if (value) {
-    libclang.symbols.clang_install_aborting_llvm_fatal_error_handler();
+    const fn = libclang.symbols.clang_install_aborting_llvm_fatal_error_handler;
+    if (typeof fn !== "function") {
+      throw new Error(
+        `${getClangVersion()} does not contain symbol 'clang_install_aborting_llvm_fatal_error_handler'`,
+      );
+    }
+    fn();
   } else {
-    libclang.symbols.clang_uninstall_llvm_fatal_error_handler();
+    const fn = libclang.symbols.clang_uninstall_llvm_fatal_error_handler;
+    if (typeof fn !== "function") {
+      throw new Error(
+        `${getClangVersion()} does not contain symbol 'clang_uninstall_llvm_fatal_error_handler'`,
+      );
+    }
+    fn();
   }
 };
 
