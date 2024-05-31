@@ -79,6 +79,8 @@ if (Deno.build.os === "windows") {
     for (
       const file of [
         "libclang.so",
+        "libclang.so.16",
+        "libclang.so.16.0.6",
         "libclang-14.so.1",
         "libclang.so.14.0.6",
         "libclang.so.14",
