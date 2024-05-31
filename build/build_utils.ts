@@ -378,8 +378,11 @@ export const toAnyType = (
 
       typeMemory.set(name, structType);
       return structType;
+    } else if (typeDeclaration.kind === CXCursorKind.CXCursor_TypedefDecl) {
+      const underlyingType = typeDeclaration.getType();
+      return toAnyType(typeMemory, underlyingType!);
     } else {
-      throw new Error("Unknown elaborated type");
+      throw new Error(`Unknown elaborated type: ${type.getTypedefName()}`);
     }
   } else if (typekind === CXTypeKind.CXType_FunctionProto) {
     const typeDeclaration = type.getTypeDeclaration();
