@@ -416,8 +416,8 @@ unsigned clang_ParamCommandComment_isDirectionExplicit(CXComment Comment);
  * \returns parameter passing direction.
  */
 CINDEX_LINKAGE
-enum CXCommentParamPassDirection
-clang_ParamCommandComment_getDirection(CXComment Comment);
+enum CXCommentParamPassDirection clang_ParamCommandComment_getDirection(
+                                                            CXComment Comment);
 
 /**
  * \param Comment a \c CXComment_TParamCommand AST node.
@@ -442,8 +442,7 @@ unsigned clang_TParamCommandComment_isParamPositionValid(CXComment Comment);
 /**
  * \param Comment a \c CXComment_TParamCommand AST node.
  *
- * \returns zero-based nesting depth of this parameter in the template parameter
- * list.
+ * \returns zero-based nesting depth of this parameter in the template parameter list.
  *
  * For example,
  * \verbatim
@@ -513,17 +512,17 @@ CINDEX_LINKAGE CXString clang_HTMLTagComment_getAsString(CXComment Comment);
  * \li "para-returns" for \\returns paragraph and equivalent commands;
  * \li "word-returns" for the "Returns" word in \\returns paragraph.
  *
- * Function argument documentation is rendered as a \<dl\> list with arguments
+ * Function argument documentation is rendered as a <dl> list with arguments
  * sorted in function prototype order.  CSS classes used:
- * \li "param-name-index-NUMBER" for parameter name (\<dt\>);
- * \li "param-descr-index-NUMBER" for parameter description (\<dd\>);
+ * \li "param-name-index-NUMBER" for parameter name (<dt>);
+ * \li "param-descr-index-NUMBER" for parameter description (<dd>);
  * \li "param-name-index-invalid" and "param-descr-index-invalid" are used if
  * parameter index is invalid.
  *
- * Template parameter documentation is rendered as a \<dl\> list with
+ * Template parameter documentation is rendered as a <dl> list with
  * parameters sorted in template parameter list order.  CSS classes used:
- * \li "tparam-name-index-NUMBER" for parameter name (\<dt\>);
- * \li "tparam-descr-index-NUMBER" for parameter description (\<dd\>);
+ * \li "tparam-name-index-NUMBER" for parameter name (<dt>);
+ * \li "tparam-descr-index-NUMBER" for parameter description (<dd>);
  * \li "tparam-name-index-other" and "tparam-descr-index-other" are used for
  * names inside template template parameters;
  * \li "tparam-name-index-invalid" and "tparam-descr-index-invalid" are used if

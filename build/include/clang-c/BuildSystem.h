@@ -52,8 +52,10 @@ clang_VirtualFileOverlay_create(unsigned options);
  * The virtual path must be canonicalized (not contain "."/"..").
  * \returns 0 for success, non-zero to indicate an error.
  */
-CINDEX_LINKAGE enum CXErrorCode clang_VirtualFileOverlay_addFileMapping(
-    CXVirtualFileOverlay, const char *virtualPath, const char *realPath);
+CINDEX_LINKAGE enum CXErrorCode
+clang_VirtualFileOverlay_addFileMapping(CXVirtualFileOverlay,
+                                        const char *virtualPath,
+                                        const char *realPath);
 
 /**
  * Set the case sensitivity for the \c CXVirtualFileOverlay object.
@@ -93,7 +95,7 @@ CINDEX_LINKAGE void clang_free(void *buffer);
 CINDEX_LINKAGE void clang_VirtualFileOverlay_dispose(CXVirtualFileOverlay);
 
 /**
- * Object encapsulating information about a module.map file.
+ * Object encapsulating information about a module.modulemap file.
  */
 typedef struct CXModuleMapDescriptorImpl *CXModuleMapDescriptor;
 
@@ -107,7 +109,7 @@ CINDEX_LINKAGE CXModuleMapDescriptor
 clang_ModuleMapDescriptor_create(unsigned options);
 
 /**
- * Sets the framework module name that the module.map describes.
+ * Sets the framework module name that the module.modulemap describes.
  * \returns 0 for success, non-zero to indicate an error.
  */
 CINDEX_LINKAGE enum CXErrorCode
@@ -115,7 +117,7 @@ clang_ModuleMapDescriptor_setFrameworkModuleName(CXModuleMapDescriptor,
                                                  const char *name);
 
 /**
- * Sets the umbrella header name that the module.map describes.
+ * Sets the umbrella header name that the module.modulemap describes.
  * \returns 0 for success, non-zero to indicate an error.
  */
 CINDEX_LINKAGE enum CXErrorCode
@@ -133,8 +135,8 @@ clang_ModuleMapDescriptor_setUmbrellaHeader(CXModuleMapDescriptor,
  */
 CINDEX_LINKAGE enum CXErrorCode
 clang_ModuleMapDescriptor_writeToBuffer(CXModuleMapDescriptor, unsigned options,
-                                        char **out_buffer_ptr,
-                                        unsigned *out_buffer_size);
+                                       char **out_buffer_ptr,
+                                       unsigned *out_buffer_size);
 
 /**
  * Dispose a \c CXModuleMapDescriptor object.

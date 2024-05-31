@@ -1,5 +1,4 @@
-/*===-- clang-c/Rewrite.h - C CXRewriter   --------------------------*- C
--*-===*\
+/*===-- clang-c/Rewrite.h - C CXRewriter   --------------------------*- C -*-===*\
 |*                                                                            *|
 |* Part of the LLVM Project, under the Apache License v2.0 with LLVM          *|
 |* Exceptions.                                                                *|
@@ -28,23 +27,20 @@ CINDEX_LINKAGE CXRewriter clang_CXRewriter_create(CXTranslationUnit TU);
 /**
  * Insert the specified string at the specified location in the original buffer.
  */
-CINDEX_LINKAGE void clang_CXRewriter_insertTextBefore(CXRewriter Rew,
-                                                      CXSourceLocation Loc,
-                                                      const char *Insert);
+CINDEX_LINKAGE void clang_CXRewriter_insertTextBefore(CXRewriter Rew, CXSourceLocation Loc,
+                                           const char *Insert);
 
 /**
  * Replace the specified range of characters in the input with the specified
  * replacement.
  */
-CINDEX_LINKAGE void clang_CXRewriter_replaceText(CXRewriter Rew,
-                                                 CXSourceRange ToBeReplaced,
-                                                 const char *Replacement);
+CINDEX_LINKAGE void clang_CXRewriter_replaceText(CXRewriter Rew, CXSourceRange ToBeReplaced,
+                                      const char *Replacement);
 
 /**
  * Remove the specified range.
  */
-CINDEX_LINKAGE void clang_CXRewriter_removeText(CXRewriter Rew,
-                                                CXSourceRange ToBeRemoved);
+CINDEX_LINKAGE void clang_CXRewriter_removeText(CXRewriter Rew, CXSourceRange ToBeRemoved);
 
 /**
  * Save all changed files to disk.
@@ -63,5 +59,4 @@ CINDEX_LINKAGE void clang_CXRewriter_writeMainFileToStdOut(CXRewriter Rew);
 CINDEX_LINKAGE void clang_CXRewriter_dispose(CXRewriter Rew);
 
 LLVM_CLANG_C_EXTERN_C_END
-
-#endif
+ 
