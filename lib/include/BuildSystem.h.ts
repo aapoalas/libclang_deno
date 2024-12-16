@@ -121,7 +121,7 @@ export const clang_ModuleMapDescriptor_create = {
 } as const;
 
 /**
- * Sets the framework module name that the module.map describes.
+ * Sets the framework module name that the module.modulemap describes.
  *
  * @returns 0 for success, non-zero to indicate an error.
  */
@@ -134,7 +134,7 @@ export const clang_ModuleMapDescriptor_setFrameworkModuleName = {
 } as const;
 
 /**
- * Sets the umbrella header name that the module.map describes.
+ * Sets the umbrella header name that the module.modulemap describes.
  *
  * @returns 0 for success, non-zero to indicate an error.
  */

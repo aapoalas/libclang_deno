@@ -135,6 +135,7 @@ export const clang_getExpansionLocation = {
  *
  * ```cpp
  * #123 "dummy.c" 1
+ *
  * static int func(void)
  * {
  *     return 0;

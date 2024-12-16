@@ -1,7 +1,8 @@
 {
   "lock": true,
   "tasks": {
-    "build": "deno run --unstable --allow-env=LIBCLANG_PATH --allow-run=deno --allow-ffi --allow-write=lib/include build/build.ts",
-    "test": "deno test --unstable --allow-env=LIBCLANG_PATH,TEST_PATH,TEST_DIR --allow-run=deno --allow-ffi"
+    "build": "LIBCLANG_PATH=/lib64 deno run --unstable-ffi --allow-env=LIBCLANG_PATH --allow-run=deno --allow-ffi --allow-write=lib/include build/build.ts",
+    "build_rtmidi": "LIBCLANG_PATH=/lib64 deno run --unstable-ffi --allow-env=LIBCLANG_PATH --allow-run=deno --allow-ffi --allow-write=rtmidi_output test/rtmidi/build.ts",
+    "test": "LIBCLANG_PATH=/lib64 deno test --unstable-ffi --allow-env=LIBCLANG_PATH,TEST_PATH,TEST_DIR --allow-run=deno --allow-ffi"
   }
 }

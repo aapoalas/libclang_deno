@@ -5,16 +5,19 @@ import {
   CX_CXXAccessSpecifierT,
   CX_StorageClassT,
   CXAvailabilityKindT,
+  CXBinaryOperatorKindT,
   CXCallingConvT,
   CXClientDataT,
   CXCodeCompleteResultsT,
   CXCompletionChunkKindT,
   CXCompletionResultT,
   CXCompletionStringT,
+  CXCursorAndRangeVisitorBlockT,
   CXCursorAndRangeVisitorT,
   CXCursorKindT,
   CXCursorSetT,
   CXCursorT,
+  CXCursorVisitorBlockT,
   CXCursorVisitorT,
   CXDiagnosticSetT,
   CXDiagnosticT,
@@ -41,6 +44,7 @@ import {
   CXIdxObjCProtocolRefListInfoT,
   CXInclusionVisitorT,
   CXIndexActionT,
+  CXIndexOptionsT,
   CXIndexT,
   CXLanguageKindT,
   CXLinkageKindT,
@@ -67,6 +71,7 @@ import {
   CXTypeKindT,
   CXTypeNullabilityKindT,
   CXTypeT,
+  CXUnaryOperatorKindT,
   CXUnsavedFileT,
   CXVisibilityKindT,
   double,
@@ -96,13 +101,16 @@ import {
  * ```cpp
  *   // excludeDeclsFromPCH = 1, displayDiagnostics=1
  *   Idx = clang_createIndex(1, 1);
+ *
  *   // IndexTest.pch was produced with the following command:
  *   // "clang -x c IndexTest.h -emit-ast -o IndexTest.pch"
  *   TU = clang_createTranslationUnit(Idx, "IndexTest.pch");
+ *
  *   // This will load all the symbols from 'IndexTest.pch'
  *   clang_visitChildren(clang_getTranslationUnitCursor(TU),
  *                       TranslationUnitVisitor, 0);
  *   clang_disposeTranslationUnit(TU);
+ *
  *   // This will load all the symbols from 'IndexTest.c', excluding symbols
  *   // from 'IndexTest.pch'.
  *   char *args[] = { "-Xclang", "-include-pch=IndexTest.pch" };
@@ -138,7 +146,63 @@ export const clang_disposeIndex = {
 } as const;
 
 /**
+ * Provides a shared context for creating translation units.
+ *
+ * Call this function instead of clang_createIndex() if you need to configure
+ * the additional options in CXIndexOptions.
+ *
+ * @returns The created index or null in case of error, such as an unsupported
+ * value of options->Size.
+ *
+ * For example:
+ *
+ * ```cpp
+ * CXIndex createIndex(const char *ApplicationTemporaryPath) {
+ *   const int ExcludeDeclarationsFromPCH = 1;
+ *   const int DisplayDiagnostics = 1;
+ *   CXIndex Idx;
+ * #if CINDEX_VERSION_MINOR >= 64
+ *   CXIndexOptions Opts;
+ *   memset(&Opts, 0, sizeof(Opts));
+ *   Opts.Size = sizeof(CXIndexOptions);
+ *   Opts.ThreadBackgroundPriorityForIndexing = 1;
+ *   Opts.ExcludeDeclarationsFromPCH = ExcludeDeclarationsFromPCH;
+ *   Opts.DisplayDiagnostics = DisplayDiagnostics;
+ *   Opts.PreambleStoragePath = ApplicationTemporaryPath;
+ *   Idx = clang_createIndexWithOptions(&Opts);
+ *   if (Idx)
+ *     return Idx;
+ *   fprintf(stderr,
+ *           "clang_createIndexWithOptions() failed. "
+ *           "CINDEX_VERSION_MINOR = %d, sizeof(CXIndexOptions) = %u\n",
+ *           CINDEX_VERSION_MINOR, Opts.Size);
+ * #else
+ *   (void)ApplicationTemporaryPath;
+ * #endif
+ *   Idx = clang_createIndex(ExcludeDeclarationsFromPCH, DisplayDiagnostics);
+ *   clang_CXIndex_setGlobalOptions(
+ *       Idx, clang_CXIndex_getGlobalOptions(Idx) |
+ *                CXGlobalOpt_ThreadBackgroundPriorityForIndexing);
+ *   return Idx;
+ * }
+ * ```
+ * @sa clang_createIndex()
+ */
+// deno-lint-ignore no-unused-vars
+const clang_createIndexWithOptions = {
+  parameters: [
+    buf(CXIndexOptionsT), // options
+  ],
+  result: CXIndexT,
+} as const;
+
+/**
  * Sets general options associated with a CXIndex.
+ *
+ * This function is DEPRECATED. Set
+ * CXIndexOptions::ThreadBackgroundPriorityForIndexing and/or
+ * CXIndexOptions::ThreadBackgroundPriorityForEditing and call
+ * clang_createIndexWithOptions() instead.
  *
  * For example:
  *
@@ -161,6 +225,9 @@ export const clang_CXIndex_setGlobalOptions = {
 /**
  * Gets the general options associated with a CXIndex.
  *
+ * This function allows to obtain the final option values used by libclang after
+ * specifying the option policies via CXChoice enumerators.
+ *
  * @returns A bitmask of options, a bitwise OR of CXGlobalOpt_XXX flags that
  * are associated with the given CXIndex object.
  */
@@ -173,6 +240,9 @@ export const clang_CXIndex_getGlobalOptions = {
 
 /**
  * Sets the invocation emission path option in a CXIndex.
+ *
+ * This function is DEPRECATED. Set CXIndexOptions::InvocationEmissionPath and
+ * call clang_createIndexWithOptions() instead.
  *
  * The invocation emission path specifies a path which will contain log
  * files for certain libclang invocations. A null value (default) implies that
@@ -352,7 +422,7 @@ export const clang_getTranslationUnitSpelling = {
  * '-c'
  * '-emit-ast'
  * '-fsyntax-only'
- * '-o \<output file>' (both '-o' and '\<output file>' are ignored)
+ * '-o <output file>' (both '-o' and '<output file>' are ignored)
  *
  * @param CIdx The index object with which the translation unit will be
  * associated.
@@ -364,7 +434,7 @@ export const clang_getTranslationUnitSpelling = {
  * passed to the `clang` executable if it were being invoked out-of-process.
  * These command-line options will be parsed and will affect how the translation
  * unit is parsed. Note that the following options are ignored: '-c',
- * '-emit-ast', '-fsyntax-only' (which is the default), and '-o \<output file>'.
+ * '-emit-ast', '-fsyntax-only' (which is the default), and '-o <output file>'.
  * @param num_unsaved_files the number of unsaved file entries in `unsaved_files.`
  * @param unsaved_files the files that have not yet been saved to disk
  * but may be required for code completion, including the contents of
@@ -467,7 +537,7 @@ export const clang_parseTranslationUnit = {
  * passed to the `clang` executable if it were being invoked out-of-process.
  * These command-line options will be parsed and will affect how the translation
  * unit is parsed. Note that the following options are ignored: '-c',
- * '-emit-ast', '-fsyntax-only' (which is the default), and '-o \<output file>'.
+ * '-emit-ast', '-fsyntax-only' (which is the default), and '-o <output file>'.
  * @param num_command_line_args The number of command-line arguments in
  * `command_line_args.`
  * @param unsaved_files the files that have not yet been saved to disk
@@ -1125,6 +1195,7 @@ export const clang_CXCursorSet_insert = {
  * class C {
  *  void f();
  * };
+ *
  * void C::f() { }
  * ```
  * In the out-of-line definition of `C::f,` the semantic parent is
@@ -1161,6 +1232,7 @@ export const clang_getCursorSemanticParent = {
  * class C {
  *  void f();
  * };
+ *
  * void C::f() { }
  * ```
  * In the out-of-line definition of `C::f,` the semantic parent is
@@ -1395,9 +1467,31 @@ export const clang_getEnumConstantDeclUnsignedValue = {
 } as const;
 
 /**
- * Retrieve the bit width of a bit field declaration as an integer.
+ * Returns non-zero if the cursor specifies a Record member that is a bit-field.
+ */
+export const clang_Cursor_isBitField = {
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: unsignedInt,
+} as const;
+
+/**
+ * Retrieve the bit width of a bit-field declaration as an integer.
  *
- * If a cursor that is not a bit field declaration is passed in, -1 is returned.
+ * If the cursor does not reference a bit-field, or if the bit-field's width
+ * expression cannot be evaluated, -1 is returned.
+ *
+ * For example:
+ *
+ * ```cpp
+ * if (clang_Cursor_isBitField(Cursor)) {
+ *   int Width = clang_getFieldDeclBitWidth(Cursor);
+ *   if (Width != -1) {
+ *     // The bit-field width is not value-dependent.
+ *   }
+ * }
+ * ```
  */
 export const clang_getFieldDeclBitWidth = {
   parameters: [
@@ -1718,8 +1812,7 @@ export const clang_getPointeeType = {
  *
  * A type that resulted from a call to `clang_getUnqualifiedType` will return `false` for all of the above calls.
  */
-// deno-lint-ignore no-unused-vars
-const clang_getUnqualifiedType = {
+export const clang_getUnqualifiedType = {
   parameters: [
     CXTypeT, // CT
   ],
@@ -1735,8 +1828,7 @@ const clang_getUnqualifiedType = {
  * A type that has kind `CXType_LValueReference` or
  * `CXType_RValueReference` is a reference type.
  */
-// deno-lint-ignore no-unused-vars
-const clang_getNonReferenceType = {
+export const clang_getNonReferenceType = {
   parameters: [
     CXTypeT, // CT
   ],
@@ -2230,17 +2322,6 @@ export const clang_Type_getCXXRefQualifier = {
 } as const;
 
 /**
- * Returns non-zero if the cursor specifies a Record member that is a
- * bitfield.
- */
-export const clang_Cursor_isBitField = {
-  parameters: [
-    CXCursorT, // C
-  ],
-  result: unsignedInt,
-} as const;
-
-/**
  * Returns 1 if the base class specified by the cursor with kind
  * CX_CXXBaseSpecifier is virtual.
  */
@@ -2348,6 +2429,18 @@ export const clang_visitChildren = {
     CXCursorT, // parent
     CXCursorVisitorT, // visitor
     CXClientDataT, // client_data
+  ],
+  result: unsignedInt,
+} as const;
+
+/**
+ * Visits the children of a cursor using the specified block. Behaves
+ * identically to clang_visitChildren() in all other respects.
+ */
+export const clang_visitChildrenWithBlock = {
+  parameters: [
+    CXCursorT, // parent
+    CXCursorVisitorBlockT, // block
   ],
   result: unsignedInt,
 } as const;
@@ -3010,8 +3103,7 @@ export const clang_CXXMethod_isDefaulted = {
 /**
  * Determine if a C++ method is declared '= delete'.
  */
-// deno-lint-ignore no-unused-vars
-const clang_CXXMethod_isDeleted = {
+export const clang_CXXMethod_isDeleted = {
   parameters: [
     CXCursorT, // C
   ],
@@ -3075,8 +3167,7 @@ export const clang_CXXMethod_isVirtual = {
  *
  * Is not.
  */
-// deno-lint-ignore no-unused-vars
-const clang_CXXMethod_isCopyAssignmentOperator = {
+export const clang_CXXMethod_isCopyAssignmentOperator = {
   parameters: [
     CXCursorT, // C
   ],
@@ -3106,8 +3197,7 @@ const clang_CXXMethod_isCopyAssignmentOperator = {
  *
  * Is not.
  */
-// deno-lint-ignore no-unused-vars
-const clang_CXXMethod_isMoveAssignmentOperator = {
+export const clang_CXXMethod_isMoveAssignmentOperator = {
   parameters: [
     CXCursorT, // C
   ],
@@ -4146,6 +4236,24 @@ export const clang_findIncludesInFile = {
   result: CXResultT,
 } as const;
 
+export const clang_findReferencesInFileWithBlock = {
+  parameters: [
+    CXCursorT,
+    CXFileT,
+    CXCursorAndRangeVisitorBlockT,
+  ],
+  result: CXResultT,
+} as const;
+
+export const clang_findIncludesInFileWithBlock = {
+  parameters: [
+    CXTranslationUnitT,
+    CXFileT,
+    CXCursorAndRangeVisitorBlockT,
+  ],
+  result: CXResultT,
+} as const;
+
 export const clang_index_isEntityObjCContainerKind = {
   parameters: [
     CXIdxEntityKindT,
@@ -4414,4 +4522,52 @@ export const clang_Type_visitFields = {
     CXClientDataT, // client_data
   ],
   result: unsignedInt,
+} as const;
+
+/**
+ * Retrieve the spelling of a given CXBinaryOperatorKind.
+ */
+// deno-lint-ignore no-unused-vars
+const clang_getBinaryOperatorKindSpelling = {
+  parameters: [
+    CXBinaryOperatorKindT, // kind
+  ],
+  result: CXStringT,
+} as const;
+
+/**
+ * Retrieve the binary operator kind of this cursor.
+ *
+ * If this cursor is not a binary operator then returns Invalid.
+ */
+// deno-lint-ignore no-unused-vars
+const clang_getCursorBinaryOperatorKind = {
+  parameters: [
+    CXCursorT, // cursor
+  ],
+  result: CXBinaryOperatorKindT,
+} as const;
+
+/**
+ * Retrieve the spelling of a given CXUnaryOperatorKind.
+ */
+// deno-lint-ignore no-unused-vars
+const clang_getUnaryOperatorKindSpelling = {
+  parameters: [
+    CXUnaryOperatorKindT, // kind
+  ],
+  result: CXStringT,
+} as const;
+
+/**
+ * Retrieve the unary operator kind of this cursor.
+ *
+ * If this cursor is not a unary operator then returns Invalid.
+ */
+// deno-lint-ignore no-unused-vars
+const clang_getCursorUnaryOperatorKind = {
+  parameters: [
+    CXCursorT, // cursor
+  ],
+  result: CXUnaryOperatorKindT,
 } as const;

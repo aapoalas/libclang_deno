@@ -338,8 +338,7 @@ export const clang_TParamCommandComment_isParamPositionValid = {
 
 /**
  * @param Comment a `CXComment_TParamCommand` AST node.
- * @returns zero-based nesting depth of this parameter in the template parameter
- * list.
+ * @returns zero-based nesting depth of this parameter in the template parameter list.
  *
  * For example,
  *
@@ -433,22 +432,22 @@ export const clang_HTMLTagComment_getAsString = {
  *
  * @li "word-returns" for the "Returns" word in \\returns paragraph.
  *
- * Function argument documentation is rendered as a \<dl\> list with arguments
+ * Function argument documentation is rendered as a list with arguments
  * sorted in function prototype order. CSS classes used:
  *
- * @li "param-name-index-NUMBER" for parameter name (\<dt\>);
+ * @li "param-name-index-NUMBER" for parameter name ();
  *
- * @li "param-descr-index-NUMBER" for parameter description (\<dd\>);
+ * @li "param-descr-index-NUMBER" for parameter description ();
  *
  * @li "param-name-index-invalid" and "param-descr-index-invalid" are used if
  * parameter index is invalid.
  *
- * Template parameter documentation is rendered as a \<dl\> list with
+ * Template parameter documentation is rendered as a list with
  * parameters sorted in template parameter list order. CSS classes used:
  *
- * @li "tparam-name-index-NUMBER" for parameter name (\<dt\>);
+ * @li "tparam-name-index-NUMBER" for parameter name ();
  *
- * @li "tparam-descr-index-NUMBER" for parameter description (\<dd\>);
+ * @li "tparam-descr-index-NUMBER" for parameter description ();
  *
  * @li "tparam-name-index-other" and "tparam-descr-index-other" are used for
  * names inside template template parameters;
@@ -490,8 +489,7 @@ export const clang_FullComment_getAsXML = {
  * disposed of by calling clang_disposeAPISet.
  * @returns Error code indicating success or failure of the APISet creation.
  */
-// deno-lint-ignore no-unused-vars
-const clang_createAPISet = {
+export const clang_createAPISet = {
   parameters: [
     CXTranslationUnitT, // tu
     buf(CXAPISetT), // out_api
@@ -504,8 +502,7 @@ const clang_createAPISet = {
  *
  * The provided `CXAPISet` can not be used after this function is called.
  */
-// deno-lint-ignore no-unused-vars
-const clang_disposeAPISet = {
+export const clang_disposeAPISet = {
   parameters: [
     CXAPISetT, // api
   ],
@@ -526,8 +523,7 @@ const clang_disposeAPISet = {
  * the symbol being queried or a null string if it can not be found in the
  * APISet.
  */
-// deno-lint-ignore no-unused-vars
-const clang_getSymbolGraphForUSR = {
+export const clang_getSymbolGraphForUSR = {
   parameters: [
     cstringT, // usr
     CXAPISetT, // api
@@ -549,8 +545,7 @@ const clang_getSymbolGraphForUSR = {
  * the symbol being queried or a null string if it can not be found in the
  * APISet.
  */
-// deno-lint-ignore no-unused-vars
-const clang_getSymbolGraphForCursor = {
+export const clang_getSymbolGraphForCursor = {
   parameters: [
     CXCursorT, // cursor
   ],

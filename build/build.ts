@@ -30,7 +30,7 @@ const index = new libclang.CXIndex(false, true);
 const includeDirectory = join(dirname(fromFileUrl(import.meta.url)), "include");
 
 const includePaths = [
-  "-I/usr/lib/clang/14.0.6/include/",
+  "-I/usr/lib64/clang/16/include/",
   `-I${includeDirectory}`,
 ];
 
@@ -525,7 +525,7 @@ for (const [fileName, apiFunctions] of FUNCTIONS_MAP) {
     let isAvailable = true;
     try {
       Deno.dlopen(
-        "/lib64/libclang.so",
+        "/lib64/libclang.so.16.0.6",
         {
           [name]: {
             type: "pointer",

@@ -22,6 +22,8 @@ export const long = "i64" as const;
 
 export const __time_t = "i64" as const;
 
+export const unsignedChar = "u8" as const;
+
 export const unsignedLong = "u64" as const;
 
 export const size_t = "u64" as const;
@@ -302,6 +304,23 @@ export const enum CXCursor_ExceptionSpecificationKind {
  * A negative value indicates that the cursor is not a function declaration.
  */
 export const CXCursor_ExceptionSpecificationKindT = unsignedInt;
+
+export const enum CXChoice {
+  /**
+   * Use the default value of an option that may depend on the process
+   * environment.
+   */
+  CXChoice_Default = 0,
+  /**
+   * Enable the option.
+   */
+  CXChoice_Enabled = 1,
+  /**
+   * Disable the option.
+   */
+  CXChoice_Disabled = 2,
+}
+export const CXChoiceT = unsignedInt;
 
 export const enum CXGlobalOptFlags {
   /**
@@ -803,6 +822,7 @@ export const enum CXCursorKind {
    * ```cpp
    *   start_over:
    *     ++counter;
+   *
    *     goto start_over;
    * ```
    * A label reference cursor refers to a label statement.
@@ -817,8 +837,10 @@ export const enum CXCursorKind {
    *
    * ```cpp
    * template<typename T> void swap(T&, T&);
+   *
    * struct X { ... };
    * void swap(X&, X&);
+   *
    * template<typename T>
    * void reverse(T* first, T* last) {
    *   while (first < last - 1) {
@@ -826,6 +848,7 @@ export const enum CXCursorKind {
    *     ++first;
    *   }
    * }
+   *
    * struct Y { };
    * void swap(Y&, Y&);
    * ```
@@ -1088,19 +1111,6 @@ export const enum CXCursorKind {
    * ```
    */
   CXCursor_SizeOfPackExpr = 143,
-  /**
-   * Represents a C++ lambda expression that produces a local function
-   * object.
-   *
-   * ```cpp
-   * void abssort(float *x, unsigned N) {
-   *   std::sort(x, x + N,
-   *             [](float a, float b) {
-   *               return std::abs(a) < std::abs(b);
-   *             });
-   * }
-   * ```
-   */
   CXCursor_LambdaExpr = 144,
   /**
    * Objective-c Boolean Literal.
@@ -1112,8 +1122,9 @@ export const enum CXCursorKind {
   CXCursor_ObjCSelfExpr = 146,
   /**
    * OpenMP 5.0 [2.1.5, Array Section].
+   * OpenACC 3.3 [2.7.1, Data Specification for Data Clauses (Sub Arrays)]
    */
-  CXCursor_OMPArraySectionExpr = 147,
+  CXCursor_ArraySectionExpr = 147,
   /**
    * Represents an @available(...) check.
    */
@@ -1138,13 +1149,20 @@ export const enum CXCursorKind {
    * Expression that references a C++20 concept.
    */
   CXCursor_ConceptSpecializationExpr = 153,
+  /**
+   * Expression that references a C++20 requires expression.
+   */
   CXCursor_RequiresExpr = 154,
   /**
    * Expression that references a C++20 parenthesized list aggregate
    * initializer.
    */
   CXCursor_CXXParenListInitExpr = 155,
-  CXCursor_LastExpr = CXCursor_CXXParenListInitExpr,
+  /**
+   * Represents a C++26 pack indexing expression.
+   */
+  CXCursor_PackIndexingExpr = 156,
+  CXCursor_LastExpr = CXCursor_PackIndexingExpr,
   CXCursor_FirstStmt = 200,
   /**
    * A statement whose specific kind is not exposed via this
@@ -1591,7 +1609,15 @@ export const enum CXCursorKind {
    * OpenMP error directive.
    */
   CXCursor_OMPErrorDirective = 305,
-  CXCursor_LastStmt = CXCursor_OMPErrorDirective,
+  /**
+   * OpenMP scope directive.
+   */
+  CXCursor_OMPScopeDirective = 306,
+  /**
+   * OpenACC Compute Construct.
+   */
+  CXCursor_OpenACCComputeConstruct = 320,
+  CXCursor_LastStmt = CXCursor_OpenACCComputeConstruct,
   /**
    * Cursor that represents the translation unit itself.
    *
@@ -1845,9 +1871,6 @@ export const enum CXTypeKind {
    * E.g., struct S, or via a qualified name, e.g., N::M::type, or both.
    */
   CXType_Elaborated = 119,
-  /**
-   * OpenCL PipeType.
-   */
   CXType_Pipe = 120,
   CXType_OCLImage1dRO = 121,
   CXType_OCLImage1dArrayRO = 122,
@@ -1900,6 +1923,10 @@ export const enum CXTypeKind {
   CXType_OCLIntelSubgroupAVCImeResult = 169,
   CXType_OCLIntelSubgroupAVCRefResult = 170,
   CXType_OCLIntelSubgroupAVCSicResult = 171,
+  CXType_OCLIntelSubgroupAVCImeResultSingleReferenceStreamout = 172,
+  CXType_OCLIntelSubgroupAVCImeResultDualReferenceStreamout = 173,
+  CXType_OCLIntelSubgroupAVCImeSingleReferenceStreamin = 174,
+  CXType_OCLIntelSubgroupAVCImeDualReferenceStreamin = 175,
   CXType_OCLIntelSubgroupAVCImeResultSingleRefStreamout = 172,
   CXType_OCLIntelSubgroupAVCImeResultDualRefStreamout = 173,
   CXType_OCLIntelSubgroupAVCImeSingleRefStreamin = 174,
@@ -1937,6 +1964,9 @@ export const enum CXCallingConv {
   CXCallingConv_AArch64VectorCall = 16,
   CXCallingConv_SwiftAsync = 17,
   CXCallingConv_AArch64SVEPCS = 18,
+  CXCallingConv_M68kRTD = 19,
+  CXCallingConv_PreserveNone = 20,
+  CXCallingConv_RISCVVectorCall = 21,
   CXCallingConv_Invalid = 100,
   CXCallingConv_Unexposed = 200,
 }
@@ -1961,9 +1991,6 @@ export const enum CXTemplateArgumentKind {
   CXTemplateArgumentKind_TemplateExpansion,
   CXTemplateArgumentKind_Expression,
   CXTemplateArgumentKind_Pack,
-  /**
-   * Indicates an error case, preventing the kind from being deduced.
-   */
   CXTemplateArgumentKind_Invalid,
 }
 /**
@@ -2133,7 +2160,7 @@ export const CXChildVisitResultT = unsignedInt;
 /**
  * Properties for the printing policy.
  *
- * See {@link https://clang.llvm.org/doxygen/structclang_1_1PrintingPolicy.html clang::PrintingPolicy} for more information.
+ * See `clang::PrintingPolicy` for more information.
  */
 export const enum CXPrintingPolicyProperty {
   CXPrintingPolicy_Indentation,
@@ -2167,12 +2194,12 @@ export const enum CXPrintingPolicyProperty {
 /**
  * Properties for the printing policy.
  *
- * See {@link https://clang.llvm.org/doxygen/structclang_1_1PrintingPolicy.html clang::PrintingPolicy} for more information.
+ * See `clang::PrintingPolicy` for more information.
  */
 export const CXPrintingPolicyPropertyT = unsignedInt;
 
 /**
- * Property attributes for a {@link CXCursorKind.CXCursor_ObjCPropertyDecl}.
+ * Property attributes for a `CXCursor_ObjCPropertyDecl.`
  */
 export const enum CXObjCPropertyAttrKind {
   CXObjCPropertyAttr_noattr = 0x0000,
@@ -2191,7 +2218,7 @@ export const enum CXObjCPropertyAttrKind {
   CXObjCPropertyAttr_class = 0x1000,
 }
 /**
- * Property attributes for a {@link CXCursorKind.CXCursor_ObjCPropertyDecl}.
+ * Property attributes for a `CXCursor_ObjCPropertyDecl.`
  */
 export const CXObjCPropertyAttrKindT = unsignedInt;
 
@@ -2221,7 +2248,7 @@ export const enum CXNameRefFlags {
    */
   CXNameRange_WantQualifier = 1,
   /**
-   * Include the explicit template arguments, e.g. \<int> in x.f<int>,
+   * Include the explicit template arguments, e.g. <int> in x.f<int>,
    * in the range.
    */
   CXNameRange_WantTemplateArgs = 2,
@@ -2839,6 +2866,219 @@ export const enum CXIndexOptFlags {
 export const CXIndexOptFlagsT = unsignedInt;
 
 /**
+ * Describes the kind of binary operators.
+ */
+export const enum CXBinaryOperatorKind {
+  /**
+   * This value describes cursors which are not binary operators.
+   */
+  CXBinaryOperator_Invalid,
+  /**
+   * C++ Pointer - to - member operator.
+   */
+  CXBinaryOperator_PtrMemD,
+  CXBinaryOperator_PtrMemI,
+  /**
+   * Multiplication operator.
+   */
+  CXBinaryOperator_Mul,
+  /**
+   * Division operator.
+   */
+  CXBinaryOperator_Div,
+  /**
+   * Remainder operator.
+   */
+  CXBinaryOperator_Rem,
+  /**
+   * Addition operator.
+   */
+  CXBinaryOperator_Add,
+  /**
+   * Subtraction operator.
+   */
+  CXBinaryOperator_Sub,
+  /**
+   * Bitwise shift left operator.
+   */
+  CXBinaryOperator_Shl,
+  /**
+   * Bitwise shift right operator.
+   */
+  CXBinaryOperator_Shr,
+  /**
+   * C++ three-way comparison (spaceship) operator.
+   */
+  CXBinaryOperator_Cmp,
+  /**
+   * Less than operator.
+   */
+  CXBinaryOperator_LT,
+  /**
+   * Greater than operator.
+   */
+  CXBinaryOperator_GT,
+  /**
+   * Less or equal operator.
+   */
+  CXBinaryOperator_LE,
+  /**
+   * Greater or equal operator.
+   */
+  CXBinaryOperator_GE,
+  /**
+   * Equal operator.
+   */
+  CXBinaryOperator_EQ,
+  /**
+   * Not equal operator.
+   */
+  CXBinaryOperator_NE,
+  /**
+   * Bitwise AND operator.
+   */
+  CXBinaryOperator_And,
+  /**
+   * Bitwise XOR operator.
+   */
+  CXBinaryOperator_Xor,
+  /**
+   * Bitwise OR operator.
+   */
+  CXBinaryOperator_Or,
+  /**
+   * Logical AND operator.
+   */
+  CXBinaryOperator_LAnd,
+  /**
+   * Logical OR operator.
+   */
+  CXBinaryOperator_LOr,
+  /**
+   * Assignment operator.
+   */
+  CXBinaryOperator_Assign,
+  /**
+   * Multiplication assignment operator.
+   */
+  CXBinaryOperator_MulAssign,
+  /**
+   * Division assignment operator.
+   */
+  CXBinaryOperator_DivAssign,
+  /**
+   * Remainder assignment operator.
+   */
+  CXBinaryOperator_RemAssign,
+  /**
+   * Addition assignment operator.
+   */
+  CXBinaryOperator_AddAssign,
+  /**
+   * Subtraction assignment operator.
+   */
+  CXBinaryOperator_SubAssign,
+  /**
+   * Bitwise shift left assignment operator.
+   */
+  CXBinaryOperator_ShlAssign,
+  /**
+   * Bitwise shift right assignment operator.
+   */
+  CXBinaryOperator_ShrAssign,
+  /**
+   * Bitwise AND assignment operator.
+   */
+  CXBinaryOperator_AndAssign,
+  /**
+   * Bitwise XOR assignment operator.
+   */
+  CXBinaryOperator_XorAssign,
+  /**
+   * Bitwise OR assignment operator.
+   */
+  CXBinaryOperator_OrAssign,
+  /**
+   * Comma operator.
+   */
+  CXBinaryOperator_Comma,
+}
+/**
+ * Describes the kind of binary operators.
+ */
+export const CXBinaryOperatorKindT = unsignedInt;
+
+/**
+ * Describes the kind of unary operators.
+ */
+export const enum CXUnaryOperatorKind {
+  /**
+   * This value describes cursors which are not unary operators.
+   */
+  CXUnaryOperator_Invalid,
+  /**
+   * Postfix increment operator.
+   */
+  CXUnaryOperator_PostInc,
+  /**
+   * Postfix decrement operator.
+   */
+  CXUnaryOperator_PostDec,
+  /**
+   * Prefix increment operator.
+   */
+  CXUnaryOperator_PreInc,
+  /**
+   * Prefix decrement operator.
+   */
+  CXUnaryOperator_PreDec,
+  /**
+   * Address of operator.
+   */
+  CXUnaryOperator_AddrOf,
+  /**
+   * Dereference operator.
+   */
+  CXUnaryOperator_Deref,
+  /**
+   * Plus operator.
+   */
+  CXUnaryOperator_Plus,
+  /**
+   * Minus operator.
+   */
+  CXUnaryOperator_Minus,
+  /**
+   * Not operator.
+   */
+  CXUnaryOperator_Not,
+  /**
+   * LNot operator.
+   */
+  CXUnaryOperator_LNot,
+  /**
+   * "__real expr" operator.
+   */
+  CXUnaryOperator_Real,
+  /**
+   * "__imag expr" operator.
+   */
+  CXUnaryOperator_Imag,
+  /**
+   * __extension__ marker operator.
+   */
+  CXUnaryOperator_Extension,
+  /**
+   * C++ co_await operator.
+   */
+  CXUnaryOperator_Coawait,
+}
+/**
+ * Describes the kind of unary operators.
+ */
+export const CXUnaryOperatorKindT = unsignedInt;
+
+/**
  * Describes the type of the comment AST node (`CXComment).` A comment
  * node can be considered block content (e. g., paragraph), inline content
  * (plain text) or neither (the root AST node).
@@ -3032,7 +3272,7 @@ export const CXStringSetT = {
 export const CXVirtualFileOverlayT = ptr("void");
 
 /**
- * Object encapsulating information about a module.map file.
+ * Object encapsulating information about a module.modulemap file.
  */
 export const CXModuleMapDescriptorT = ptr("void");
 
@@ -3191,6 +3431,84 @@ export const CXVersionT = {
 } as const;
 
 /**
+ * Index initialization options.
+ *
+ * 0 is the default value of each member of this struct except for Size.
+ * Initialize the struct in one of the following three ways to avoid adapting
+ * code each time a new member is added to it:
+ *
+ * ```cpp
+ * CXIndexOptions Opts;
+ * memset(&Opts, 0, sizeof(Opts));
+ * Opts.Size = sizeof(CXIndexOptions);
+ * ```
+ * or explicitly initialize the first data member and zero-initialize the rest:
+ *
+ * ```cpp
+ * CXIndexOptions Opts = { sizeof(CXIndexOptions) };
+ * ```
+ * or to prevent the -Wmissing-field-initializers warning for the above version:
+ *
+ * ```cpp
+ * CXIndexOptions Opts{};
+ * Opts.Size = sizeof(CXIndexOptions);
+ * ```
+ */
+export const CXIndexOptionsT = {
+  /** Struct size: 24 */
+  struct: [
+    /**
+     * The size of struct CXIndexOptions used for option versioning.
+     *
+     * Always initialize this member to sizeof(CXIndexOptions), or assign
+     * sizeof(CXIndexOptions) to it right after creating a CXIndexOptions object.
+     */
+    unsignedInt, // Size, offset 0, size 4
+    /**
+     * A CXChoice enumerator that specifies the indexing priority policy.
+     *
+     * @sa CXGlobalOpt_ThreadBackgroundPriorityForIndexing
+     */
+    unsignedChar, // ThreadBackgroundPriorityForIndexing, offset 4, size 1
+    /**
+     * A CXChoice enumerator that specifies the editing priority policy.
+     *
+     * @sa CXGlobalOpt_ThreadBackgroundPriorityForEditing
+     */
+    unsignedChar, // ThreadBackgroundPriorityForEditing, offset 5, size 1
+    /**
+     * @see clang_createIndex()
+     */
+    unsignedInt, // ExcludeDeclarationsFromPCH, offset 6, size 4
+    /**
+     * @see clang_createIndex()
+     */
+    unsignedInt, // DisplayDiagnostics, offset 6.125, size 4
+    /**
+     * Store PCH in memory. If zero, PCH are stored in temporary files.
+     */
+    unsignedInt, // StorePreamblesInMemory, offset 6.25, size 4
+    unsignedInt, // , offset 6.375, size 4
+    /**
+     * The path to a directory, in which to store temporary PCH files. If null or
+     * empty, the default system temporary directory is used. These PCH files are
+     * deleted on clean exit but stay on disk if the program crashes or is killed.
+     *
+     * This option is ignored if \a*StorePreamblesInMemory* is non-zero.
+     *
+     * Libclang does not create the directory at the specified path in the file
+     * system. Therefore it must exist, or storing PCH files will fail.
+     */
+    cstringT, // PreambleStoragePath, offset 8, size 8
+    /**
+     * Specifies a path which will contain log files for certain libclang
+     * invocations. A null value implies that libclang invocations are not logged.
+     */
+    cstringT, // InvocationEmissionPath, offset 16, size 8
+  ],
+} as const;
+
+/**
  * Provides the contents of a file that has not yet been saved to disk.
  *
  * Each CXUnsavedFile instance provides the name of a file on the
@@ -3220,14 +3538,7 @@ export const CXUnsavedFileT = {
 export const CXTUResourceUsageEntryT = {
   /** Struct size: 16 */
   struct: [
-    /**
-     * The memory usage category.
-     */
     CXTUResourceUsageKindT, // kind, offset 0, size 4
-    /**
-     * Amount of resources used.
-     * The units will depend on the resource kind.
-     */
     unsignedLong, // amount, offset 8, size 8
   ],
 } as const;
@@ -3238,18 +3549,8 @@ export const CXTUResourceUsageEntryT = {
 export const CXTUResourceUsageT = {
   /** Struct size: 24 */
   struct: [
-    /**
-     * Private data member, used for queries.
-     */
     ptr("void"), // data, offset 0, size 8
-    /**
-     * The number of entries in the 'entries' array.
-     */
     unsignedInt, // numEntries, offset 8, size 4
-    /**
-     * An array of key-value pairs, representing the breakdown of memory
-     * usage.
-     */
     ptr(CXTUResourceUsageEntryT), // entries, offset 16, size 8
   ],
 } as const;
@@ -3373,6 +3674,8 @@ export const CXCursorVisitorCallbackDefinition = {
  * to direct clang_visitCursorChildren().
  */
 export const CXCursorVisitorT = "function" as const;
+
+export const CXCursorVisitorBlockT = ptr("void");
 
 /**
  * Opaque pointer representing a policy that controls pretty printing
@@ -3522,6 +3825,8 @@ export const CXCursorAndRangeVisitorT = {
     func(CXCursorAndRangeVisitorCallbackDefinition), // visit, offset 8, size 8
   ],
 } as const;
+
+export const CXCursorAndRangeVisitorBlockT = ptr("void");
 
 /**
  * The client's data object that is associated with a CXFile.
