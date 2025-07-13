@@ -545,8 +545,29 @@ export const toAnyType = (
     } else if (typeDeclaration.kind === CXCursorKind.CXCursor_TypedefDecl) {
       const underlyingType = typeDeclaration.getType();
       return toAnyType(typeMemory, underlyingType!);
+    } else if (typeDeclaration.kind === CXCursorKind.CXCursor_UnionDecl) {
+      // Note: Deno FFI doesn't support unions, so we use the first variant.
+      const underlyingType = typeDeclaration.getType();
+      if (!underlyingType) {
+        throw new Error('internal error "underlyingType" is null');
+      }
+      let result: null | AnyType = null;
+      underlyingType.visitFields((field) => {
+        const fieldType = field.getType();
+        if (!fieldType) {
+          throw new Error('internal error "fieldType" is null');
+        }
+        result = toAnyType(typeMemory, fieldType);
+        return CXVisitorResult.CXVisit_Break;
+      });
+      if (!result) {
+        throw new Error("empty union");
+      }
+      return result;
     } else {
-      throw new Error(`Unknown elaborated type: ${type.getTypedefName()}`);
+      throw new Error(
+        `Unknown elaborated type kind: ${type.getKindSpelling()}`,
+      );
     }
   } else if (typekind === CXTypeKind.CXType_FunctionProto) {
     const typeDeclaration = type.getTypeDeclaration();
