@@ -350,10 +350,10 @@ for (
 
 // Hard-coded exceptions
 {
-  const INDEX_FUCNTIONS = FUNCTIONS_MAP.get("Index.h")!;
+  const INDEX_FUNCTIONS = FUNCTIONS_MAP.get("Index.h")!;
 
   // clang_annotateTokens takes a user-defined C array of tokens, not a token pointer like tokens are usually passed around as.
-  const clang_annotateTokens = INDEX_FUCNTIONS.find((func) =>
+  const clang_annotateTokens = INDEX_FUNCTIONS.find((func) =>
     func.name === "clang_annotateTokens"
   );
   if (clang_annotateTokens) {
@@ -365,7 +365,7 @@ for (
   }
 
   // clang_disposeOverriddenCursors takes a C array of cursors as pointer received through an out-buffer from clang_getOverriddenCursors.
-  const clang_disposeOverriddenCursors = INDEX_FUCNTIONS.find((func) =>
+  const clang_disposeOverriddenCursors = INDEX_FUNCTIONS.find((func) =>
     func.name === "clang_disposeOverriddenCursors"
   );
   if (clang_disposeOverriddenCursors) {
