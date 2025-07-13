@@ -52,10 +52,16 @@ export const tryLoadLibclang = <
           "libclang.so.16",
           "libclang.so.16.0",
           "libclang.so.16.0.6",
-          "libclang-14.so.1",
           "libclang.so.14.0.6",
           "libclang.so.14",
           "libclang.so.13",
+          "libclang-20.so.1",
+          "libclang-19.so.1",
+          "libclang-18.so.1",
+          "libclang-17.so.1",
+          "libclang-16.so.1",
+          "libclang-15.so.1",
+          "libclang-14.so.1",
         ]
       ) {
         const fullpath = join(libclangPath, file);
