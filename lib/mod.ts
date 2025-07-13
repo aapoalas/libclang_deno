@@ -114,7 +114,6 @@ export type {
   CXType,
 };
 
-const BUFFER = Symbol("[[buffer]]");
 const DISPOSE = Symbol("[[dispose]]");
 const REGISTER = Symbol("[[register]]");
 const DEREGISTER = Symbol("[[deregister]]");
@@ -984,7 +983,7 @@ export class CXTranslationUnit {
     if (sourceLocation) {
       cursor = libclang.symbols.clang_getCursor(
         this.#pointer,
-        sourceLocation[BUFFER],
+        GET_CX_SOURCE_LOCATION_BUFFER(sourceLocation),
       );
       if (sourceLocation && libclang.symbols.clang_Cursor_isNull(cursor)) {
         return null;
@@ -1058,7 +1057,7 @@ export class CXTranslationUnit {
     }
     const tokenArray = new Uint8Array(8 * 3 * tokens.length);
     tokens.forEach((token, index) => {
-      tokenArray.set(token[BUFFER], 8 * 3 * index);
+      tokenArray.set(GET_CX_TOKEN_BUFFER(token), 8 * 3 * index);
     });
     const cursorArray = new Uint8Array(8 * 4 * tokens.length);
     libclang.symbols.clang_annotateTokens(
@@ -1091,7 +1090,7 @@ export class CXTranslationUnit {
     }
     const tokenPointer = libclang.symbols.clang_getToken(
       this.#pointer,
-      location[BUFFER],
+      GET_CX_SOURCE_LOCATION_BUFFER(location),
     );
     if (tokenPointer === null) {
       return null;
@@ -1122,7 +1121,7 @@ export class CXTranslationUnit {
     }
     libclang.symbols.clang_tokenize(
       this.#pointer,
-      range[BUFFER],
+      GET_CX_SOURCE_RANGE_BUFFER(range),
       OUT,
       OUT.subarray(8),
     );
@@ -5266,6 +5265,7 @@ let CX_SOURCE_RANGE_CONSTRUCTOR: (
   tu: null | CXTranslationUnit,
   buffer: Uint8Array,
 ) => CXSourceRange | null;
+let GET_CX_SOURCE_RANGE_BUFFER: (cxSourceRange: CXSourceRange) => Uint8Array;
 
 /**
  * Identifies a half-open character range in the source code.
@@ -5304,6 +5304,8 @@ export class CXSourceRange {
       CXSourceRange.#constructable = false;
       return result;
     };
+    GET_CX_SOURCE_RANGE_BUFFER = (cxSourceRange: CXSourceRange): Uint8Array =>
+      cxSourceRange.#buffer;
   }
 
   /**
@@ -5329,15 +5331,11 @@ export class CXSourceRange {
   ): CXSourceRange {
     return CX_SOURCE_RANGE_CONSTRUCTOR(
       begin.tu,
-      libclang.symbols.clang_getRange(begin[BUFFER], end[BUFFER]),
+      libclang.symbols.clang_getRange(
+        GET_CX_SOURCE_LOCATION_BUFFER(begin),
+        GET_CX_SOURCE_LOCATION_BUFFER(end),
+      ),
     )!;
-  }
-
-  /**
-   * @private Private API, cannot be used from outside.
-   */
-  get [BUFFER](): Uint8Array {
-    return this.#buffer;
   }
 
   /**
@@ -5385,6 +5383,10 @@ let CX_SOURCE_LOCATION_CONSTRUCTOR: (
   buffer: Uint8Array,
 ) => CXSourceLocation;
 
+let GET_CX_SOURCE_LOCATION_BUFFER: (
+  cxSourceLocation: CXSourceLocation,
+) => Uint8Array;
+
 /**
  * Identifies a specific source location within a translation
  * unit.
@@ -5418,13 +5420,9 @@ export class CXSourceLocation {
       CXSourceLocation.#constructable = false;
       return result;
     };
-  }
-
-  /**
-   * @private Private API, cannot be used from outside.
-   */
-  get [BUFFER](): Uint8Array {
-    return this.#buffer;
+    GET_CX_SOURCE_LOCATION_BUFFER = (
+      cxSourceLocation: CXSourceLocation,
+    ): Uint8Array => cxSourceLocation.#buffer;
   }
 
   /**
@@ -7529,6 +7527,8 @@ let CX_TOKEN_CONSTRUCTOR: (
   buffer: Uint8Array,
 ) => CXToken;
 
+let GET_CX_TOKEN_BUFFER: (cxToken: CXToken) => Uint8Array;
+
 /**
  * Describes a single preprocessing token.
  *
@@ -7581,6 +7581,7 @@ class CXToken {
       CXToken.#constructable = false;
       return result;
     };
+    GET_CX_TOKEN_BUFFER = (cxToken: CXToken): Uint8Array => cxToken.#buffer;
   }
 
   /**
@@ -7588,13 +7589,6 @@ class CXToken {
    */
   get kind(): CXTokenKind {
     return this.#kind;
-  }
-
-  /**
-   * @private Private API, cannot be used from outside.
-   */
-  get [BUFFER](): Uint8Array {
-    return this.#buffer;
   }
 
   /**
@@ -7713,7 +7707,7 @@ class CXRewriter {
   insertTextBefore(location: CXSourceLocation, insert: string): void {
     libclang.symbols.clang_CXRewriter_insertTextBefore(
       this.#pointer,
-      location[BUFFER],
+      GET_CX_SOURCE_LOCATION_BUFFER(location),
       cstr(insert),
     );
   }
@@ -7728,7 +7722,7 @@ class CXRewriter {
   ): void {
     libclang.symbols.clang_CXRewriter_replaceText(
       this.#pointer,
-      range[BUFFER],
+      GET_CX_SOURCE_RANGE_BUFFER(range),
       cstr(replacement),
     );
   }
@@ -7737,7 +7731,10 @@ class CXRewriter {
    * Remove the specified range.
    */
   removeText(range: CXSourceRange): void {
-    libclang.symbols.clang_CXRewriter_removeText(this.#pointer, range[BUFFER]);
+    libclang.symbols.clang_CXRewriter_removeText(
+      this.#pointer,
+      GET_CX_SOURCE_RANGE_BUFFER(range),
+    );
   }
 
   /**
