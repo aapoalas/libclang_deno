@@ -280,6 +280,170 @@ const toEnumType = (
   return result;
 };
 
+const UNSIGNED_LONG: PlainType = {
+  kind: "plain",
+  name: "unsignedLong",
+  type: "u64",
+  comment: null,
+};
+const INT: PlainType = {
+  kind: "plain",
+  name: "int",
+  type: "i32",
+  comment: null,
+};
+const VOID: PlainType = {
+  kind: "plain",
+  name: "void",
+  type: "void",
+  comment: null,
+};
+const VOID_POINTER: PointerType = {
+  kind: "pointer",
+  name: "void*",
+  pointee: VOID,
+  comment: null,
+  useBuffer: false,
+};
+
+const BLOCK_DESCRIPTOR: StructType = {
+  fields: [
+    {
+      name: "reserved",
+      type: UNSIGNED_LONG,
+      offset: 0,
+      size: 8,
+      comment: null,
+    },
+    {
+      name: "size",
+      type: UNSIGNED_LONG,
+      offset: 8,
+      size: 8,
+      comment: null,
+    },
+    {
+      name: "copy",
+      type: {
+        kind: "function",
+        comment: null,
+        name: "void (*copy)(void *dst, void *src)",
+        parameters: [
+          {
+            comment: null,
+            name: "dst",
+            type: VOID_POINTER,
+          },
+          {
+            comment: null,
+            name: "src",
+            type: VOID_POINTER,
+          },
+        ],
+        reprName: "copyT",
+        result: VOID,
+      },
+      offset: 16,
+      size: 8,
+      comment: null,
+    },
+    {
+      name: "dispose",
+      type: {
+        kind: "function",
+        comment: null,
+        name: "void (*dispose)(void *)",
+        parameters: [
+          {
+            comment: null,
+            name: "this",
+            type: VOID_POINTER,
+          },
+        ],
+        reprName: "disposeT",
+        result: VOID,
+      },
+      offset: 24,
+      size: 8,
+      comment: null,
+    },
+  ],
+  kind: "struct",
+  name: "Block_descriptor",
+  size: 32,
+  reprName: `Block_descriptorT`,
+  comment: null,
+};
+
+/**
+ * See https://github.com/llvm/llvm-project/blob/main/compiler-rt/lib/BlocksRuntime/Block_private.h#L62-L77
+ */
+const BLOCK_LAYOUT: StructType = {
+  fields: [
+    {
+      name: "isa",
+      type: VOID_POINTER,
+      offset: 0,
+      size: 8,
+      comment: null,
+    },
+    {
+      name: "flags",
+      type: INT,
+      offset: 8,
+      size: 4,
+      comment: null,
+    },
+    {
+      name: "reserved",
+      type: INT,
+      offset: 12,
+      size: 4,
+      comment: null,
+    },
+    {
+      name: "invoke",
+      type: {
+        kind: "function",
+        comment: null,
+        name: "void (*invoke)(void *, ...)",
+        parameters: [
+          {
+            comment: null,
+            name: "this",
+            type: VOID_POINTER,
+          },
+        ],
+        reprName: "invokeT",
+        result: VOID,
+      },
+      offset: 16,
+      size: 8,
+      comment: null,
+    },
+    {
+      name: "descriptor",
+      type: {
+        kind: "pointer",
+        name: "struct Block_descriptor *",
+        pointee: BLOCK_DESCRIPTOR,
+        comment: null,
+        useBuffer: false,
+      },
+      offset: 24,
+      size: 8,
+      comment: null,
+    },
+  ],
+  kind: "struct",
+  name: "Block_layout",
+  size: 32,
+  reprName: `Block_layoutT`,
+  comment: `/**
+ * See https://github.com/llvm/llvm-project/blob/main/compiler-rt/lib/BlocksRuntime/Block_private.h#L62-L77
+ */`,
+};
+
 export const toAnyType = (
   typeMemory: Map<string, AnyType>,
   type: CXType,
@@ -512,6 +676,28 @@ export const toAnyType = (
     }
     const result = toEnumType(typeMemory, name, typeDeclaration);
     typeMemory.set(name, result);
+    return result;
+  } else if (
+    typekind === CXTypeKind.CXType_BlockPointer
+  ) {
+    if (!typeMemory.has("Block_layout")) {
+      if (!typeMemory.has("unsignedLong")) {
+        typeMemory.set("unsignedLong", UNSIGNED_LONG);
+      }
+      if (!typeMemory.has("int")) {
+        typeMemory.set("int", INT);
+      }
+      typeMemory.set("Block_descriptor", BLOCK_DESCRIPTOR);
+      typeMemory.set("Block_layout", BLOCK_LAYOUT);
+    }
+    const result: PointerType = {
+      kind: "pointer",
+      name: type.getSpelling(),
+      pointee: BLOCK_LAYOUT,
+      comment: null,
+      // BlockPointers should always use buffers.
+      useBuffer: true,
+    };
     return result;
   } else if (
     typekind !== CXTypeKind.CXType_Void &&
