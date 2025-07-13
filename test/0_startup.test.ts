@@ -2,8 +2,6 @@
  * Tests that libclang can be loaded in the given environment.
  */
 
-import { assert } from "jsr:@std/assert";
-
 Deno.test("Startup", async (t) => {
   await t.step({
     name: "with LIBCLANG_PATH pointing to a file",
@@ -22,7 +20,9 @@ Deno.test("Startup", async (t) => {
         },
       }).outputSync();
 
-      assert(output.success);
+      if (!output.success) {
+        throw new TextDecoder().decode(output.stdout);
+      }
     },
   });
 
@@ -43,7 +43,9 @@ Deno.test("Startup", async (t) => {
         },
       }).outputSync();
 
-      assert(output.success);
+      if (!output.success) {
+        throw new TextDecoder().decode(output.stdout);
+      }
     },
   });
 });
