@@ -1,6 +1,12 @@
-export const ptr = (_type: unknown) => "pointer" as const;
-export const buf = (_type: unknown) => "buffer" as const;
-export const func = (_func: unknown) => "function" as const;
+export const ptr = <const T = unknown>(_type: T) =>
+  "pointer" as (T extends "void"
+    ? Deno.NativeTypedPointer<Deno.PointerObject<unknown>>
+    : Deno.NativeTypedPointer<Deno.PointerObject<T>>);
+declare const BUFFER_BRAND: unique symbol;
+type TypedBuffer<T = unknown> = "buffer" & { [BUFFER_BRAND]: T };
+export const buf = <const T = unknown>(_type: T) => "buffer" as TypedBuffer<T>;
+export const func = <const T extends Deno.UnsafeCallbackDefinition>(_func: T) =>
+  "function" as Deno.NativeTypedFunction<T>;
 
 export const unsignedInt = "u32" as const;
 
@@ -2090,9 +2096,7 @@ export const enum CXTypeNullabilityKind {
 export const CXTypeNullabilityKindT = unsignedInt;
 
 /**
- * List the possible error codes for `clang_Type_getSizeOf,`
- * `clang_Type_getAlignOf,` `clang_Type_getOffsetOf,`
- * `clang_Cursor_getOffsetOf,` and `clang_getOffsetOfBase.`
+ * List the possible error codes for `clang_Type_getSizeOf,` `clang_Type_getAlignOf,` `clang_Type_getOffsetOf,` `clang_Cursor_getOffsetOf,` and `clang_getOffsetOfBase.`
  *
  * A value of this enumeration type can be returned if the target type is not
  * a valid argument to sizeof, alignof or offsetof.
@@ -2124,9 +2128,7 @@ export const enum CXTypeLayoutError {
   CXTypeLayoutError_Undeduced = -6,
 }
 /**
- * List the possible error codes for `clang_Type_getSizeOf,`
- * `clang_Type_getAlignOf,` `clang_Type_getOffsetOf,`
- * `clang_Cursor_getOffsetOf,` and `clang_getOffsetOfBase.`
+ * List the possible error codes for `clang_Type_getSizeOf,` `clang_Type_getAlignOf,` `clang_Type_getOffsetOf,` `clang_Cursor_getOffsetOf,` and `clang_getOffsetOfBase.`
  *
  * A value of this enumeration type can be returned if the target type is not
  * a valid argument to sizeof, alignof or offsetof.

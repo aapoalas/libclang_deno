@@ -6,14 +6,17 @@ import {
   CXCallingConv,
   CXChildVisitResult,
   CXCodeComplete_Flags,
+  CXCodeCompleteResultsT,
   CXCommentInlineCommandRenderKind,
   CXCommentKind,
   CXCommentParamPassDirection,
   CXCompletionChunkKind,
   CXCompletionContext,
+  CXCompletionResultT,
   CXCursor_ExceptionSpecificationKind,
   CXCursorAndRangeVisitorCallbackDefinition,
   CXCursorKind,
+  CXCursorT,
   CXCursorVisitorCallbackDefinition,
   CXDiagnosticDisplayOptions,
   CXDiagnosticSeverity,
@@ -37,7 +40,9 @@ import {
   CXTemplateArgumentKind,
   CXTLSKind,
   CXTokenKind,
+  CXTokenT,
   CXTranslationUnit_Flags,
+  CXTranslationUnitT,
   CXTypeKind,
   CXTypeLayoutError,
   CXTypeNullabilityKind,
@@ -392,7 +397,9 @@ export class CXIndex {
       OUT,
     );
 
-    const pointer = Deno.UnsafePointer.create(OUT_64[0])!;
+    const pointer = Deno.UnsafePointer.create<typeof CXTranslationUnitT>(
+      OUT_64[0],
+    )!;
     throwIfError(result, "Parsing CXTranslationUnit failed");
 
     const tu = CXTranslationUnit[CONSTRUCTOR](pointer);
@@ -452,7 +459,9 @@ export class CXIndex {
     );
     throwIfError(result, "Parsing CXTranslationUnit failed");
 
-    const pointer = Deno.UnsafePointer.create(OUT_64[0])!;
+    const pointer = Deno.UnsafePointer.create<typeof CXTranslationUnitT>(
+      OUT_64[0],
+    )!;
     const tu = CXTranslationUnit[CONSTRUCTOR](pointer);
     this.translationUnits.set(astFileName, tu);
     return tu;
@@ -609,14 +618,16 @@ const TU_FINALIZATION_REGISTRY = new FinalizationRegistry<Deno.PointerValue>(
 export class CXTranslationUnit {
   static #constructable = false;
   #dependents: DependentsSet = new Set();
-  #pointer: NonNullable<Deno.PointerValue>;
+  #pointer: Deno.PointerObject<typeof CXTranslationUnitT>;
   #disposed = false;
   #suspended = false;
 
   /**
    * @private Private API, cannot be used from outside.
    */
-  constructor(pointer: NonNullable<Deno.PointerValue>) {
+  constructor(
+    pointer: Deno.PointerObject<typeof CXTranslationUnitT>,
+  ) {
     if (!CXTranslationUnit.#constructable) {
       throw new Error("CXTranslationUnit is not constructable");
     }
@@ -628,7 +639,7 @@ export class CXTranslationUnit {
    * @private Private API, cannot be used from outside.
    */
   static [CONSTRUCTOR](
-    pointer: NonNullable<Deno.PointerValue>,
+    pointer: Deno.PointerObject<typeof CXTranslationUnitT>,
   ): CXTranslationUnit {
     CXTranslationUnit.#constructable = true;
     const result = new CXTranslationUnit(pointer);
@@ -636,7 +647,7 @@ export class CXTranslationUnit {
     return result;
   }
 
-  get [POINTER](): NonNullable<Deno.PointerValue> {
+  get [POINTER](): Deno.PointerObject<typeof CXTranslationUnitT> {
     return this.#pointer;
   }
 
@@ -1107,7 +1118,7 @@ export class CXTranslationUnit {
       OUT,
       OUT.subarray(8),
     );
-    const tokensPointer = Deno.UnsafePointer.create(OUT_64[0]);
+    const tokensPointer = Deno.UnsafePointer.create<typeof CXTokenT>(OUT_64[0]);
     if (tokensPointer === null) {
       return [];
     }
@@ -1411,7 +1422,7 @@ export class CXTranslationUnit {
 }
 
 const COMPLETION_RESULTS_FINALIZATION_REGISTRY = new FinalizationRegistry<
-  NonNullable<Deno.PointerValue>
+  Deno.PointerObject<typeof CXCodeCompleteResultsT>
 >((pointer) => libclang.symbols.clang_disposeCodeCompleteResults(pointer));
 
 /**
@@ -1422,8 +1433,8 @@ const COMPLETION_RESULTS_FINALIZATION_REGISTRY = new FinalizationRegistry<
  */
 class CXCodeCompleteResults {
   static #constructable = false;
-  #pointer: NonNullable<Deno.PointerValue>;
-  #resultsPointer: NonNullable<Deno.PointerValue>;
+  #pointer: Deno.PointerObject<typeof CXCodeCompleteResultsT>;
+  #resultsPointer: Deno.PointerObject<typeof CXCompletionResultT>;
   #numberOfResults: number;
   tu: CXTranslationUnit;
   #resultsArray?: {
@@ -1436,7 +1447,7 @@ class CXCodeCompleteResults {
    */
   constructor(
     tu: CXTranslationUnit,
-    pointer: NonNullable<Deno.PointerValue>,
+    pointer: Deno.PointerObject<typeof CXCodeCompleteResultsT>,
   ) {
     if (CXCodeCompleteResults.#constructable !== true) {
       throw new Error("CXCodeCompleteResults is not constructable");
@@ -1479,7 +1490,7 @@ class CXCodeCompleteResults {
    */
   static [CONSTRUCTOR](
     tu: CXTranslationUnit,
-    pointer: NonNullable<Deno.PointerValue>,
+    pointer: Deno.PointerObject<typeof CXCodeCompleteResultsT>,
   ): CXCodeCompleteResults {
     CXCodeCompleteResults.#constructable = true;
     const result = new CXCodeCompleteResults(tu, pointer);
@@ -2163,7 +2174,7 @@ export class CXFile {
 
 const OVERRIDDEN_CURSORS_FINALIZATION_REGISTRY = new FinalizationRegistry<
   {
-    pointer: Deno.PointerValue;
+    pointer: Deno.PointerValue<typeof CXCursorT>;
     count: number;
   }
 >(
@@ -2931,7 +2942,9 @@ export class CXCursor {
     if (length === 0 || overriddenCursorsPointerValue === 0n) {
       return cursors;
     }
-    const overriddenCursorsPointer = Deno.UnsafePointer.create(
+    const overriddenCursorsPointer = Deno.UnsafePointer.create<
+      typeof CXCursorT
+    >(
       overriddenCursorsPointerValue,
     )!;
     const key = {
@@ -5110,7 +5123,7 @@ export class CXComment {
 }
 
 const SOURCE_RANGE_LIST_FINALIZATION_REGISTRY = new FinalizationRegistry<
-  Deno.PointerValue
+  Deno.PointerValue<typeof CXSourceRangeListT>
 >((pointer) => libclang.symbols.clang_disposeSourceRangeList(pointer));
 /**
  * Identifies an array of ranges.
@@ -5121,7 +5134,7 @@ class CXSourceRangeList {
   static #constructable = false;
   tu: CXTranslationUnit;
   #pointer: Deno.PointerValue<typeof CXSourceRangeListT>;
-  #arrayPointer: NonNullable<Deno.PointerValue>;
+  #arrayPointer: Deno.PointerObject;
   #length: number;
   #disposed = false;
 
@@ -5138,7 +5151,7 @@ class CXSourceRangeList {
   constructor(
     tu: CXTranslationUnit,
     pointer: Deno.PointerValue<typeof CXSourceRangeListT>,
-    arrayPointer: NonNullable<Deno.PointerValue>,
+    arrayPointer: Deno.PointerObject,
     length: number,
   ) {
     if (CXSourceRangeList.#constructable !== true) {
@@ -5157,7 +5170,7 @@ class CXSourceRangeList {
   static [CONSTRUCTOR](
     tu: CXTranslationUnit,
     pointer: Deno.PointerValue<typeof CXSourceRangeListT>,
-    arrayPointer: NonNullable<Deno.PointerValue>,
+    arrayPointer: Deno.PointerObject,
     length: number,
   ): CXSourceRangeList {
     CXSourceRangeList.#constructable = true;
@@ -7409,10 +7422,14 @@ export class CXRemapping {
 }
 
 const TOKEN_POINTER_USAGE_MAP = new Map<
-  Deno.PointerValue,
-  { tu: Deno.PointerValue; count: number; disposed: number }
+  Deno.PointerValue<typeof CXTokenT>,
+  {
+    tu: Deno.PointerValue<typeof CXTranslationUnitT>;
+    count: number;
+    disposed: number;
+  }
 >();
-const disposeToken = (pointer: Deno.PointerValue) => {
+const disposeToken = (pointer: Deno.PointerValue<typeof CXTokenT>) => {
   const entry = TOKEN_POINTER_USAGE_MAP.get(pointer);
   if (!entry) {
     console.error(
@@ -7427,8 +7444,8 @@ const disposeToken = (pointer: Deno.PointerValue) => {
   }
 };
 const TOKEN_FINALIZATION_REGISTRY = new FinalizationRegistry<
-  Deno.PointerValue
->((pointer) => disposeToken(pointer));
+  Deno.PointerValue<typeof CXTokenT>
+>(disposeToken);
 
 /**
  * Describes a single preprocessing token.
@@ -7438,7 +7455,7 @@ const TOKEN_FINALIZATION_REGISTRY = new FinalizationRegistry<
 class CXToken {
   static #constructable = false;
   tu: CXTranslationUnit;
-  #pointer: Deno.PointerValue;
+  #pointer: Deno.PointerValue<typeof CXTokenT>;
   #buffer: Uint8Array;
   #kind: CXTokenKind;
   #disposed = false;
@@ -7448,7 +7465,7 @@ class CXToken {
    */
   constructor(
     tu: CXTranslationUnit,
-    pointer: Deno.PointerValue,
+    pointer: Deno.PointerValue<typeof CXTokenT>,
     buffer: Uint8Array,
   ) {
     if (CXToken.#constructable !== true) {
@@ -7476,7 +7493,7 @@ class CXToken {
    */
   static [CONSTRUCTOR](
     tu: CXTranslationUnit,
-    pointer: Deno.PointerValue,
+    pointer: Deno.PointerValue<typeof CXTokenT>,
     buffer: Uint8Array,
   ): CXToken {
     CXToken.#constructable = true;

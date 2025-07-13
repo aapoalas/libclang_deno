@@ -374,9 +374,15 @@ for (
 }
 
 const results: string[] = [
-  `export const ptr = (_type: unknown) => "pointer" as const;
-export const buf = (_type: unknown) => "buffer" as const;
-export const func = (_func: unknown) => "function" as const;
+  `export const ptr = <const T = unknown>(_type: T) =>
+    "pointer" as (T extends "void"
+      ? Deno.NativeTypedPointer<Deno.PointerObject<unknown>>
+      : Deno.NativeTypedPointer<Deno.PointerObject<T>>);
+  declare const BUFFER_BRAND: unique symbol;
+  type TypedBuffer<T = unknown> = "buffer" & { [BUFFER_BRAND]: T };
+  export const buf = <const T = unknown>(_type: T) => "buffer" as TypedBuffer<T>;
+  export const func = <const T extends Deno.UnsafeCallbackDefinition>(_func: T) =>
+    "function" as Deno.NativeTypedFunction<T>;
 `,
 ];
 
@@ -525,7 +531,7 @@ for (const [fileName, apiFunctions] of FUNCTIONS_MAP) {
     let isAvailable = true;
     try {
       Deno.dlopen(
-        "/lib64/libclang.so.16.0.6",
+        "/lib64/libclang.so",
         {
           [name]: {
             type: "pointer",
