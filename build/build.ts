@@ -77,7 +77,7 @@ HEADER_FILES.forEach((fileName) => {
       case CXCursorKind.CXCursor_EnumDecl: {
         let name = cx.getDisplayName();
         if (!name) {
-          // Typedef enums have no name and are handled by the typdef case.
+          // Typedef enums have no name and are handled by the typedef case.
           break;
         }
         if (name.startsWith("enum ")) {
