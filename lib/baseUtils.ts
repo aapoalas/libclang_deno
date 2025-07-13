@@ -8,23 +8,20 @@ export const tryLoadLibclang = <
 ): ReturnType<
   typeof Deno.dlopen<Imports>
 > => {
-  let libclang: ReturnType<
-    typeof Deno.dlopen<Imports>
-  >;
   if (Deno.build.os === "windows") {
     if (libclangPath.includes(".dll")) {
-      libclang = Deno.dlopen(libclangPath, imports);
+      return Deno.dlopen(libclangPath, imports);
     } else {
-      libclang = Deno.dlopen(
+      return Deno.dlopen(
         join(libclangPath, "libclang.dll"),
         imports,
       );
     }
   } else if (Deno.build.os === "darwin") {
     if (libclangPath.includes(".dylib")) {
-      libclang = Deno.dlopen(libclangPath, imports);
+      return Deno.dlopen(libclangPath, imports);
     } else {
-      libclang = Deno.dlopen(
+      return Deno.dlopen(
         join(libclangPath, "libclang.dylib"),
         imports,
       );
@@ -33,10 +30,10 @@ export const tryLoadLibclang = <
     const isFullPath = libclangPath.includes(".so");
     if (isFullPath) {
       // if LIBCLANG_PATH point to a so file, we try to load it directly
-      libclang = Deno.dlopen(libclangPath, imports);
+      return Deno.dlopen(libclangPath, imports);
     } else {
       // Try various known libclang shared object names.
-      let lastError: null | Error = null;
+      const errors: Error[] = [];
       for (
         const file of [
           "libclang.so",
@@ -65,13 +62,13 @@ export const tryLoadLibclang = <
         try {
           return Deno.dlopen(fullpath, imports);
         } catch (e) {
-          lastError = e as Error;
+          errors.push(e instanceof Error ? e : new Error(JSON.stringify(e)));
         }
       }
-      if (lastError && !libclang!) {
-        throw lastError;
-      }
+      throw new AggregateError(
+        errors,
+        "Failed to load libclang by various known shared object names",
+      );
     }
   }
-  throw new Error("unreachable");
 };
