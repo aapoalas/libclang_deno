@@ -59,4 +59,5 @@ CINDEX_LINKAGE void clang_CXRewriter_writeMainFileToStdOut(CXRewriter Rew);
 CINDEX_LINKAGE void clang_CXRewriter_dispose(CXRewriter Rew);
 
 LLVM_CLANG_C_EXTERN_C_END
- 
+
+#endif

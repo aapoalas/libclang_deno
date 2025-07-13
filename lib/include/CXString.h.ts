@@ -2,6 +2,10 @@ import { cstringT, CXStringSetT, CXStringT, ptr } from "./typeDefinitions.ts";
 
 /**
  * Retrieve the character data associated with the given string.
+ *
+ * The returned data is a reference and not owned by the user. This data
+ * is only valid while the `CXString` is valid. This function is similar
+ * to `std::string::c_str()`.
  */
 export const clang_getCString = {
   parameters: [

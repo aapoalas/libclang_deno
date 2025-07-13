@@ -30,7 +30,7 @@ const index = new libclang.CXIndex(false, true);
 const includeDirectory = join(dirname(fromFileUrl(import.meta.url)), "include");
 
 const includePaths = [
-  "-I/usr/lib64/clang/16/include/",
+  "-I/usr/lib64/clang/20/include/",
   `-I${includeDirectory}`,
 ];
 

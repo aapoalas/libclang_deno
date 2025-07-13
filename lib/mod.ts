@@ -33,6 +33,7 @@ import {
   CXReparse_Flags,
   CXResult,
   CXSaveError,
+  CXSourceRangeListT,
   CXTemplateArgumentKind,
   CXTLSKind,
   CXTokenKind,
@@ -3932,7 +3933,7 @@ export class CXCursor {
       arg5,
       arg6,
     );
-    const out32 = new Uint32Array(OUT, 16, 4);
+    const out32 = new Uint32Array(OUT.buffer, 16, 4);
     return [
       Deno.UnsafePointerView.getCString(Deno.UnsafePointer.create(OUT_64[0])!),
       Deno.UnsafePointerView.getCString(Deno.UnsafePointer.create(OUT_64[1])!),
@@ -5004,7 +5005,7 @@ export class CXComment {
    *
    * @li "word-returns" for the "Returns" word in \\returns paragraph.
    *
-   * Function argument documentation is rendered as a list with arguments
+   * Function argument documentation is rendered as a \<dl\> list with arguments
    * sorted in function prototype order. CSS classes used:
    *
    * @li "param-name-index-NUMBER" for parameter name ();
@@ -5119,7 +5120,7 @@ const SOURCE_RANGE_LIST_FINALIZATION_REGISTRY = new FinalizationRegistry<
 class CXSourceRangeList {
   static #constructable = false;
   tu: CXTranslationUnit;
-  #pointer: Deno.PointerValue;
+  #pointer: Deno.PointerValue<typeof CXSourceRangeListT>;
   #arrayPointer: NonNullable<Deno.PointerValue>;
   #length: number;
   #disposed = false;
@@ -5136,7 +5137,7 @@ class CXSourceRangeList {
    */
   constructor(
     tu: CXTranslationUnit,
-    pointer: Deno.PointerValue,
+    pointer: Deno.PointerValue<typeof CXSourceRangeListT>,
     arrayPointer: NonNullable<Deno.PointerValue>,
     length: number,
   ) {
@@ -5155,7 +5156,7 @@ class CXSourceRangeList {
    */
   static [CONSTRUCTOR](
     tu: CXTranslationUnit,
-    pointer: Deno.PointerValue,
+    pointer: Deno.PointerValue<typeof CXSourceRangeListT>,
     arrayPointer: NonNullable<Deno.PointerValue>,
     length: number,
   ): CXSourceRangeList {

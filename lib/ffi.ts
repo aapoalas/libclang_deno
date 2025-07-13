@@ -66,7 +66,20 @@ if (Deno.build.os === "windows") {
     for (
       const file of [
         "libclang.so",
+        "libclang.so.20",
+        "libclang.so.20.1",
+        "libclang.so.20.1.7",
+        "libclang.so.19",
+        "libclang.so.19.1",
+        "libclang.so.19.1.7",
+        "libclang.so.18",
+        "libclang.so.18.1",
+        "libclang.so.18.1.8",
+        "libclang.so.17",
+        "libclang.so.17.0",
+        "libclang.so.17.0.6",
         "libclang.so.16",
+        "libclang.so.16.0",
         "libclang.so.16.0.6",
         "libclang-14.so.1",
         "libclang.so.14.0.6",
@@ -77,9 +90,10 @@ if (Deno.build.os === "windows") {
       const fullpath = join(libclangPath, file);
       try {
         libclang = Deno.dlopen(fullpath, IMPORTS);
+        console.log(fullpath);
         break;
       } catch (e) {
-        lastError = e;
+        lastError = e as Error;
       }
     }
     if (lastError && !libclang!) {
