@@ -18,6 +18,7 @@ import {
   structFieldToDeinlineString,
   toAnyType,
 } from "./build_utils.ts";
+import { tryLoadLibclang } from "../lib/baseUtils.ts";
 
 const formatSync = (filePath: string) => {
   new Deno.Command("deno", {
@@ -523,6 +524,14 @@ const emplaceRefs = (imports: Set<string>, type: AnyType) => {
   }
 };
 
+const libclangPath = Deno.env.get("LIBCLANG_PATH");
+
+if (!libclangPath) {
+  throw new Error(
+    "Cannot load libclang without LIBCLANG_PATH environment variable",
+  );
+}
+
 for (const [fileName, apiFunctions] of FUNCTIONS_MAP) {
   const imports = new Set<string>();
 
@@ -530,8 +539,8 @@ for (const [fileName, apiFunctions] of FUNCTIONS_MAP) {
   for (const { comment, name, parameters, result } of apiFunctions) {
     let isAvailable = true;
     try {
-      Deno.dlopen(
-        "/lib64/libclang.so",
+      tryLoadLibclang(
+        libclangPath,
         {
           [name]: {
             type: "pointer",
