@@ -118,7 +118,7 @@ export const throwIfError = (
   let err: Error;
   if (errorCode === CXErrorCode.CXError_Failure) {
     err = new Error(
-      `${baseMessage}: Unkown error occurred`,
+      `${baseMessage}: Unknown error occurred`,
       { cause: errorCode },
     );
   } else if (errorCode === CXErrorCode.CXError_Crashed) {
@@ -135,7 +135,7 @@ export const throwIfError = (
       { cause: errorCode },
     );
   } else {
-    err = new Error(`${baseMessage}: Unkown error code`, {
+    err = new Error(`${baseMessage}: Unknown error code`, {
       cause: errorCode,
     });
   }

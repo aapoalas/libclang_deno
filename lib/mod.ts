@@ -205,7 +205,7 @@ const CX_FIELD_VISITOR_CALLBACK = new Deno.UnsafeCallback(
  * handler (if any).
  *
  * When called with `false`, removes the currently installed error handler (if any).
- * If no error handler is intalled, the default strategy is to print error
+ * If no error handler is installed, the default strategy is to print error
  * message to stderr and call exit(1).
  *
  * **WARNING**: This API is not supported on Windows and will throw an error
@@ -817,7 +817,7 @@ export class CXTranslationUnit {
         { cause: result },
       );
     } else if (result !== 0) {
-      throw new Error("Saving CXTranslationUnit failed: Unkown error code", {
+      throw new Error("Saving CXTranslationUnit failed: Unknown error code", {
         cause: result,
       });
     }
@@ -7446,7 +7446,7 @@ export class CXDiagnosticSet {
         );
       } else if (errorNumber === CXLoadDiag_Error.CXLoadDiag_Unknown) {
         throw new Error(
-          "Loading diagnostics failed: Unkown error",
+          "Loading diagnostics failed: Unknown error",
           errorString ? { cause: errorString } : undefined,
         );
       } else {
@@ -7530,7 +7530,7 @@ export class CXDiagnostic {
    */
   getChildDiagnostics(): null | CXDiagnosticSet {
     if (this.#disposed) {
-      throw new Error("Cannot get children of diposed CXDiagnostic");
+      throw new Error("Cannot get children of disposed CXDiagnostic");
     }
     const pointer = libclang.symbols.clang_getChildDiagnostics(this.#pointer);
     if (pointer === null) {
