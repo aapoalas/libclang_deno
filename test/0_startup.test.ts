@@ -2,7 +2,7 @@
  * Tests that libclang can be loaded in the given environment.
  */
 
-import { assert } from "https://deno.land/std@0.163.0/testing/asserts.ts";
+import { assert } from "jsr:@std/assert";
 
 Deno.test("Startup", async (t) => {
   await t.step({

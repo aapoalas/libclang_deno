@@ -1,8 +1,4 @@
-import {
-  dirname,
-  fromFileUrl,
-  join,
-} from "https://deno.land/std@0.170.0/path/mod.ts";
+import { dirname, fromFileUrl, join } from "jsr:@std/path";
 import {
   CXChildVisitResult,
   CXCursorKind,

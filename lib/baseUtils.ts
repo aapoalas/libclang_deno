@@ -1,4 +1,4 @@
-import { join } from "https://deno.land/std@0.170.0/path/mod.ts";
+import { join } from "jsr:@std/path";
 
 export const tryLoadLibclang = <
   const Imports extends Deno.ForeignLibraryInterface,
