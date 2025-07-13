@@ -355,23 +355,27 @@ for (
   // clang_annotateTokens takes a user-defined C array of tokens, not a token pointer like tokens are usually passed around as.
   const clang_annotateTokens = INDEX_FUCNTIONS.find((func) =>
     func.name === "clang_annotateTokens"
-  )!;
-  const clang_annotateTokens_arg1 = clang_annotateTokens.parameters[1];
-  if (clang_annotateTokens_arg1.type.kind !== "pointer") {
-    throw new Error("unreachable");
+  );
+  if (clang_annotateTokens) {
+    const clang_annotateTokens_arg1 = clang_annotateTokens.parameters[1];
+    if (clang_annotateTokens_arg1.type.kind !== "pointer") {
+      throw new Error("unreachable");
+    }
+    clang_annotateTokens_arg1.type.useBuffer = true;
   }
-  clang_annotateTokens_arg1.type.useBuffer = true;
 
   // clang_disposeOverriddenCursors takes a C array of cursors as pointer received through an out-buffer from clang_getOverriddenCursors.
   const clang_disposeOverriddenCursors = INDEX_FUCNTIONS.find((func) =>
     func.name === "clang_disposeOverriddenCursors"
-  )!;
-  const clang_disposeOverriddenCursors_arg0 =
-    clang_disposeOverriddenCursors.parameters[0];
-  if (clang_disposeOverriddenCursors_arg0.type.kind !== "pointer") {
-    throw new Error("unreachable");
+  );
+  if (clang_disposeOverriddenCursors) {
+    const clang_disposeOverriddenCursors_arg0 =
+      clang_disposeOverriddenCursors.parameters[0];
+    if (clang_disposeOverriddenCursors_arg0.type.kind !== "pointer") {
+      throw new Error("unreachable");
+    }
+    clang_disposeOverriddenCursors_arg0.type.useBuffer = false;
   }
-  clang_disposeOverriddenCursors_arg0.type.useBuffer = false;
 }
 
 const results: string[] = [
