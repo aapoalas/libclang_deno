@@ -31,11 +31,11 @@ jobs:
 
       - name: Install LLVM
         run: |
-          sudo apt-get install -y libclang1-20
+          sudo apt-get install -y libclang1-19
 
       - name: test
         run: |
-          export LIBCLANG_PATH=/usr/lib/llvm-20/lib
+          export LIBCLANG_PATH=/usr/lib/llvm-19/lib
           export TEST_DIR=$LIBCLANG_PATH
-          export TEST_PATH=$TEST_DIR/libclang-20.so.1
+          export TEST_PATH=$TEST_DIR/libclang-19.so.1
           deno task test
