@@ -700,6 +700,24 @@ export const toAnyType = (
     };
     return result;
   } else if (
+    typekind === CXTypeKind.CXType_IncompleteArray
+  ) {
+    const element = type.getElementType();
+    if (!element) throw Error('internal error "element" is null');
+    const pointeeAnyType = toAnyType(typeMemory, element);
+
+    const result: PointerType = {
+      kind: "pointer",
+      name: type.getSpelling(),
+      pointee: pointeeAnyType,
+      comment: null,
+      useBuffer: pointeeAnyType.kind === "struct" ||
+        pointeeAnyType.kind === "plain" && pointeeAnyType.type !== "void" ||
+        pointeeAnyType.kind === "pointer" || pointeeAnyType.kind === "ref" ||
+        pointeeAnyType.kind === "enum",
+    };
+    return result;
+  } else if (
     typekind !== CXTypeKind.CXType_Void &&
     typekind !== CXTypeKind.CXType_Bool &&
     typekind !== CXTypeKind.CXType_Char_U &&
