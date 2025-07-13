@@ -114,10 +114,6 @@ export type {
   CXType,
 };
 
-const DISPOSE = Symbol("[[dispose]]");
-const REGISTER = Symbol("[[register]]");
-const DEREGISTER = Symbol("[[deregister]]");
-
 const OUT = new Uint8Array(16);
 const OUT_64 = new BigUint64Array(OUT.buffer);
 
@@ -287,17 +283,26 @@ export interface GlobalOptions {
 }
 
 const INDEX_FINALIZATION_REGISTRY = new FinalizationRegistry<Deno.PointerValue>(
-  (pointer) => libclang.symbols.clang_disposeIndex(pointer),
+  libclang.symbols.clang_disposeIndex,
 );
+
+let CX_INDEX_REGISTER_DEPENDENT: (
+  cxIndex: CXIndex,
+  dependent: Dependent,
+) => void;
+let CX_INDEX_UNREGISTER_DEPENDENT: (
+  cxIndex: CXIndex,
+  dependent: Dependent,
+) => void;
+
 /**
  * An "index" that consists of a set of translation units that would
  * typically be linked together into an executable or library.
  */
 export class CXIndex {
   #pointer: Deno.PointerValue;
+  #dependents = new Set<WeakRef<Dependent>>();
   #disposed = false;
-
-  translationUnits = new Map<string, CXTranslationUnit>();
 
   constructor(excludeDeclarationsFromPCH = false, displayDiagnostics = false) {
     this.#pointer = libclang.symbols.clang_createIndex(
@@ -311,13 +316,63 @@ export class CXIndex {
   }
 
   /**
+   * Destroy the given index.
+   *
+   * Destroying the index will destroy all the translation units created
+   * within that index. It is not strictly necessary to call this method,
+   * the memory will be released as part of JavaScript garbage collection.
+   */
+  dispose(): void {
+    if (this.#disposed) {
+      return;
+    }
+    // Swap the dependents Set beforehand; this makes sure that the dispose
+    // calls in the loop don't come back to mutate our Set unnecessarily.
+    const dependents = this.#dependents;
+    this.#dependents = new Set();
+    for (const dependent of dependents) {
+      const dep = dependent.deref();
+      if (dep) {
+        dep.dispose();
+      }
+    }
+    libclang.symbols.clang_disposeIndex(this.#pointer);
+    INDEX_FINALIZATION_REGISTRY.unregister(this);
+    this.#disposed = true;
+  }
+
+  static {
+    CX_INDEX_REGISTER_DEPENDENT = (
+      cxIndex: CXIndex,
+      dependent: Dependent,
+    ): void => {
+      cxIndex.#dependents.add(new WeakRef(dependent));
+    };
+    CX_INDEX_UNREGISTER_DEPENDENT = (
+      cxIndex: CXIndex,
+      dependent: Dependent,
+    ): void => {
+      if (cxIndex.#dependents.size === 0) {
+        return;
+      }
+      for (const weakRef of cxIndex.#dependents) {
+        const result = weakRef.deref();
+        if (result == dependent || result === undefined) {
+          cxIndex.#dependents.delete(weakRef);
+          return;
+        }
+      }
+    };
+  }
+
+  /**
    * Gets the general options associated with a CXIndex.
    *
    * @returns Object of options associated with the given CXIndex object.
    */
   get options(): GlobalOptions {
     if (this.#disposed) {
-      throw new Error("Cannot set options of disposed CXIndex");
+      throw new Error("Cannot get options of disposed CXIndex");
     }
     const opts = libclang.symbols.clang_CXIndex_getGlobalOptions(this.#pointer);
     return {
@@ -335,7 +390,7 @@ export class CXIndex {
    */
   set options(opts: GlobalOptions) {
     if (this.#disposed) {
-      throw new Error("Cannot get options of disposed CXIndex");
+      throw new Error("Cannot set options of disposed CXIndex");
     }
     libclang.symbols.clang_CXIndex_setGlobalOptions(
       this.#pointer,
@@ -373,7 +428,7 @@ export class CXIndex {
     flags?: CXTranslationUnit_Flags[],
   ): CXTranslationUnit {
     if (this.#disposed) {
-      throw new Error("Cannot parse translation unit of disposed CXIndex");
+      throw new Error("Cannot parse a translation unit in a disposed CXIndex");
     }
     const source_filename = cstr(fileName);
     const command_line_args = new CStringArray(commandLineArguments);
@@ -399,9 +454,7 @@ export class CXIndex {
     )!;
     throwIfError(result, "Parsing CXTranslationUnit failed");
 
-    const tu = CX_TRANSLATION_UNIT_CONSTRUCTOR(pointer);
-    this.translationUnits.set(fileName, tu);
-    return tu;
+    return CX_TRANSLATION_UNIT_CONSTRUCTOR(this, pointer);
   }
 
   /**
@@ -430,7 +483,7 @@ export class CXIndex {
   setInvocationEmissionPathOption(path: null | string = null): void {
     if (this.#disposed) {
       throw new Error(
-        "Cannot set invocation emission path option of disposed CXIndex",
+        "Cannot set the invocation emission path option of disposed CXIndex",
       );
     }
     libclang.symbols.clang_CXIndex_setInvocationEmissionPathOption(
@@ -447,7 +500,7 @@ export class CXIndex {
    */
   createTranslationUnit(astFileName: string): CXTranslationUnit {
     if (this.#disposed) {
-      throw new Error("Cannot create translation unit in disposed CXIndex");
+      throw new Error("Cannot create a translation unit in a disposed CXIndex");
     }
     const result = libclang.symbols.clang_createTranslationUnit2(
       this.#pointer,
@@ -459,9 +512,7 @@ export class CXIndex {
     const pointer = Deno.UnsafePointer.create<typeof CXTranslationUnitT>(
       OUT_64[0],
     )!;
-    const tu = CX_TRANSLATION_UNIT_CONSTRUCTOR(pointer);
-    this.translationUnits.set(astFileName, tu);
-    return tu;
+    return CX_TRANSLATION_UNIT_CONSTRUCTOR(this, pointer);
   }
 
   // createTranslationUnitFromSourceFile(
@@ -478,37 +529,22 @@ export class CXIndex {
    * translation units.
    */
   createIndexAction(): CXIndexAction {
+    if (this.#disposed) {
+      throw new Error("Cannot create an action in a disposed CXIndex");
+    }
     return CX_INDEX_ACTION_CONSTRUCTOR(
+      this,
       libclang.symbols.clang_IndexAction_create(this.#pointer),
     );
-  }
-
-  /**
-   * Destroy the given index.
-   *
-   * Destroying the index will destroy all the translation units created
-   * within that index. It is not strictly necessary to call this method,
-   * the memory will be released as part of JavaScript garbage collection.
-   */
-  dispose(): void {
-    if (this.#disposed) {
-      return;
-    }
-    for (const tu of this.translationUnits.values()) {
-      tu.dispose();
-    }
-    this.translationUnits.clear();
-    libclang.symbols.clang_disposeIndex(this.#pointer);
-    INDEX_FINALIZATION_REGISTRY.unregister(this);
-    this.#disposed = true;
   }
 }
 
 const INDEX_ACTION_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
->((pointer) => libclang.symbols.clang_IndexAction_dispose(pointer));
+>(libclang.symbols.clang_IndexAction_dispose);
 
 let CX_INDEX_ACTION_CONSTRUCTOR: (
+  cxIndex: CXIndex,
   pointer: Deno.PointerValue,
 ) => CXIndexAction;
 
@@ -521,26 +557,48 @@ let CX_INDEX_ACTION_CONSTRUCTOR: (
 class CXIndexAction {
   static #constructable = false;
   #pointer: Deno.PointerValue;
+  #cxIndex: CXIndex;
+  #disposed = false;
 
   /**
    * @private Private API, cannot be used from outside.
    */
   constructor(
+    cxIndex: CXIndex,
     pointer: Deno.PointerValue,
   ) {
     if (CXIndexAction.#constructable !== true) {
       throw new Error("CXIndexAction is not constructable");
     }
     this.#pointer = pointer;
+    this.#cxIndex = cxIndex;
     INDEX_ACTION_FINALIZATION_REGISTRY.register(this, pointer, this);
+    CX_INDEX_REGISTER_DEPENDENT(cxIndex, this);
+  }
+
+  /**
+   * Destroy the given index action.
+   *
+   * The index action must not be destroyed until all of the translation units
+   * created within that index action have been destroyed.
+   */
+  dispose(): void {
+    if (this.#disposed) {
+      return;
+    }
+    libclang.symbols.clang_IndexAction_dispose(this.#pointer);
+    INDEX_ACTION_FINALIZATION_REGISTRY.unregister(this);
+    CX_INDEX_UNREGISTER_DEPENDENT(this.#cxIndex, this);
+    this.#disposed = true;
   }
 
   static {
     CX_INDEX_ACTION_CONSTRUCTOR = (
+      cxIndex: CXIndex,
       pointer: Deno.PointerValue,
     ): CXIndexAction => {
       CXIndexAction.#constructable = true;
-      const result = new CXIndexAction(pointer);
+      const result = new CXIndexAction(cxIndex, pointer);
       CXIndexAction.#constructable = false;
       return result;
     };
@@ -553,17 +611,6 @@ class CXIndexAction {
   // indexSourceFileFullArgv(arg_0: CXIndexAction, arg_1: CXClientData, arg_2: buf(IndexerCallbacks), arg_3: unsigned, arg_4: unsigned, arg_5: constCharPtr, arg_6: string, arg_7: int, arg_8: CXUnsavedFile, arg_9: unsigned, arg_10: CXTranslationUnit, arg_11: unsigned, arg_12: asd)  { libclang.symbols.clang_indexSourceFileFullArgv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8, arg_9, arg_10, arg_11, arg_12); }
 
   // indexTranslationUnit(arg_0: CXIndexAction, arg_1: CXClientData, arg_2: IndexerCallbacks, arg_3: unsigned, arg_4: unsigned, arg_5: CXTranslationUnit, arg_6: asd )  { libclang.symbols.clang_indexTranslationUnit(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6); }
-
-  /**
-   * Destroy the given index action.
-   *
-   * The index action must not be destroyed until all of the translation units
-   * created within that index action have been destroyed.
-   */
-  dispose(): void {
-    libclang.symbols.clang_IndexAction_dispose(this.#pointer);
-    INDEX_ACTION_FINALIZATION_REGISTRY.unregister(this);
-  }
 }
 
 /**
@@ -601,7 +648,7 @@ export interface UnsavedFile {
 }
 
 interface Dependent {
-  [DISPOSE]?(): void;
+  dispose(): void;
 }
 
 type DependentsSet = Set<WeakRef<Dependent>>;
@@ -610,13 +657,21 @@ type CXTranslationUnitCursor<T> = T extends CXSourceLocation ? CXCursor | null
   : CXCursor;
 
 const TU_FINALIZATION_REGISTRY = new FinalizationRegistry<Deno.PointerValue>(
-  (tuPointer) => libclang.symbols.clang_disposeTranslationUnit(tuPointer),
+  libclang.symbols.clang_disposeTranslationUnit,
 );
 
 let CX_TRANSLATION_UNIT_CONSTRUCTOR: (
+  index: CXIndex,
   pointer: Deno.PointerObject<typeof CXTranslationUnitT>,
 ) => CXTranslationUnit;
-
+let CX_TRANSLATION_UNIT_REGISTER_DEPENDENT: (
+  tu: CXTranslationUnit,
+  dependent: Dependent,
+) => void;
+let CX_TRANSLATION_UNIT_UNREGISTER_DEPENDENT: (
+  tu: CXTranslationUnit,
+  dependent: Dependent,
+) => void;
 let GET_CX_TRANSLATION_UNIT_POINTER: (
   tu: CXTranslationUnit,
 ) => Deno.PointerObject<typeof CXTranslationUnitT>;
@@ -628,6 +683,7 @@ export class CXTranslationUnit {
   static #constructable = false;
   #dependents: DependentsSet = new Set();
   #pointer: Deno.PointerObject<typeof CXTranslationUnitT>;
+  #cxIndex: CXIndex;
   #disposed = false;
   #suspended = false;
 
@@ -635,23 +691,82 @@ export class CXTranslationUnit {
    * @private Private API, cannot be used from outside.
    */
   constructor(
+    cxIndex: CXIndex,
     pointer: Deno.PointerObject<typeof CXTranslationUnitT>,
   ) {
     if (!CXTranslationUnit.#constructable) {
       throw new Error("CXTranslationUnit is not constructable");
     }
     this.#pointer = pointer;
+    this.#cxIndex = cxIndex;
     TU_FINALIZATION_REGISTRY.register(this, pointer, this);
+    CX_INDEX_REGISTER_DEPENDENT(cxIndex, this);
+  }
+
+  #disposeDependents() {
+    const dependents = this.#dependents;
+    this.#dependents = new Set();
+    for (const dependent of dependents) {
+      const dep = dependent.deref();
+      if (dep) {
+        dep.dispose();
+      }
+    }
+  }
+
+  /**
+   * Destroy the {@link CXTranslationUnit} object.
+   *
+   * This will mark all dependent objects (eg. {@link CXCursor},
+   * {@link CXTUResourceUsage}) disposed as well as
+   * using those is no longer safe. However, this marking
+   * is not yet fully implemented and should not be relied on.
+   *
+   * It is not strictly necessary to call this method, the memory
+   * will be released as part of JavaScript garbage collection.
+   */
+  dispose(): void {
+    if (this.#disposed) {
+      return;
+    }
+    this.#disposeDependents();
+    libclang.symbols.clang_disposeTranslationUnit(this.#pointer);
+    // Manually disposed: unregister from FinalizationRegistry.
+    TU_FINALIZATION_REGISTRY.unregister(this);
+    CX_INDEX_UNREGISTER_DEPENDENT(this.#cxIndex, this);
+    this.#disposed = true;
   }
 
   static {
     CX_TRANSLATION_UNIT_CONSTRUCTOR = (
+      cxIndex: CXIndex,
       pointer: Deno.PointerObject<typeof CXTranslationUnitT>,
     ): CXTranslationUnit => {
       CXTranslationUnit.#constructable = true;
-      const result = new CXTranslationUnit(pointer);
+      const result = new CXTranslationUnit(cxIndex, pointer);
       CXTranslationUnit.#constructable = false;
       return result;
+    };
+    CX_TRANSLATION_UNIT_REGISTER_DEPENDENT = (
+      tu: CXTranslationUnit,
+      dependent: Dependent,
+    ): void => {
+      tu.#dependents.add(new WeakRef(dependent));
+    };
+    CX_TRANSLATION_UNIT_UNREGISTER_DEPENDENT = (
+      tu: CXTranslationUnit,
+      dependent: Dependent,
+    ): void => {
+      if (tu.#dependents.size === 0) {
+        return;
+      }
+      for (const weakRef of tu.#dependents) {
+        const result = weakRef.deref();
+        if (result == dependent || result === undefined) {
+          tu.#dependents.delete(weakRef);
+          return;
+        }
+      }
     };
     GET_CX_TRANSLATION_UNIT_POINTER = (
       tu: CXTranslationUnit,
@@ -724,7 +839,16 @@ export class CXTranslationUnit {
     } else if (this.#suspended) {
       throw new Error("Cannot suspend suspended CXTranslationUnit");
     }
-    return libclang.symbols.clang_suspendTranslationUnit(this.#pointer);
+    const result = libclang.symbols.clang_suspendTranslationUnit(this.#pointer);
+    this.#suspended = true;
+    for (const dependent of this.#dependents) {
+      const dep = dependent.deref();
+      if (dep) {
+        dep.dispose();
+      }
+    }
+    this.#dependents.clear();
+    return result;
   }
 
   /**
@@ -761,6 +885,8 @@ export class CXTranslationUnit {
       throw new Error("Cannot reparse disposed CXTranslationUnit");
     }
 
+    this.#disposeDependents();
+
     const unsavedFilesCount = unsavedFiles.length;
     const unsavedFilesBuffer: Uint8Array = unsavedFilesCount
       ? new Uint8Array(24 * unsavedFilesCount)
@@ -796,6 +922,9 @@ export class CXTranslationUnit {
    * Get the original translation unit source file name.
    */
   getSpelling(): string {
+    if (this.#disposed) {
+      throw new Error("Cannot get spelling of disposed CXTranslationUnit");
+    }
     return cxstringToString(
       libclang.symbols.clang_getTranslationUnitSpelling(this.#pointer),
     );
@@ -850,7 +979,10 @@ export class CXTranslationUnit {
     const listPointer = libclang.symbols.clang_getAllSkippedRanges(
       this.#pointer,
     );
-    const view = new Deno.UnsafePointerView(listPointer!);
+    if (listPointer === null) {
+      return null;
+    }
+    const view = new Deno.UnsafePointerView(listPointer);
     const count = view.getUint32();
     if (count === 0) {
       libclang.symbols.clang_disposeSourceRangeList(listPointer);
@@ -1006,7 +1138,7 @@ export class CXTranslationUnit {
       );
     } else if (this.#suspended) {
       throw new Error(
-        "Cannot get resoure usage of suspended CXTranslationUnit",
+        "Cannot get resource usage of suspended CXTranslationUnit",
       );
     }
     const resourceUsage = CX_TU_RESOURCE_USAGE_CONSTRUCTOR(
@@ -1019,6 +1151,15 @@ export class CXTranslationUnit {
    * Create a {@link CXRewriter} in the translation unit.
    */
   createRewriter(): CXRewriter {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot create a rewriter in disposed CXTranslationUnit",
+      );
+    } else if (this.#suspended) {
+      throw new Error(
+        "Cannot create a rewriter in suspended CXTranslationUnit",
+      );
+    }
     return CX_REWRITER_CONSTRUCTOR(
       this,
       libclang.symbols.clang_CXRewriter_create(this.#pointer),
@@ -1152,6 +1293,15 @@ export class CXTranslationUnit {
    * commonly-requested data.
    */
   defaultSaveOptions(): number {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot get default save options of disposed CXTranslationUnit",
+      );
+    } else if (this.#suspended) {
+      throw new Error(
+        "Cannot get default save options of suspended CXTranslationUnit",
+      );
+    }
     return libclang.symbols.clang_defaultSaveOptions(this.#pointer);
   }
 
@@ -1160,6 +1310,15 @@ export class CXTranslationUnit {
    * contains it if one exists, or `null` otherwise.
    */
   getModuleForFile(file: CXFile): null | CXModule {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot get module for file in disposed CXTranslationUnit",
+      );
+    } else if (this.#suspended) {
+      throw new Error(
+        "Cannot get module for file in suspended CXTranslationUnit",
+      );
+    }
     const result = libclang.symbols.clang_getModuleForFile(
       this.#pointer,
       GET_CX_FILE_POINTER(file),
@@ -1179,6 +1338,15 @@ export class CXTranslationUnit {
   getInclusions(
     callback: (file: CXFile, inclusionStack: CXSourceLocation[]) => void,
   ): void {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot get inclusions in disposed CXTranslationUnit",
+      );
+    } else if (this.#suspended) {
+      throw new Error(
+        "Cannot get inclusions in suspended CXTranslationUnit",
+      );
+    }
     const savedTu = CURRENT_TU;
     const savedCallback = CURRENT_INCLUSION_VISITOR_CALLBACK;
     CURRENT_TU = this;
@@ -1207,6 +1375,15 @@ export class CXTranslationUnit {
     file: CXFile,
     callback: (cursor: CXCursor, sourceRange: CXSourceRange) => CXVisitorResult,
   ): CXResult {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot find #import/#include directives in disposed CXTranslationUnit",
+      );
+    } else if (this.#suspended) {
+      throw new Error(
+        "Cannot find #import/#include directives in suspended CXTranslationUnit",
+      );
+    }
     const savedTu = CURRENT_TU;
     const savedCallback = CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK;
     CURRENT_TU = this;
@@ -1289,6 +1466,15 @@ export class CXTranslationUnit {
     unsavedFiles: UnsavedFile[] = [],
     flags: CXCodeComplete_Flags[],
   ): CXCodeCompleteResults | null {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot perform code completion in disposed CXTranslationUnit",
+      );
+    } else if (this.#suspended) {
+      throw new Error(
+        "Cannot perform code completion in suspended CXTranslationUnit",
+      );
+    }
     const options: number = flags
       ? flags.reduce((acc, flag) => acc | flag, 0)
       : libclang.symbols.clang_defaultCodeCompleteOptions();
@@ -1372,65 +1558,11 @@ export class CXTranslationUnit {
     }
     return flags;
   }
-
-  /**
-   * @private Private API, cannot be used from outside.
-   */
-  [REGISTER](dependent: Dependent) {
-    this.#dependents.add(new WeakRef(dependent));
-  }
-
-  /**
-   * @private Private API, cannot be used from outside.
-   */
-  [DEREGISTER](dependent: Dependent) {
-    for (const weakRef of this.#dependents) {
-      if (weakRef.deref() == dependent) {
-        this.#dependents.delete(weakRef);
-        return;
-      }
-    }
-  }
-
-  /**
-   * @private Private API, cannot be used from outside.
-   */
-  [DISPOSE](): void {
-    for (const dependent of this.#dependents) {
-      const dep = dependent.deref();
-      if (dep && typeof dep[DISPOSE] === "function") {
-        dep[DISPOSE]();
-      }
-    }
-    this.#dependents.clear();
-    this.#disposed = true;
-    libclang.symbols.clang_disposeTranslationUnit(this.#pointer);
-    // Manually disposed: unregister from FinalizationRegistry.
-    TU_FINALIZATION_REGISTRY.unregister(this);
-  }
-
-  /**
-   * Destroy the {@link CXTranslationUnit} object.
-   *
-   * This will mark all dependent objects (eg. {@link CXCursor},
-   * {@link CXTUResourceUsage}) disposed as well as
-   * using those is no longer safe. However, this marking
-   * is not yet fully implemented and should not be relied on.
-   *
-   * It is not strictly necessary to call this method, the memory
-   * will be released as part of JavaScript garbage collection.
-   */
-  dispose(): void {
-    if (this.#disposed) {
-      return;
-    }
-    this[DISPOSE]();
-  }
 }
 
 const COMPLETION_RESULTS_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerObject<typeof CXCodeCompleteResultsT>
->((pointer) => libclang.symbols.clang_disposeCodeCompleteResults(pointer));
+>(libclang.symbols.clang_disposeCodeCompleteResults);
 
 let CX_CODE_COMPLETE_RESULTS_CONSTRUCTOR: (
   tu: CXTranslationUnit,
@@ -1453,6 +1585,7 @@ class CXCodeCompleteResults {
     kind: CXCursorKind;
     completionString: CXCompletionString;
   }[];
+  #disposed = false;
 
   /**
    * @private Private API, cannot be used from outside.
@@ -1470,6 +1603,19 @@ class CXCodeCompleteResults {
     this.#numberOfResults = view.getUint32(8);
     this.tu = tu;
     COMPLETION_RESULTS_FINALIZATION_REGISTRY.register(this, pointer, this);
+    CX_TRANSLATION_UNIT_REGISTER_DEPENDENT(tu, this);
+  }
+
+  static {
+    CX_CODE_COMPLETE_RESULTS_CONSTRUCTOR = (
+      tu: CXTranslationUnit,
+      pointer: Deno.PointerObject<typeof CXCodeCompleteResultsT>,
+    ): CXCodeCompleteResults => {
+      CXCodeCompleteResults.#constructable = true;
+      const result = new CXCodeCompleteResults(tu, pointer);
+      CXCodeCompleteResults.#constructable = false;
+      return result;
+    };
   }
 
   /**
@@ -1480,6 +1626,11 @@ class CXCodeCompleteResults {
     completionString: CXCompletionString;
   }[] {
     if (!this.#resultsArray) {
+      if (this.#disposed) {
+        throw new Error(
+          "Cannot get results of disposed CXCodeCompleteResults",
+        );
+      }
       this.#resultsArray = [];
       const view = new Deno.UnsafePointerView(this.#resultsPointer);
       for (let i = 0; i < this.#numberOfResults; i++) {
@@ -1497,18 +1648,6 @@ class CXCodeCompleteResults {
     return this.#resultsArray;
   }
 
-  static {
-    CX_CODE_COMPLETE_RESULTS_CONSTRUCTOR = (
-      tu: CXTranslationUnit,
-      pointer: Deno.PointerObject<typeof CXCodeCompleteResultsT>,
-    ): CXCodeCompleteResults => {
-      CXCodeCompleteResults.#constructable = true;
-      const result = new CXCodeCompleteResults(tu, pointer);
-      CXCodeCompleteResults.#constructable = false;
-      return result;
-    };
-  }
-
   /**
    * Retrieve the number of fix-its for the given completion index.
    *
@@ -1520,6 +1659,11 @@ class CXCodeCompleteResults {
    * `index` can be applied.
    */
   getNumberOfFixIts(index: number): number {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot get number of fix-its of disposed CXCodeCompleteResults",
+      );
+    }
     return libclang.symbols.clang_getCompletionNumFixIts(this.#pointer, index);
   }
 
@@ -1570,6 +1714,11 @@ class CXCodeCompleteResults {
     fixit: string;
     range: CXSourceRange;
   } {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot get fix it of disposed CXCodeCompleteResults",
+      );
+    }
     const replacementRangeBuffer = new Uint8Array(24);
     const fixit = cxstringToString(
       libclang.symbols.clang_getCompletionFixIt(
@@ -1594,6 +1743,11 @@ class CXCodeCompleteResults {
    * order. This recreates the {@link results} array.
    */
   sortCodeCompletionResults(): void {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot sort code-completion results of disposed CXCodeCompleteResults",
+      );
+    }
     libclang.symbols.clang_sortCodeCompletionResults(
       this.#resultsPointer,
       this.#numberOfResults,
@@ -1609,6 +1763,11 @@ class CXCodeCompleteResults {
    * location where code completion was performed.
    */
   getNumberOfDiagnostics(): number {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot get number of diagnostics of disposed CXCodeCompleteResults",
+      );
+    }
     return libclang.symbols.clang_codeCompleteGetNumDiagnostics(this.#pointer);
   }
 
@@ -1619,6 +1778,11 @@ class CXCodeCompleteResults {
    * @returns The requested {@link CXDiagnostic}.
    */
   getDiagnostic(index: number): CXDiagnostic {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot get diagnostic of disposed CXCodeCompleteResults",
+      );
+    }
     const result = libclang.symbols.clang_codeCompleteGetDiagnostic(
       this.#pointer,
       index,
@@ -1640,6 +1804,11 @@ class CXCodeCompleteResults {
    * along with these code completion results.
    */
   getContexts(): CXCompletionContext[] {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot get contexts of disposed CXCodeCompleteResults",
+      );
+    }
     const contexts = Number(
       libclang.symbols.clang_codeCompleteGetContexts(this.#pointer),
     );
@@ -1822,6 +1991,11 @@ class CXCodeCompleteResults {
      */
     incomplete: boolean;
   } {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot get container kind of disposed CXCodeCompleteResults",
+      );
+    }
     const kind = libclang.symbols.clang_codeCompleteGetContainerKind(
       this.#pointer,
       OUT,
@@ -1838,6 +2012,11 @@ class CXCodeCompleteResults {
    * function will return the empty string.
    */
   getContainerUSR(): string {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot get container USR of disposed CXCodeCompleteResults",
+      );
+    }
     return cxstringToString(
       libclang.symbols.clang_codeCompleteGetContainerUSR(this.#pointer),
     );
@@ -1853,6 +2032,11 @@ class CXCodeCompleteResults {
    * for an Objective-C message send.
    */
   getObjCSelector(): string {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot get Objective-C selector of disposed CXCodeCompleteResults",
+      );
+    }
     return cxstringToString(
       libclang.symbols.clang_codeCompleteGetObjCSelector(this.#pointer),
     );
@@ -1867,8 +2051,13 @@ class CXCodeCompleteResults {
    * will be released as part of JavaScript garbage collection.
    */
   dispose(): void {
+    if (this.#disposed) {
+      return;
+    }
     libclang.symbols.clang_disposeCodeCompleteResults(this.#pointer);
     COMPLETION_RESULTS_FINALIZATION_REGISTRY.unregister(this);
+    CX_TRANSLATION_UNIT_UNREGISTER_DEPENDENT(this.tu, this);
+    this.#disposed = true;
   }
 }
 
@@ -1885,7 +2074,7 @@ interface CXTUResourceUsageEntry {
 
 const RESOURCE_USAGE_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Uint8Array
->((buffer) => libclang.symbols.clang_disposeCXTUResourceUsage(buffer));
+>(libclang.symbols.clang_disposeCXTUResourceUsage);
 
 let CX_TU_RESOURCE_USAGE_CONSTRUCTOR: (buffer: Uint8Array) => CXTUResourceUsage;
 
@@ -1947,7 +2136,9 @@ class CXTUResourceUsage {
       );
     }
     if (index < 0 || index >= this.length) {
-      throw new Error("Invalid argument, index must be unsigned integer");
+      throw new Error(
+        "Invalid argument, index must be unsigned integer within 0..this.length",
+      );
     }
     const buffer = Deno.UnsafePointerView.getArrayBuffer(
       this.#pointer!,
@@ -2021,13 +2212,6 @@ export class CXFile {
   }
 
   /**
-   * private
-   */
-  [DISPOSE](): void {
-    this.#disposed = true;
-  }
-
-  /**
    * Returns `true` if this and {@link other} point to the same file.
    */
   equals(other: CXFile): boolean {
@@ -2044,6 +2228,11 @@ export class CXFile {
    * Retrieve the complete file and path name of this file.
    */
   getName(): string {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot get name of disposed CXFile",
+      );
+    }
     return cxstringToString(libclang.symbols.clang_getFileName(this.#pointer));
   }
 
@@ -2051,6 +2240,11 @@ export class CXFile {
    * Retrieve the last modification time of this file.
    */
   getTime(): number | bigint {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot get time of disposed CXFile",
+      );
+    }
     return libclang.symbols.clang_getFileTime(this.#pointer);
   }
 
@@ -2058,6 +2252,11 @@ export class CXFile {
    * Retrieve the unique ID for this file.
    */
   getUniqueID(): `${number}-${number}-${number}` {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot get unique ID of disposed CXFile",
+      );
+    }
     const result = libclang.symbols.clang_getFileUniqueID(
       this.#pointer,
       OUT,
@@ -2074,6 +2273,11 @@ export class CXFile {
    * An empty string may be returned. Use {@link getName()} in that case.
    */
   tryGetRealPathName(): string {
+    if (this.#disposed) {
+      throw new Error(
+        "Cannot get real path name of disposed CXFile",
+      );
+    }
     return cxstringToString(
       libclang.symbols.clang_File_tryGetRealPathName(this.#pointer),
     );
@@ -2129,7 +2333,7 @@ export class CXFile {
    */
   getSkippedRanges(): null | CXSourceRangeList {
     if (this.#disposed) {
-      throw new Error("Cannot get skipped ranges from disposed CXFile");
+      throw new Error("Cannot get skipped ranges of disposed CXFile");
     }
     const listPointer = libclang.symbols.clang_getSkippedRanges(
       GET_CX_TRANSLATION_UNIT_POINTER(this.tu),
@@ -2162,7 +2366,7 @@ export class CXFile {
    */
   isFileMultipleIncludeGuarded(): boolean {
     if (this.#disposed) {
-      throw new Error("Cannot get include guard data from disposed CXFile");
+      throw new Error("Cannot get include guard data of disposed CXFile");
     }
     return libclang.symbols.clang_isFileMultipleIncludeGuarded(
       GET_CX_TRANSLATION_UNIT_POINTER(this.tu),
@@ -2175,7 +2379,7 @@ export class CXFile {
    */
   getLocationForOffset(offset: number): CXSourceLocation {
     if (this.#disposed) {
-      throw new Error("Cannot get location for offset from disposed CXFile");
+      throw new Error("Cannot get location for offset of disposed CXFile");
     }
     return CX_SOURCE_LOCATION_CONSTRUCTOR(
       this.tu,
@@ -2268,9 +2472,12 @@ let CX_CURSOR_CONSTRUCTOR: (
 export class CXCursor {
   static #constructable = false;
   tu: null | CXTranslationUnit;
+  /**
+   * Internal memory of the CXCursor.
+   *
+   * > NOTE: #buffer is set to null for detached CXCursors.
+   */
   #buffer: Uint8Array;
-  #kind?: CXCursorKind;
-  #hash?: number;
 
   /**
    * @private Private API, cannot be used from outside.
@@ -2281,6 +2488,14 @@ export class CXCursor {
     }
     this.tu = tu;
     this.#buffer = buffer;
+  }
+
+  dispose(): void {
+    if (this.#buffer === null) {
+      return;
+    }
+    // @ts-expect-error unsafe teardown
+    this.#buffer = null;
   }
 
   static {
@@ -2298,6 +2513,14 @@ export class CXCursor {
     };
   }
 
+  #checkDisposed() {
+    if (this.#buffer === null) {
+      throw new Error(
+        "Cannot use disposed CXCursor",
+      );
+    }
+  }
+
   /**
    * Retrieve the NULL cursor, which represents no entity.
    */
@@ -2312,8 +2535,8 @@ export class CXCursor {
    * The kind of this cursor.
    */
   get kind(): CXCursorKind {
-    return this.#kind ??
-      (this.#kind = libclang.symbols.clang_getCursorKind(this.#buffer));
+    this.#checkDisposed();
+    return libclang.symbols.clang_getCursorKind(this.#buffer);
   }
 
   /**
@@ -2393,6 +2616,7 @@ export class CXCursor {
    * is also a definition of that entity.
    */
   isDefinition(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_isCursorDefinition(this.#buffer) !== 0;
   }
 
@@ -2400,6 +2624,7 @@ export class CXCursor {
    * Returns `true` if this cursor is a variadic function or method.
    */
   isVariadic(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_isVariadic(this.#buffer) !== 0;
   }
 
@@ -2407,6 +2632,7 @@ export class CXCursor {
    * Determine if a C++ constructor is a converting constructor.
    */
   isConvertingConstructor(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_CXXConstructor_isConvertingConstructor(
       this.#buffer,
     ) !== 0;
@@ -2416,6 +2642,7 @@ export class CXCursor {
    * Determine if a C++ constructor is a copy constructor.
    */
   isCopyConstructor(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_CXXConstructor_isCopyConstructor(
       this.#buffer,
     ) !== 0;
@@ -2425,6 +2652,7 @@ export class CXCursor {
    * Determine if a C++ constructor is the default constructor.
    */
   isDefaultConstructor(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_CXXConstructor_isDefaultConstructor(
       this.#buffer,
     ) !== 0;
@@ -2434,6 +2662,7 @@ export class CXCursor {
    * Determine if a C++ constructor is a move constructor.
    */
   isMoveConstructor(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_CXXConstructor_isMoveConstructor(
       this.#buffer,
     ) !== 0;
@@ -2443,6 +2672,7 @@ export class CXCursor {
    * Determine if a C++ field is declared 'mutable'.
    */
   isMutable(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_CXXField_isMutable(this.#buffer) !== 0;
   }
 
@@ -2451,6 +2681,7 @@ export class CXCursor {
    * declared 'const'.
    */
   isConst(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_CXXMethod_isConst(this.#buffer) !== 0;
   }
 
@@ -2483,15 +2714,25 @@ export class CXCursor {
    *
    * Is not.
    */
-  isCopyAssignmentOperator(): never {
-    throw new Error("Not implemented");
-    // return libclang.symbols.clang_CXXMethod_isCopyAssignmentOperator(this.#buffer) !== 0;
+  isCopyAssignmentOperator(): boolean {
+    this.#checkDisposed();
+    const isCopyAssignmentOperator =
+      libclang.symbols.clang_CXXMethod_isCopyAssignmentOperator;
+    if (!isCopyAssignmentOperator) {
+      throw new Error(
+        "isCopyAssignmentOperator is not supported in your libclang version",
+      );
+    }
+    return isCopyAssignmentOperator(
+      this.#buffer,
+    ) !== 0;
   }
 
   /**
    * Determine if a C++ method is declared '= default'.
    */
   isDefaulted(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_CXXMethod_isDefaulted(this.#buffer) !== 0;
   }
 
@@ -2500,9 +2741,13 @@ export class CXCursor {
    *
    * Determine if a C++ method is declared '= delete'.
    */
-  isDeleted(): never {
-    throw new Error("Not implemented");
-    //return libclang.symbols.clang_CXXMethod_isDeleted(this.#buffer) !== 0;
+  isDeleted(): boolean {
+    this.#checkDisposed();
+    const isDeleted = libclang.symbols.clang_CXXMethod_isDeleted;
+    if (!isDeleted) {
+      throw new Error("isDeleted is not supported in your libclang version");
+    }
+    return isDeleted(this.#buffer) !== 0;
   }
 
   /**
@@ -2510,6 +2755,7 @@ export class CXCursor {
    * pure virtual.
    */
   isPureVirtual(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_CXXMethod_isPureVirtual(this.#buffer) !== 0;
   }
 
@@ -2518,6 +2764,7 @@ export class CXCursor {
    * declared 'static'.
    */
   isStatic(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_CXXMethod_isStatic(this.#buffer) !== 0;
   }
 
@@ -2527,6 +2774,7 @@ export class CXCursor {
    * one of the base classes.
    */
   isVirtual(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_CXXMethod_isVirtual(this.#buffer) !== 0;
   }
 
@@ -2535,6 +2783,7 @@ export class CXCursor {
    * has a pure virtual member function.
    */
   isAbstract(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_CXXRecord_isAbstract(this.#buffer) !== 0;
   }
 
@@ -2542,6 +2791,7 @@ export class CXCursor {
    * Determine if an enum declaration refers to a scoped enum.
    */
   isScopedEnum(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_EnumDecl_isScoped(this.#buffer) !== 0;
   }
 
@@ -2550,6 +2800,7 @@ export class CXCursor {
    * function like.
    */
   isMacroFunctionLike(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_isMacroFunctionLike(this.#buffer) > 0;
   }
 
@@ -2558,6 +2809,7 @@ export class CXCursor {
    * builtin one.
    */
   isMacroBuiltin(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_isMacroBuiltin(this.#buffer) > 0;
   }
 
@@ -2566,6 +2818,7 @@ export class CXCursor {
    * inline declaration.
    */
   isFunctionInlined(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_isFunctionInlined(this.#buffer) > 0;
   }
 
@@ -2574,6 +2827,7 @@ export class CXCursor {
    * tag or namespace
    */
   isAnonymous(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_isAnonymous(this.#buffer) > 0;
   }
 
@@ -2582,6 +2836,7 @@ export class CXCursor {
    * declaration.
    */
   isAnonymousRecordDecl(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_isAnonymousRecordDecl(this.#buffer) >
       0;
   }
@@ -2591,6 +2846,7 @@ export class CXCursor {
    * declaration.
    */
   isInlineNamespace(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_isInlineNamespace(this.#buffer) > 0;
   }
 
@@ -2599,6 +2855,7 @@ export class CXCursor {
    * bitfield.
    */
   isBitField(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_isBitField(this.#buffer) > 0;
   }
 
@@ -2607,6 +2864,7 @@ export class CXCursor {
    * {@link CXCursorKind.CXCursor_CXXBaseSpecifier} is virtual.
    */
   isVirtualBase(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_isVirtualBase(this.#buffer) > 0;
   }
 
@@ -2619,6 +2877,7 @@ export class CXCursor {
    * invalid.
    */
   isInvalidDeclaration(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_isInvalidDeclaration(this.#buffer) > 0;
   }
 
@@ -2626,6 +2885,8 @@ export class CXCursor {
    * Determine whether two cursors are equivalent.
    */
   equals(other: CXCursor): boolean {
+    this.#checkDisposed();
+    other.#checkDisposed();
     return libclang.symbols.clang_equalCursors(this.#buffer, other.#buffer) !==
       0;
   }
@@ -2635,6 +2896,7 @@ export class CXCursor {
    * cursor referring to the initializer otherwise return `null`.
    */
   getVariableDeclarationInitializer(): null | CXCursor {
+    this.#checkDisposed();
     return CX_CURSOR_CONSTRUCTOR(
       this.tu,
       libclang.symbols.clang_Cursor_getVarDeclInitializer(this.#buffer),
@@ -2645,6 +2907,7 @@ export class CXCursor {
    * Determine whether this cursor has any attributes.
    */
   hasAttributes(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_hasAttrs(this.#buffer) > 0;
   }
 
@@ -2654,6 +2917,7 @@ export class CXCursor {
    * external storage returns `false`. Otherwise an error is thrown.
    */
   hasVariableDeclarationWithExternalStorage(): boolean {
+    this.#checkDisposed();
     const result = libclang.symbols.clang_Cursor_hasVarDeclExternalStorage(
       this.#buffer,
     );
@@ -2671,6 +2935,7 @@ export class CXCursor {
    * @returns The availability of the cursor.
    */
   getAvailability(): CXAvailabilityKind {
+    this.#checkDisposed();
     return libclang.symbols.clang_getCursorAvailability(this.#buffer);
   }
 
@@ -2678,6 +2943,7 @@ export class CXCursor {
    * Determine the "language" of the entity referred to by this cursor.
    */
   getLanguage(): CXLanguageKind {
+    this.#checkDisposed();
     return libclang.symbols.clang_getCursorLanguage(this.#buffer);
   }
 
@@ -2714,6 +2980,7 @@ export class CXCursor {
    * the translation unit.
    */
   getLexicalParent(): CXCursor {
+    this.#checkDisposed();
     // A lexical parent always exists.
     return CX_CURSOR_CONSTRUCTOR(
       this.tu,
@@ -2725,6 +2992,7 @@ export class CXCursor {
    * Determine the linkage of the entity referred to by this cursor.
    */
   getLinkage(): CXLinkageKind {
+    this.#checkDisposed();
     return libclang.symbols.clang_getCursorLinkage(this.#buffer);
   }
 
@@ -2754,6 +3022,7 @@ export class CXCursor {
      */
     unavailableMessage: string;
   } {
+    this.#checkDisposed();
     // First get the number of platforms availability information is available for.
     // At the same time get the other information.
     const deprecatedMessageOut = new Uint8Array(32);
@@ -2875,6 +3144,7 @@ export class CXCursor {
    * For global declarations, the semantic parent is the translation unit.
    */
   getSemanticParent(): CXCursor {
+    this.#checkDisposed();
     // Semantic parent always exists.
     return CX_CURSOR_CONSTRUCTOR(
       this.tu,
@@ -2887,6 +3157,7 @@ export class CXCursor {
    * referred to by this cursor.
    */
   getTLSKind(): CXTLSKind {
+    this.#checkDisposed();
     return libclang.symbols.clang_getCursorTLSKind(this.#buffer);
   }
 
@@ -2900,6 +3171,7 @@ export class CXCursor {
    * @returns The visibility of the cursor.
    */
   getVisibility(): CXVisibilityKind {
+    this.#checkDisposed();
     return libclang.symbols.clang_getCursorVisibility(this.#buffer);
   }
 
@@ -2908,6 +3180,7 @@ export class CXCursor {
    * cursor.
    */
   getIncludedFile(): CXFile {
+    this.#checkDisposed();
     if (this.tu === null) {
       throw new Error("Cannot get included file of null cursor");
     }
@@ -2953,6 +3226,7 @@ export class CXCursor {
    * overridden methods.
    */
   getOverriddenCursors(): CXCursor[] {
+    this.#checkDisposed();
     const OUT_2 = OUT.subarray(8, 12);
     const out32 = new Uint32Array(OUT_2.buffer, 8, 1);
     libclang.symbols.clang_getOverriddenCursors(this.#buffer, OUT, OUT_2);
@@ -2992,6 +3266,7 @@ export class CXCursor {
    * be returned as `null` instead.
    */
   isNull(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_isNull(this.#buffer) !== 0;
   }
 
@@ -2999,8 +3274,8 @@ export class CXCursor {
    * Compute a hash value for this cursor.
    */
   hash(): number {
-    return this.#hash ??
-      (this.#hash = libclang.symbols.clang_hashCursor(this.#buffer));
+    this.#checkDisposed();
+    return libclang.symbols.clang_hashCursor(this.#buffer);
   }
 
   /**
@@ -3010,6 +3285,7 @@ export class CXCursor {
    * first paragraph.
    */
   getBriefCommentText(): string {
+    this.#checkDisposed();
     const cxstring = libclang.symbols.clang_Cursor_getBriefCommentText(
       this.#buffer,
     );
@@ -3022,6 +3298,7 @@ export class CXCursor {
    * with whitespace in between.
    */
   getCommentRange(): CXSourceRange | null {
+    this.#checkDisposed();
     return CX_SOURCE_RANGE_CONSTRUCTOR(
       this.tu,
       libclang.symbols.clang_Cursor_getCommentRange(this.#buffer),
@@ -3035,6 +3312,7 @@ export class CXCursor {
    * {@link CXObjCDeclQualifierKind}.
    */
   getObjCDeclQualifiers(): number {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_getObjCDeclQualifiers(this.#buffer);
   }
 
@@ -3044,6 +3322,7 @@ export class CXCursor {
    * {@link CXObjCPropertyAttrKind}.
    */
   getObjCPropertyAttributes(): number {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_getObjCPropertyAttributes(
       this.#buffer,
       0,
@@ -3055,6 +3334,7 @@ export class CXCursor {
    * name of the method that implements the setter, if any.
    */
   getObjCPropertySetterName(): string {
+    this.#checkDisposed();
     return cxstringToString(
       libclang.symbols.clang_Cursor_getObjCPropertySetterName(this.#buffer),
     );
@@ -3065,6 +3345,7 @@ export class CXCursor {
    * name of the method that implements the getter.
    */
   getObjCPropertyGetterName(): string {
+    this.#checkDisposed();
     return cxstringToString(
       libclang.symbols.clang_Cursor_getObjCPropertyGetterName(this.#buffer),
     );
@@ -3082,6 +3363,7 @@ export class CXCursor {
    * otherwise.
    */
   getObjCSelectorIndex(): number {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_getObjCSelectorIndex(this.#buffer);
   }
 
@@ -3090,6 +3372,7 @@ export class CXCursor {
    * class interface or implementation at this cursor.
    */
   getObjCManglings(): string[] {
+    this.#checkDisposed();
     return cxstringSetToStringArray(
       libclang.symbols.clang_Cursor_getObjCManglings(this.#buffer),
     );
@@ -3101,6 +3384,7 @@ export class CXCursor {
    * Returns `false` if the cursor is not such a declaration or it is "\@required".
    */
   isObjCOptional(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_isObjCOptional(this.#buffer) !== 0;
   }
 
@@ -3109,6 +3393,7 @@ export class CXCursor {
    * comment text, including comment markers.
    */
   getRawCommentText(): string {
+    this.#checkDisposed();
     return cxstringToString(
       libclang.symbols.clang_Cursor_getRawCommentText(this.#buffer),
     );
@@ -3119,6 +3404,7 @@ export class CXCursor {
    * reference, or C++ method call, returns the CXType of the receiver.
    */
   getReceiverType(): CXType | null {
+    this.#checkDisposed();
     return CX_TYPE_CONSTRUCTOR(
       this.tu!,
       libclang.symbols.clang_Cursor_getReceiverType(this.#buffer),
@@ -3137,6 +3423,7 @@ export class CXCursor {
    * method/message, it will return `false`.
    */
   isDynamicCall(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_isDynamicCall(this.#buffer) !== 0;
   }
 
@@ -3148,6 +3435,7 @@ export class CXCursor {
    * the attribute.
    */
   isExternalSymbol(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_isExternalSymbol(
       this.#buffer,
       NULLBUF,
@@ -3175,6 +3463,7 @@ export class CXCursor {
      */
     isGenerated: boolean;
   } {
+    this.#checkDisposed();
     const languageOut = new Uint8Array(16 * 2 + 4);
     const definedInOut = languageOut.subarray(16, 16 * 2);
     const isGeneratedOut = languageOut.subarray(16 * 2);
@@ -3224,6 +3513,7 @@ export class CXCursor {
    * @returns The canonical cursor for the entity referred to by this cursor.
    */
   getCanonicalCursor(): CXCursor {
+    this.#checkDisposed();
     // A canonical cursor always exists.
     return CX_CURSOR_CONSTRUCTOR(
       this.tu,
@@ -3259,6 +3549,7 @@ export class CXCursor {
    * translation unit, returns `null`.
    */
   getDefinition(): null | CXCursor {
+    this.#checkDisposed();
     return CX_CURSOR_CONSTRUCTOR(
       this.tu,
       libclang.symbols.clang_getCursorDefinition(this.#buffer),
@@ -3273,6 +3564,7 @@ export class CXCursor {
    * class template specialization.
    */
   getDisplayName(): string {
+    this.#checkDisposed();
     return cxstringToString(
       libclang.symbols.clang_getCursorDisplayName(this.#buffer),
     );
@@ -3286,6 +3578,7 @@ export class CXCursor {
    * other cursors.
    */
   getPrettyPrinted(printingPolicy?: CXPrintingPolicy): string {
+    this.#checkDisposed();
     return cxstringToString(
       libclang.symbols.clang_getCursorPrettyPrinted(
         this.#buffer,
@@ -3298,6 +3591,7 @@ export class CXCursor {
    * Retrieve the default policy for this cursor.
    */
   getPrintingPolicy(): CXPrintingPolicy {
+    this.#checkDisposed();
     return CX_PRINTING_POLICY_CONSTRUCTOR(
       libclang.symbols.clang_getCursorPrintingPolicy(this.#buffer),
     );
@@ -3315,6 +3609,7 @@ export class CXCursor {
    * Otherwise, returns `null`.
    */
   getReferenced(): null | CXCursor {
+    this.#checkDisposed();
     return CX_CURSOR_CONSTRUCTOR(
       this.tu,
       libclang.symbols.clang_getCursorReferenced(this.#buffer),
@@ -3325,6 +3620,7 @@ export class CXCursor {
    * Retrieve a name for the entity referenced by this cursor.
    */
   getSpelling(): string {
+    this.#checkDisposed();
     return cxstringToString(
       libclang.symbols.clang_getCursorSpelling(this.#buffer),
     );
@@ -3336,6 +3632,7 @@ export class CXCursor {
    * Use this for debugging only.
    */
   getKindSpelling(): string {
+    this.#checkDisposed();
     return cxstringToString(
       libclang.symbols.clang_getCursorKindSpelling(
         libclang.symbols.clang_getCursorKind(this.#buffer),
@@ -3353,6 +3650,7 @@ export class CXCursor {
    * one translation refer to an entity defined in another translation unit.
    */
   getUSR(): string {
+    this.#checkDisposed();
     return cxstringToString(libclang.symbols.clang_getCursorUSR(this.#buffer));
   }
 
@@ -3378,6 +3676,7 @@ export class CXCursor {
   visitChildren(
     callback: (cursor: CXCursor, parent: CXCursor) => CXChildVisitResult,
   ): boolean {
+    this.#checkDisposed();
     const savedTu = CURRENT_TU;
     const savedCallback = CURRENT_CURSOR_VISITOR_CALLBACK;
     CURRENT_TU = this.tu;
@@ -3399,6 +3698,7 @@ export class CXCursor {
    * Retrieve the string representing the mangled name of this cursor.
    */
   getMangling(): string {
+    this.#checkDisposed();
     return cxstringToString(
       libclang.symbols.clang_Cursor_getMangling(this.#buffer),
     );
@@ -3409,6 +3709,7 @@ export class CXCursor {
    * constructor or destructor at this cursor.
    */
   getCXXManglings(): string[] {
+    this.#checkDisposed();
     return cxstringSetToStringArray(
       libclang.symbols.clang_Cursor_getCXXManglings(this.#buffer),
     );
@@ -3420,6 +3721,7 @@ export class CXCursor {
    * {@link CXCommentKind.CXComment_FullComment} kind {@link CXComment} AST node.
    */
   getParsedComment(): CXComment {
+    this.#checkDisposed();
     return CX_COMMENT_CONSTRUCTOR(
       this.tu,
       libclang.symbols.clang_Cursor_getParsedComment(this.#buffer),
@@ -3447,6 +3749,7 @@ export class CXCursor {
     options: CXNameRefFlags[] = [],
     pieceIndex = 0,
   ): CXSourceRange | null {
+    this.#checkDisposed();
     let opts = 0;
     for (const option of options) {
       opts |= option;
@@ -3487,6 +3790,7 @@ export class CXCursor {
    * specializes or from which it was instantiated. Otherwise, returns `null`.
    */
   getSpecializedTemplate(): CXCursor | null {
+    this.#checkDisposed();
     return CX_CURSOR_CONSTRUCTOR(
       this.tu,
       libclang.symbols.clang_getSpecializedCursorTemplate(this.#buffer),
@@ -3507,6 +3811,7 @@ export class CXCursor {
    * template, returns {@link CXCursorKind.CXCursor_NoDeclFound}.
    */
   getTemplateKind(): CXCursorKind {
+    this.#checkDisposed();
     return libclang.symbols.clang_getTemplateCursorKind(this.#buffer);
   }
 
@@ -3515,6 +3820,7 @@ export class CXCursor {
    * returns the associated module. Otherwise an error is thrown.
    */
   getModule(): CXModule {
+    this.#checkDisposed();
     if (this.tu === null) {
       throw new Error("Cannot get CXModule of null cursor");
     }
@@ -3539,6 +3845,7 @@ export class CXCursor {
    * source code.
    */
   getLocation(): CXSourceLocation {
+    this.#checkDisposed();
     return CX_SOURCE_LOCATION_CONSTRUCTOR(
       this.tu,
       libclang.symbols.clang_getCursorLocation(this.#buffer),
@@ -3557,6 +3864,7 @@ export class CXCursor {
    * entity was actually used).
    */
   getExtent(): CXSourceRange {
+    this.#checkDisposed();
     // The extent always exists for non-null cursors.
     return CX_SOURCE_RANGE_CONSTRUCTOR(
       this.tu,
@@ -3568,6 +3876,7 @@ export class CXCursor {
    * Retrieve the type of this cursor, or `null` if no type is available.
    */
   getType(): CXType | null {
+    this.#checkDisposed();
     return CX_TYPE_CONSTRUCTOR(
       this.tu!,
       libclang.symbols.clang_getCursorType(this.#buffer),
@@ -3580,6 +3889,7 @@ export class CXCursor {
    * If the cursor does not reference a typedef declaration, returns `null`.
    */
   getTypedefDeclarationOfUnderlyingType(): CXType | null {
+    this.#checkDisposed();
     return CX_TYPE_CONSTRUCTOR(
       this.tu!,
       libclang.symbols.clang_getTypedefDeclUnderlyingType(this.#buffer),
@@ -3635,6 +3945,7 @@ export class CXCursor {
    * If this cursor is not a bit field declaration, -1 is returned.
    */
   getFieldDeclarationBitWidth(): number {
+    this.#checkDisposed();
     return libclang.symbols.clang_getFieldDeclBitWidth(this.#buffer);
   }
 
@@ -3646,6 +3957,7 @@ export class CXCursor {
    * declarations of functions or methods. For other cursors -1 is returned.
    */
   getNumberOfArguments(): number {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_getNumArguments(this.#buffer);
   }
 
@@ -3657,6 +3969,7 @@ export class CXCursor {
    * is returned.
    */
   getArgument(index: number): CXCursor | null {
+    this.#checkDisposed();
     return CX_CURSOR_CONSTRUCTOR(
       this.tu,
       libclang.symbols.clang_Cursor_getArgument(this.#buffer, index),
@@ -3682,6 +3995,7 @@ export class CXCursor {
    * The value 3 would be returned from this call.
    */
   getNumberOfTemplateArguments(): number {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_getNumTemplateArguments(this.#buffer);
   }
 
@@ -3705,6 +4019,7 @@ export class CXCursor {
    * respectively.
    */
   getTemplateArgumentKind(index: number): CXTemplateArgumentKind {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_getTemplateArgumentKind(
       this.#buffer,
       index,
@@ -3732,6 +4047,7 @@ export class CXCursor {
    * Invalid types will be returned for I == 1 or 2.
    */
   getTemplateArgumentType(index: number): CXType | null {
+    this.#checkDisposed();
     return CX_TYPE_CONSTRUCTOR(
       this.tu!,
       libclang.symbols.clang_Cursor_getTemplateArgumentType(
@@ -3763,6 +4079,7 @@ export class CXCursor {
    * For I == 0, this function's behavior is undefined.
    */
   getTemplateArgumentValue(index: number): number | bigint {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_getTemplateArgumentValue(
       this.#buffer,
       index,
@@ -3791,6 +4108,7 @@ export class CXCursor {
    * For I == 0, this function's behavior is undefined.
    */
   getTemplateArgumentUnsignedValue(index: number): number | bigint {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_getTemplateArgumentUnsignedValue(
       this.#buffer,
       index,
@@ -3801,6 +4119,7 @@ export class CXCursor {
    * Returns the Objective-C type encoding for the specified declaration.
    */
   getDeclarationObjCTypeEncoding(): string {
+    this.#checkDisposed();
     return cxstringToString(
       libclang.symbols.clang_getDeclObjCTypeEncoding(this.#buffer),
     );
@@ -3812,6 +4131,7 @@ export class CXCursor {
    * This only returns a valid type if the cursor refers to a function or method.
    */
   getResultType(): CXType | null {
+    this.#checkDisposed();
     return CX_TYPE_CONSTRUCTOR(
       this.tu!,
       libclang.symbols.clang_getCursorResultType(this.#buffer),
@@ -3825,6 +4145,7 @@ export class CXCursor {
    * method.
    */
   getExceptionSpecificationType(): CXCursor_ExceptionSpecificationKind | -1 {
+    this.#checkDisposed();
     return libclang.symbols.clang_getCursorExceptionSpecificationType(
       this.#buffer,
     );
@@ -3844,6 +4165,7 @@ export class CXCursor {
    * {@link CXTypeLayoutError.CXTypeLayoutError_InvalidFieldName} is returned.
    */
   getOffsetOfField(): CXTypeLayoutError | number {
+    this.#checkDisposed();
     return Number(libclang.symbols.clang_Cursor_getOffsetOfField(this.#buffer));
   }
 
@@ -3855,6 +4177,7 @@ export class CXCursor {
    * specifier or access specifier, the specifier itself is returned.
    */
   getCXXAccessSpecifier(): CX_CXXAccessSpecifier {
+    this.#checkDisposed();
     return libclang.symbols.clang_getCXXAccessSpecifier(this.#buffer);
   }
 
@@ -3865,6 +4188,7 @@ export class CXCursor {
    * {@link CX_StorageClass.CX_SC_Invalid} is returned else the storage class.
    */
   getStorageClass(): CX_StorageClass {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_getStorageClass(this.#buffer);
   }
 
@@ -3877,6 +4201,7 @@ export class CXCursor {
    * returns 0.
    */
   getNumberOfOverloadedDeclarations(): number {
+    this.#checkDisposed();
     return libclang.symbols.clang_getNumOverloadedDecls(this.#buffer);
   }
 
@@ -3892,6 +4217,7 @@ export class CXCursor {
    * returns `null`.
    */
   getOverloadedDeclaration(index: number): CXCursor | null {
+    this.#checkDisposed();
     return CX_CURSOR_CONSTRUCTOR(
       this.tu,
       libclang.symbols.clang_getOverloadedDecl(this.#buffer, index),
@@ -3903,6 +4229,7 @@ export class CXCursor {
    * this function returns the collection element type.
    */
   getIBOutletCollectionType(): CXType | null {
+    this.#checkDisposed();
     return CX_TYPE_CONSTRUCTOR(
       this.tu!,
       libclang.symbols.clang_getIBOutletCollectionType(this.#buffer),
@@ -3915,6 +4242,7 @@ export class CXCursor {
    * returns `0`. Otherwise returns `-1`.
    */
   hasVariableDeclarationWithGlobalStorage(): -1 | 0 | 1 {
+    this.#checkDisposed();
     return libclang.symbols.clang_Cursor_hasVarDeclGlobalStorage(
       this.#buffer,
     ) as -1 | 0 | 1;
@@ -3930,6 +4258,7 @@ export class CXCursor {
    * than the actual number of pieces, it will return `null`.
    */
   getSpellingNameRange(pieceIndex: number): CXSourceRange | null {
+    this.#checkDisposed();
     return CX_SOURCE_RANGE_CONSTRUCTOR(
       this.tu,
       libclang.symbols.clang_Cursor_getSpellingNameRange(
@@ -3951,6 +4280,7 @@ export class CXCursor {
     number,
     number,
   ] {
+    this.#checkDisposed();
     const arg1 = OUT;
     const arg2 = OUT.subarray(8);
     const arg3 = OUT.subarray(12);
@@ -3982,6 +4312,7 @@ export class CXCursor {
    * definition cursors, or `null` for other kinds of cursors.
    */
   getCompletionString(): null | CXCompletionString {
+    this.#checkDisposed();
     const result = libclang.symbols.clang_getCursorCompletionString(
       this.#buffer,
     );
@@ -4000,7 +4331,9 @@ export class CXCursor {
    * If it's an expression, tries to evaluate the expression.
    */
   Evaluate(): CXEvalResult {
+    this.#checkDisposed();
     return CX_EVAL_RESULT_CONSTRUCTOR(
+      this.tu,
       libclang.symbols.clang_Cursor_Evaluate(this.#buffer),
     );
   }
@@ -4024,6 +4357,7 @@ export class CXCursor {
       range: null | CXSourceRange,
     ) => CXVisitorResult,
   ): CXResult {
+    this.#checkDisposed();
     const savedTu = CURRENT_TU;
     const savedCallback = CURRENT_CURSOR_AND_RANGE_VISITOR_CALLBACK;
     CURRENT_TU = this.tu;
@@ -4217,9 +4551,10 @@ class CXCompletionString {
 
 const EVAL_RESULT_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
->((pointer) => libclang.symbols.clang_EvalResult_dispose(pointer));
+>(libclang.symbols.clang_EvalResult_dispose);
 
 let CX_EVAL_RESULT_CONSTRUCTOR: (
+  tu: null | CXTranslationUnit,
   pointer: Deno.PointerValue,
 ) => CXEvalResult;
 
@@ -4230,27 +4565,69 @@ let CX_EVAL_RESULT_CONSTRUCTOR: (
  */
 class CXEvalResult {
   static #constructable = false;
-  #pointer: Deno.PointerValue;
+  /**
+   * Pointer to the internal memory of the CXEvalResult.
+   *
+   * > NOTE: The pointer is set to `null` upon dispose.
+   */
+  #pointer: Deno.PointerObject;
+  #tu: null | CXTranslationUnit;
 
   /**
    * @private Private API, cannot be used from outside.
    */
   constructor(
-    pointer: Deno.PointerValue,
+    tu: null | CXTranslationUnit,
+    pointer: Deno.PointerObject,
   ) {
     if (CXEvalResult.#constructable !== true) {
       throw new Error("CXEvalResult is not constructable");
     }
     this.#pointer = pointer;
+    this.#tu = tu;
     EVAL_RESULT_FINALIZATION_REGISTRY.register(this, pointer, this);
+    if (tu) {
+      CX_TRANSLATION_UNIT_REGISTER_DEPENDENT(tu, this);
+    }
+  }
+
+  /**
+   * Disposes the created Eval memory.
+   *
+   * Calling any other methods after calling {@link dispose()} causes
+   * undefined behaviour. It is not strictly necessary to call this method,
+   * the memory will be released as part of JavaScript garbage collection.
+   */
+  dispose(): void {
+    if (this.#pointer === null) {
+      return;
+    }
+    libclang.symbols.clang_EvalResult_dispose(this.#pointer);
+    EVAL_RESULT_FINALIZATION_REGISTRY.unregister(this);
+    if (this.#tu) {
+      CX_TRANSLATION_UNIT_UNREGISTER_DEPENDENT(this.#tu, this);
+    }
+    // @ts-expect-error Unsafe teardown.
+    this.#pointer = null;
+    this.#tu = null;
+  }
+
+  #checkDispose() {
+    if (this.#pointer === null) {
+      throw new Error("Cannot use disposed CXEvalResult");
+    }
   }
 
   static {
     CX_EVAL_RESULT_CONSTRUCTOR = (
+      tu: null | CXTranslationUnit,
       pointer: Deno.PointerValue,
     ): CXEvalResult => {
+      if (pointer === null) {
+        throw new Error("Got null CXEvalResult");
+      }
       CXEvalResult.#constructable = true;
-      const result = new CXEvalResult(pointer);
+      const result = new CXEvalResult(tu, pointer);
       CXEvalResult.#constructable = false;
       return result;
     };
@@ -4260,6 +4637,7 @@ class CXEvalResult {
    * Returns the kind of the evaluated result.
    */
   getKind(): CXEvalResultKind {
+    this.#checkDispose();
     return libclang.symbols.clang_EvalResult_getKind(this.#pointer);
   }
 
@@ -4268,6 +4646,7 @@ class CXEvalResult {
    * kind is Int.
    */
   getAsInt(): number {
+    this.#checkDispose();
     return libclang.symbols.clang_EvalResult_getAsInt(this.#pointer);
   }
 
@@ -4285,6 +4664,7 @@ class CXEvalResult {
    * result resulted in an unsigned integer.
    */
   isUnsignedInt(): boolean {
+    this.#checkDispose();
     return libclang.symbols.clang_EvalResult_isUnsignedInt(this.#pointer) !== 0;
   }
 
@@ -4293,6 +4673,7 @@ class CXEvalResult {
    * the kind is Int and {@link isUnsignedInt} is `true`.
    */
   getAsUnsigned(): number | bigint {
+    this.#checkDispose();
     return libclang.symbols.clang_EvalResult_getAsUnsigned(this.#pointer);
   }
 
@@ -4301,6 +4682,7 @@ class CXEvalResult {
    * kind is double.
    */
   getAsDouble(): number {
+    this.#checkDispose();
     return libclang.symbols.clang_EvalResult_getAsDouble(this.#pointer);
   }
 
@@ -4309,24 +4691,13 @@ class CXEvalResult {
    * kind is other than Int or float.
    */
   getAsStr(): string {
+    this.#checkDispose();
     const cstr = libclang.symbols.clang_EvalResult_getAsStr(this.#pointer);
     return cstr
       ? Deno.UnsafePointerView.getCString(
         cstr,
       )
       : "";
-  }
-
-  /**
-   * Disposes the created Eval memory.
-   *
-   * Calling any other methods after calling {@link dispose()} causes
-   * undefined behaviour. It is not strictly necessary to call this method,
-   * the memory will be released as part of JavaScript garbage collection.
-   */
-  dispose(): void {
-    libclang.symbols.clang_EvalResult_dispose(this.#pointer);
-    EVAL_RESULT_FINALIZATION_REGISTRY.unregister(this);
   }
 }
 
@@ -4460,10 +4831,12 @@ let CX_COMMENT_CONSTRUCTOR: (
 export class CXComment {
   static #constructable = false;
   tu: null | CXTranslationUnit;
+  /**
+   * Internal memory of the CXComment.
+   *
+   * > NOTE: This is set to `null` on dispose.
+   */
   #buffer: Uint8Array;
-  #kind?: number;
-  #childCount?: number;
-  #argCount?: number;
 
   /**
    * @private Private API, cannot be used from outside.
@@ -4474,6 +4847,24 @@ export class CXComment {
     }
     this.tu = tu;
     this.#buffer = buffer;
+    if (tu) {
+      CX_TRANSLATION_UNIT_REGISTER_DEPENDENT(tu, this);
+    }
+  }
+
+  dispose(): void {
+    if (this.#buffer === null) {
+      return;
+    }
+    // @ts-expect-error Unsafe teardown.
+    this.#buffer = null;
+    this.tu = null;
+  }
+
+  #checkDisposed() {
+    if (this.#buffer === null) {
+      throw new Error("Cannot use disposed CXComment");
+    }
   }
 
   static {
@@ -4492,8 +4883,8 @@ export class CXComment {
    * @returns The type of the AST node.
    */
   get kind(): CXCommentKind {
-    return this.#kind ??
-      (this.#kind = libclang.symbols.clang_Comment_getKind(this.#buffer));
+    this.#checkDisposed();
+    return libclang.symbols.clang_Comment_getKind(this.#buffer);
   }
 
   #isInlineContent(): boolean {
@@ -4545,10 +4936,10 @@ export class CXComment {
    * @returns Number of children of the AST node.
    */
   getNumberOfChildren(): number {
-    return this.#childCount ??
-      (this.#childCount = libclang.symbols.clang_Comment_getNumChildren(
-        this.#buffer,
-      ));
+    this.#checkDisposed();
+    return libclang.symbols.clang_Comment_getNumChildren(
+      this.#buffer,
+    );
   }
 
   /**
@@ -4578,6 +4969,7 @@ export class CXComment {
    * @returns `true` if this {@link CXComment} is whitespace.
    */
   isWhitespace(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_Comment_isWhitespace(this.#buffer) !== 0;
   }
 
@@ -4704,11 +5096,10 @@ export class CXComment {
   getNumberOfArguments(): number {
     const kind = this.kind;
     if (kind === CXCommentKind.CXComment_InlineCommand) {
-      return this.#argCount ??
-        (this.#argCount = libclang.symbols
-          .clang_InlineCommandComment_getNumArgs(
-            this.#buffer,
-          ));
+      return libclang.symbols
+        .clang_InlineCommandComment_getNumArgs(
+          this.#buffer,
+        );
     } else if (
       kind === CXCommentKind.CXComment_BlockCommand ||
       kind === CXCommentKind.CXComment_ParamCommand ||
@@ -4716,10 +5107,9 @@ export class CXComment {
       kind === CXCommentKind.CXComment_VerbatimBlockCommand ||
       kind === CXCommentKind.CXComment_VerbatimLine
     ) {
-      return this.#argCount ??
-        (this.#argCount = libclang.symbols.clang_BlockCommandComment_getNumArgs(
-          this.#buffer,
-        ));
+      return libclang.symbols.clang_BlockCommandComment_getNumArgs(
+        this.#buffer,
+      );
     } else {
       throw new Error(
         "Not InlineCommand, BlockCommand, ParamCommand, TParamCommand, or VerbatimBlockCommand",
@@ -4799,6 +5189,7 @@ export class CXComment {
    * @returns `true` if tag is self-closing (for example, `<br />`).
    */
   isSelfClosing(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_HTMLStartTagComment_isSelfClosing(
       this.#buffer,
     ) !== 0;
@@ -5157,12 +5548,12 @@ export class CXComment {
 }
 
 const SOURCE_RANGE_LIST_FINALIZATION_REGISTRY = new FinalizationRegistry<
-  Deno.PointerValue<typeof CXSourceRangeListT>
->((pointer) => libclang.symbols.clang_disposeSourceRangeList(pointer));
+  Deno.PointerObject<typeof CXSourceRangeListT>
+>(libclang.symbols.clang_disposeSourceRangeList);
 
 let CX_SOURCE_RANGE_LIST_CONSTRUCTOR: (
   tu: CXTranslationUnit,
-  pointer: Deno.PointerValue<typeof CXSourceRangeListT>,
+  pointer: Deno.PointerObject<typeof CXSourceRangeListT>,
   arrayPointer: Deno.PointerObject,
   length: number,
 ) => CXSourceRangeList;
@@ -5175,16 +5566,25 @@ let CX_SOURCE_RANGE_LIST_CONSTRUCTOR: (
 class CXSourceRangeList {
   static #constructable = false;
   tu: CXTranslationUnit;
-  #pointer: Deno.PointerValue<typeof CXSourceRangeListT>;
+  /**
+   * Pointer to the internal data of the CXSourceRangeList.
+   *
+   * > NOTE: This is set to null upon dispose.
+   */
+  #pointer: Deno.PointerObject<typeof CXSourceRangeListT>;
+  /**
+   * Pointer to array data of the CXSourceRangeList.
+   *
+   * > NOTE: This is set to null upon dispose.
+   */
   #arrayPointer: Deno.PointerObject;
-  #length: number;
-  #disposed = false;
+  #sourceRanges: (null | CXSourceRange)[];
 
   /**
    * The number of ranges in this array.
    */
   get length(): number {
-    return this.#length;
+    return this.#sourceRanges.length;
   }
 
   /**
@@ -5192,24 +5592,58 @@ class CXSourceRangeList {
    */
   constructor(
     tu: CXTranslationUnit,
-    pointer: Deno.PointerValue<typeof CXSourceRangeListT>,
+    pointer: Deno.PointerObject<typeof CXSourceRangeListT>,
     arrayPointer: Deno.PointerObject,
     length: number,
   ) {
     if (CXSourceRangeList.#constructable !== true) {
       throw new Error("CXSourceRangeList is not constructable");
     }
-    SOURCE_RANGE_LIST_FINALIZATION_REGISTRY.register(this, pointer, this);
     this.tu = tu;
     this.#pointer = pointer;
     this.#arrayPointer = arrayPointer;
-    this.#length = length;
+    this.#sourceRanges = new Array(length).fill(null);
+    SOURCE_RANGE_LIST_FINALIZATION_REGISTRY.register(this, pointer, this);
+    CX_TRANSLATION_UNIT_REGISTER_DEPENDENT(tu, this);
+  }
+
+  /**
+   * Destroy this {@link CXSourceRangeList}.
+   *
+   * It is not strictly necessary to call this method. The memory
+   * will be released as part of JavaScript garbage collection.
+   */
+  dispose(): void {
+    if (this.#pointer === null) {
+      return;
+    }
+    libclang.symbols.clang_disposeSourceRangeList(this.#pointer);
+    SOURCE_RANGE_LIST_FINALIZATION_REGISTRY.unregister(this);
+    CX_TRANSLATION_UNIT_UNREGISTER_DEPENDENT(this.tu, this);
+    // @ts-expect-error Unsafe teardown.
+    this.tu = null;
+    // @ts-expect-error Unsafe teardown.
+    this.#pointer = null;
+    // @ts-expect-error Unsafe teardown.
+    this.#arrayPointer = null;
+    for (const sourceRange of this.#sourceRanges) {
+      if (sourceRange) {
+        CX_SOURCE_RANGE_DISPOSE(sourceRange);
+      }
+    }
+    this.#sourceRanges.length = 0;
+  }
+
+  #checkDisposed() {
+    if (this.#pointer === null) {
+      throw new Error("Cannot use disposed CXSourceRangeList");
+    }
   }
 
   static {
     CX_SOURCE_RANGE_LIST_CONSTRUCTOR = (
       tu: CXTranslationUnit,
-      pointer: Deno.PointerValue<typeof CXSourceRangeListT>,
+      pointer: Deno.PointerObject<typeof CXSourceRangeListT>,
       arrayPointer: Deno.PointerObject,
       length: number,
     ): CXSourceRangeList => {
@@ -5226,14 +5660,15 @@ class CXSourceRangeList {
    * An error is thrown on out-of-bounds access.
    */
   at(index: number): CXSourceRange {
-    if (this.#disposed) {
-      throw new Error(
-        "Cannot get CXSourceRange at index of disposed CXSourceRangeList",
-      );
-    } else if (index < 0 || this.#length <= index) {
+    this.#checkDisposed();
+    if (index < 0 || this.#sourceRanges.length <= index) {
       throw new Error("Invalid argument, index must be unsigned integer");
     }
-    return CX_SOURCE_RANGE_CONSTRUCTOR(
+    const existing = this.#sourceRanges[index];
+    if (existing) {
+      return existing;
+    }
+    const result = CX_SOURCE_RANGE_CONSTRUCTOR(
       this.tu,
       new Uint8Array(
         Deno.UnsafePointerView.getArrayBuffer(
@@ -5244,20 +5679,8 @@ class CXSourceRangeList {
         ),
       ),
     )!;
-  }
-
-  /**
-   * Destroy this {@link CXSourceRangeList}.
-   *
-   * It is not strictly necessary to call this method. The memory
-   * will be released as part of JavaScript garbage collection.
-   */
-  dispose(): void {
-    if (this.#disposed) {
-      return;
-    }
-    libclang.symbols.clang_disposeSourceRangeList(this.#pointer);
-    SOURCE_RANGE_LIST_FINALIZATION_REGISTRY.unregister(this);
+    this.#sourceRanges[index] = result;
+    return result;
   }
 }
 
@@ -5265,6 +5688,7 @@ let CX_SOURCE_RANGE_CONSTRUCTOR: (
   tu: null | CXTranslationUnit,
   buffer: Uint8Array,
 ) => CXSourceRange | null;
+let CX_SOURCE_RANGE_DISPOSE: (cxSourceRange: CXSourceRange) => void;
 let GET_CX_SOURCE_RANGE_BUFFER: (cxSourceRange: CXSourceRange) => Uint8Array;
 
 /**
@@ -5291,6 +5715,12 @@ export class CXSourceRange {
     this.#buffer = buffer;
   }
 
+  #checkDisposed() {
+    if (this.#buffer === null) {
+      throw new Error("Cannot use disposed CXSourceRange");
+    }
+  }
+
   static {
     CX_SOURCE_RANGE_CONSTRUCTOR = (
       tu: null | CXTranslationUnit,
@@ -5303,6 +5733,14 @@ export class CXSourceRange {
       const result = new CXSourceRange(tu, buffer);
       CXSourceRange.#constructable = false;
       return result;
+    };
+    CX_SOURCE_RANGE_DISPOSE = (cxSourceRange: CXSourceRange) => {
+      if (cxSourceRange.#buffer === null) {
+        return;
+      }
+      // @ts-expect-error Unsafe teardown.
+      cxSourceRange.#buffer = null;
+      cxSourceRange.tu = null;
     };
     GET_CX_SOURCE_RANGE_BUFFER = (cxSourceRange: CXSourceRange): Uint8Array =>
       cxSourceRange.#buffer;
@@ -5342,6 +5780,7 @@ export class CXSourceRange {
    * Returns `true` if this range is null.
    */
   isNull(): boolean {
+    this.#checkDisposed();
     return libclang.symbols.clang_Range_isNull(this.#buffer) !== 0;
   }
 
@@ -5351,6 +5790,8 @@ export class CXSourceRange {
    * @returns `true` if the ranges are the same, `false` if they differ.
    */
   equals(other: CXSourceRange): boolean {
+    this.#checkDisposed();
+    other.#checkDisposed();
     return libclang.symbols.clang_equalRanges(this.#buffer, other.#buffer) !==
       0;
   }
@@ -5360,6 +5801,7 @@ export class CXSourceRange {
    * source range.
    */
   getRangeStart(): CXSourceLocation {
+    this.#checkDisposed();
     return CX_SOURCE_LOCATION_CONSTRUCTOR(
       this.tu,
       libclang.symbols.clang_getRangeStart(this.#buffer),
@@ -5371,6 +5813,7 @@ export class CXSourceRange {
    * source range.
    */
   getRangeEnd(): CXSourceLocation {
+    this.#checkDisposed();
     return CX_SOURCE_LOCATION_CONSTRUCTOR(
       this.tu,
       libclang.symbols.clang_getRangeEnd(this.#buffer),
@@ -6245,7 +6688,7 @@ class CXType {
 
 const PRINTING_POLICY_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
->((pointer) => libclang.symbols.clang_PrintingPolicy_dispose(pointer));
+>(libclang.symbols.clang_PrintingPolicy_dispose);
 
 let CX_PRINTING_POLICY_CONSTRUCTOR: (
   pointer: Deno.PointerValue,
@@ -6277,8 +6720,23 @@ class CXPrintingPolicy {
     if (CXPrintingPolicy.#constructable !== true) {
       throw new Error("CXPrintingPolicy is not constructable");
     }
-    PRINTING_POLICY_FINALIZATION_REGISTRY.register(this, pointer, this);
     this.#pointer = pointer;
+    PRINTING_POLICY_FINALIZATION_REGISTRY.register(this, pointer, this);
+  }
+
+  /**
+   * Release a printing policy.
+   *
+   * It is not strictly necessary to call this method, the memory
+   * will be released as part of JavaScript garbage collection.
+   */
+  dispose(): void {
+    if (this.#disposed) {
+      return;
+    }
+    libclang.symbols.clang_PrintingPolicy_dispose(this.#pointer);
+    PRINTING_POLICY_FINALIZATION_REGISTRY.unregister(this);
+    this.#disposed = true;
   }
 
   static {
@@ -6860,25 +7318,11 @@ class CXPrintingPolicy {
       value ? 1 : 0,
     );
   }
-
-  /**
-   * Release a printing policy.
-   *
-   * It is not strictly necessary to call this method, the memory
-   * will be released as part of JavaScript garbage collection.
-   */
-  dispose(): void {
-    if (this.#disposed) {
-      return;
-    }
-    libclang.symbols.clang_PrintingPolicy_dispose(this.#pointer);
-    PRINTING_POLICY_FINALIZATION_REGISTRY.unregister(this);
-  }
 }
 
 const DIAGNOSTIC_SET_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
->((pointer) => libclang.symbols.clang_disposeDiagnosticSet(pointer));
+>(libclang.symbols.clang_disposeDiagnosticSet);
 
 let CX_DIAGNOSTIC_SET_CONSTRUCTOR: (
   tu: null | CXTranslationUnit,
@@ -6906,8 +7350,29 @@ export class CXDiagnosticSet {
     }
     this.tu = tu;
     this.#pointer = pointer;
-    DIAGNOSTIC_SET_FINALIZATION_REGISTRY.register(this, pointer, this);
     this.#length = libclang.symbols.clang_getNumDiagnosticsInSet(this.#pointer);
+    DIAGNOSTIC_SET_FINALIZATION_REGISTRY.register(this, pointer, this);
+    if (tu) {
+      CX_TRANSLATION_UNIT_REGISTER_DEPENDENT(tu, this);
+    }
+  }
+
+  /**
+   * Release this {@link CXDiagnosticSet} and all of its contained diagnostics.
+   *
+   * It is not strictly necessary to call this method. The memory
+   * will be released as part of JavaScript garbage collection.
+   */
+  dispose(): void {
+    if (this.#disposed) {
+      return;
+    }
+    libclang.symbols.clang_disposeDiagnosticSet(this.#pointer);
+    DIAGNOSTIC_SET_FINALIZATION_REGISTRY.unregister(this);
+    if (this.tu) {
+      CX_TRANSLATION_UNIT_UNREGISTER_DEPENDENT(this.tu, this);
+    }
+    this.#disposed = true;
   }
 
   static {
@@ -6994,26 +7459,11 @@ export class CXDiagnosticSet {
     }
     return CX_DIAGNOSTIC_SET_CONSTRUCTOR(null, pointer);
   }
-
-  /**
-   * Release this {@link CXDiagnosticSet} and all of its contained diagnostics.
-   *
-   * It is not strictly necessary to call this method. The memory
-   * will be released as part of JavaScript garbage collection.
-   */
-  dispose(): void {
-    if (this.#disposed) {
-      return;
-    }
-    libclang.symbols.clang_disposeDiagnosticSet(this.#pointer);
-    this.#disposed = true;
-    DIAGNOSTIC_SET_FINALIZATION_REGISTRY.unregister(this);
-  }
 }
 
 const DIAGNOSTIC_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
->((pointer) => libclang.symbols.clang_disposeDiagnostic(pointer));
+>(libclang.symbols.clang_disposeDiagnostic);
 
 let CX_DIAGNOSTIC_CONSTRUCTOR: (
   tu: null | CXTranslationUnit,
@@ -7040,6 +7490,27 @@ export class CXDiagnostic {
     this.tu = tu;
     this.#pointer = pointer;
     DIAGNOSTIC_FINALIZATION_REGISTRY.register(this, pointer, this);
+    if (tu) {
+      CX_TRANSLATION_UNIT_REGISTER_DEPENDENT(tu, this);
+    }
+  }
+
+  /**
+   * Destroy a diagnostic.
+   *
+   * It is not strictly necessary to call this method. The memory
+   * will be released as part of JavaScript garbage collection.
+   */
+  dispose(): void {
+    if (this.#disposed) {
+      return;
+    }
+    libclang.symbols.clang_disposeDiagnostic(this.#pointer);
+    DIAGNOSTIC_FINALIZATION_REGISTRY.unregister(this);
+    if (this.tu) {
+      CX_TRANSLATION_UNIT_UNREGISTER_DEPENDENT(this.tu, this);
+    }
+    this.#disposed = true;
   }
 
   static {
@@ -7383,26 +7854,11 @@ export class CXDiagnostic {
       sourceRange,
     };
   }
-
-  /**
-   * Destroy a diagnostic.
-   *
-   * It is not strictly necessary to call this method. The memory
-   * will be released as part of JavaScript garbage collection.
-   */
-  dispose(): void {
-    if (this.#disposed) {
-      return;
-    }
-    libclang.symbols.clang_disposeDiagnostic(this.#pointer);
-    this.#disposed = true;
-    DIAGNOSTIC_FINALIZATION_REGISTRY.unregister(this);
-  }
 }
 
 const REMAPPINGS_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
->((pointer) => libclang.symbols.clang_remap_dispose(pointer));
+>(libclang.symbols.clang_remap_dispose);
 /**
  * A remapping of original source files and their translated files.
  */
@@ -7431,10 +7887,25 @@ export class CXRemapping {
     if (this.#pointer === null) {
       throw new Error("Failed to create get CXRemappings");
     }
-    REMAPPINGS_FINALIZATION_REGISTRY.register(this, this.#pointer, this);
     this.#length = libclang.symbols.clang_remap_getNumFiles(
       this.#pointer,
     );
+    REMAPPINGS_FINALIZATION_REGISTRY.register(this, this.#pointer, this);
+  }
+
+  /**
+   * Dispose the remapping.
+   *
+   * It is not strictly necessary to call this method. The memory
+   * will be released as part of JavaScript garbage collection.
+   */
+  dispose(): void {
+    if (this.#disposed) {
+      return;
+    }
+    libclang.symbols.clang_remap_dispose(this.#pointer);
+    REMAPPINGS_FINALIZATION_REGISTRY.unregister(this);
+    this.#disposed = true;
   }
 
   /**
@@ -7477,21 +7948,6 @@ export class CXRemapping {
       original,
       transformed,
     };
-  }
-
-  /**
-   * Dispose the remapping.
-   *
-   * It is not strictly necessary to call this method. The memory
-   * will be released as part of JavaScript garbage collection.
-   */
-  dispose(): void {
-    if (this.#disposed) {
-      return;
-    }
-    libclang.symbols.clang_remap_dispose(this.#pointer);
-    this.#disposed = true;
-    REMAPPINGS_FINALIZATION_REGISTRY.unregister(this);
   }
 }
 
@@ -7565,9 +8021,26 @@ class CXToken {
         tu: GET_CX_TRANSLATION_UNIT_POINTER(tu),
       });
     }
-    TOKEN_FINALIZATION_REGISTRY.register(this, pointer, this);
     this.#buffer = buffer;
     this.#kind = libclang.symbols.clang_getTokenKind(this.#buffer);
+    TOKEN_FINALIZATION_REGISTRY.register(this, pointer, this);
+    CX_TRANSLATION_UNIT_REGISTER_DEPENDENT(tu, this);
+  }
+
+  /**
+   * Free this token.
+   *
+   * It is not strictly necessary to call this method. The memory
+   * will be released as part of JavaScript garbage collection.
+   */
+  dispose(): void {
+    if (this.#disposed) {
+      return;
+    }
+    disposeToken(this.#pointer);
+    TOKEN_FINALIZATION_REGISTRY.unregister(this);
+    CX_TRANSLATION_UNIT_UNREGISTER_DEPENDENT(this.tu, this);
+    this.#disposed = true;
   }
 
   static {
@@ -7640,26 +8113,11 @@ class CXToken {
       ),
     );
   }
-
-  /**
-   * Free this token.
-   *
-   * It is not strictly necessary to call this method. The memory
-   * will be released as part of JavaScript garbage collection.
-   */
-  dispose(): void {
-    if (this.#disposed) {
-      return;
-    }
-    disposeToken(this.#pointer);
-    TOKEN_FINALIZATION_REGISTRY.unregister(this);
-    this.#disposed = true;
-  }
 }
 
 const REWRITER_FINALIZATION_REGISTRY = new FinalizationRegistry<
   Deno.PointerValue
->((pointer) => libclang.symbols.clang_CXRewriter_dispose(pointer));
+>(libclang.symbols.clang_CXRewriter_dispose);
 
 let CX_REWRITER_CONSTRUCTOR: (
   tu: CXTranslationUnit,
@@ -7673,6 +8131,7 @@ class CXRewriter {
   static #constructable = false;
   tu: CXTranslationUnit;
   #pointer: Deno.PointerValue;
+  #disposed = false;
 
   /**
    * @private Private API, cannot be used from outside.
@@ -7687,6 +8146,21 @@ class CXRewriter {
     this.tu = tu;
     this.#pointer = pointer;
     REWRITER_FINALIZATION_REGISTRY.register(this, pointer, this);
+  }
+
+  /**
+   * Free this CXRewriter.
+   *
+   * It is not strictly necessary to call this method. The memory
+   * will be released as part of JavaScript garbage collection.
+   */
+  dispose(): void {
+    if (this.#disposed) {
+      return;
+    }
+    libclang.symbols.clang_CXRewriter_dispose(this.#pointer);
+    REWRITER_FINALIZATION_REGISTRY.unregister(this);
+    this.#disposed = true;
   }
 
   static {
@@ -7757,16 +8231,5 @@ class CXRewriter {
    */
   writeMainFileToStdOut(): void {
     libclang.symbols.clang_CXRewriter_writeMainFileToStdOut(this.#pointer);
-  }
-
-  /**
-   * Free this CXRewriter.
-   *
-   * It is not strictly necessary to call this method. The memory
-   * will be released as part of JavaScript garbage collection.
-   */
-  dispose(): void {
-    libclang.symbols.clang_CXRewriter_dispose(this.#pointer);
-    REWRITER_FINALIZATION_REGISTRY.unregister(this);
   }
 }

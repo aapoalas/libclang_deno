@@ -90,7 +90,6 @@ if (Deno.build.os === "windows") {
       const fullpath = join(libclangPath, file);
       try {
         libclang = Deno.dlopen(fullpath, IMPORTS);
-        console.log(fullpath);
         break;
       } catch (e) {
         lastError = e as Error;
