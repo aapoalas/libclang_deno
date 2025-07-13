@@ -2,14 +2,14 @@ name: Testing LLVM on Ubuntu
 
 on:
   push:
-    branches: [ "testing", "main", "deno.json" ]
+    branches: ["testing", "main", "deno.json"]
     paths:
       - ".github/workflows/testUbuntu.yml"
       - "build/**"
       - "lib/**"
       - "test/**"
   pull_request:
-    branches: [ "testing", "main", "deno.json" ]
+    branches: ["testing", "main", "deno.json"]
     paths:
       - ".github/workflows/testUbuntu.yml"
       - "build/**"
@@ -20,22 +20,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: denoland/setup-deno@v1
-      with:
-        deno-version: 1.44.0
+      - uses: actions/checkout@v3
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: 2.4.1
 
-    - name: Uninstall old LLVM
-      run: |
-        sudo apt-get remove -y libclang*
+      - name: Uninstall old LLVM
+        run: |
+          sudo apt-get remove -y libclang*
 
-    - name: Install LLVM
-      run: |
-        sudo apt-get install -y libclang1-14
+      - name: Install LLVM
+        run: |
+          sudo apt-get install -y libclang1-20
 
-    - name: test
-      run: |
-        export LIBCLANG_PATH=/usr/lib/llvm-14/lib
-        export TEST_DIR=$LIBCLANG_PATH
-        export TEST_PATH=$TEST_DIR/libclang-14.so.1
-        deno task test
+      - name: test
+        run: |
+          export LIBCLANG_PATH=/usr/lib/llvm-20/lib
+          export TEST_DIR=$LIBCLANG_PATH
+          export TEST_PATH=$TEST_DIR/libclang-20.so.1
+          deno task test
