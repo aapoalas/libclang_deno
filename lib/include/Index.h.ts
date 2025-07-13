@@ -2345,6 +2345,7 @@ export const clang_getOffsetOfBase = {
     CXCursorT, // Base
   ],
   result: longLong,
+  optional: true,
 } as const;
 
 /**
@@ -2666,6 +2667,7 @@ export const clang_getTypePrettyPrinted = {
     CXPrintingPolicyT, // cxPolicy
   ],
   result: CXStringT,
+  optional: true,
 } as const;
 
 /**
@@ -4594,6 +4596,7 @@ export const clang_visitCXXBaseClasses = {
     CXClientDataT, // client_data
   ],
   result: unsignedInt,
+  optional: true,
 } as const;
 
 /**

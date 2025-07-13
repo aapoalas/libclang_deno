@@ -47,6 +47,7 @@ export const clang_isBeforeInTranslationUnit = {
     CXSourceLocationT, // loc2
   ],
   result: unsignedInt,
+  optional: true,
 } as const;
 
 /**
