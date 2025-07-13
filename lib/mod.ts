@@ -114,7 +114,6 @@ export type {
   CXType,
 };
 
-const POINTER = Symbol("[[pointer]]");
 const BUFFER = Symbol("[[buffer]]");
 const DISPOSE = Symbol("[[dispose]]");
 const REGISTER = Symbol("[[register]]");
@@ -619,6 +618,10 @@ let CX_TRANSLATION_UNIT_CONSTRUCTOR: (
   pointer: Deno.PointerObject<typeof CXTranslationUnitT>,
 ) => CXTranslationUnit;
 
+let GET_CX_TRANSLATION_UNIT_POINTER: (
+  tu: CXTranslationUnit,
+) => Deno.PointerObject<typeof CXTranslationUnitT>;
+
 /**
  * A single translation unit, which resides in a {@link CXIndex}.
  */
@@ -642,9 +645,6 @@ export class CXTranslationUnit {
     TU_FINALIZATION_REGISTRY.register(this, pointer, this);
   }
 
-  /**
-   * @private Private API, cannot be used from outside.
-   */
   static {
     CX_TRANSLATION_UNIT_CONSTRUCTOR = (
       pointer: Deno.PointerObject<typeof CXTranslationUnitT>,
@@ -654,10 +654,9 @@ export class CXTranslationUnit {
       CXTranslationUnit.#constructable = false;
       return result;
     };
-  }
-
-  get [POINTER](): Deno.PointerObject<typeof CXTranslationUnitT> {
-    return this.#pointer;
+    GET_CX_TRANSLATION_UNIT_POINTER = (
+      tu: CXTranslationUnit,
+    ): Deno.PointerObject<typeof CXTranslationUnitT> => tu.#pointer;
   }
 
   /**
@@ -1164,7 +1163,7 @@ export class CXTranslationUnit {
   getModuleForFile(file: CXFile): null | CXModule {
     const result = libclang.symbols.clang_getModuleForFile(
       this.#pointer,
-      file[POINTER],
+      GET_CX_FILE_POINTER(file),
     );
     if (result === null) {
       return null;
@@ -1220,7 +1219,7 @@ export class CXTranslationUnit {
     try {
       const result = libclang.symbols.clang_findIncludesInFile(
         this.#pointer,
-        file[POINTER],
+        GET_CX_FILE_POINTER(file),
         OUT.subarray(0, 16),
       );
       return result;
@@ -1920,9 +1919,6 @@ class CXTUResourceUsage {
     this.#pointer = Deno.UnsafePointer.create(u64Buf[0]);
   }
 
-  /**
-   * @private Private API, cannot be used from outside.
-   */
   static {
     CX_TU_RESOURCE_USAGE_CONSTRUCTOR = (
       buffer: Uint8Array,
@@ -1989,6 +1985,8 @@ let CX_FILE_CONSTRUCTOR: (
   pointer: Deno.PointerValue,
 ) => CXFile;
 
+let GET_CX_FILE_POINTER: (cxFile: CXFile) => Deno.PointerValue;
+
 /**
  * A particular source file that is part of a translation unit.
  */
@@ -2009,9 +2007,6 @@ export class CXFile {
     this.#pointer = pointer;
   }
 
-  /**
-   * @private Private API, cannot be used from outside.
-   */
   static {
     CX_FILE_CONSTRUCTOR = (
       tu: CXTranslationUnit,
@@ -2022,13 +2017,8 @@ export class CXFile {
       CXFile.#constructable = false;
       return result;
     };
-  }
-
-  /**
-   * private
-   */
-  get [POINTER](): Deno.PointerValue {
-    return this.#pointer;
+    GET_CX_FILE_POINTER = (cxFile: CXFile): Deno.PointerValue =>
+      cxFile.#pointer;
   }
 
   /**
@@ -2100,7 +2090,7 @@ export class CXFile {
       throw new Error("Cannot get file contents of disposed File");
     }
     const pointer = libclang.symbols.clang_getFileContents(
-      this.tu[POINTER],
+      GET_CX_TRANSLATION_UNIT_POINTER(this.tu),
       this.#pointer,
       OUT,
     );
@@ -2124,7 +2114,7 @@ export class CXFile {
       throw new Error("Invalid argument, column must be unsigned integer");
     }
     const res = libclang.symbols.clang_getLocation(
-      this.tu[POINTER],
+      GET_CX_TRANSLATION_UNIT_POINTER(this.tu),
       this.#pointer,
       line,
       column,
@@ -2143,7 +2133,7 @@ export class CXFile {
       throw new Error("Cannot get skipped ranges from disposed CXFile");
     }
     const listPointer = libclang.symbols.clang_getSkippedRanges(
-      this.tu[POINTER],
+      GET_CX_TRANSLATION_UNIT_POINTER(this.tu),
       this.#pointer,
     );
     if (listPointer === null) {
@@ -2176,7 +2166,7 @@ export class CXFile {
       throw new Error("Cannot get include guard data from disposed CXFile");
     }
     return libclang.symbols.clang_isFileMultipleIncludeGuarded(
-      this.tu[POINTER],
+      GET_CX_TRANSLATION_UNIT_POINTER(this.tu),
       this.#pointer,
     ) > 0;
   }
@@ -2191,7 +2181,7 @@ export class CXFile {
     return CX_SOURCE_LOCATION_CONSTRUCTOR(
       this.tu,
       libclang.symbols.clang_getLocationForOffset(
-        this.tu[POINTER],
+        GET_CX_TRANSLATION_UNIT_POINTER(this.tu),
         this.#pointer,
         offset,
       ),
@@ -3300,7 +3290,7 @@ export class CXCursor {
     return cxstringToString(
       libclang.symbols.clang_getCursorPrettyPrinted(
         this.#buffer,
-        printingPolicy ? printingPolicy[POINTER] : null,
+        printingPolicy ? GET_CX_PRINTING_POLICY_POINTER(printingPolicy) : null,
       ),
     );
   }
@@ -4045,7 +4035,7 @@ export class CXCursor {
     try {
       const result = libclang.symbols.clang_findReferencesInFile(
         this.#buffer,
-        file[POINTER],
+        GET_CX_FILE_POINTER(file),
         OUT.subarray(0, 16),
       );
       return result;
@@ -4091,9 +4081,6 @@ class CXCompletionString {
     this.#pointer = pointer;
   }
 
-  /**
-   * @private Private API, cannot be used from outside.
-   */
   static {
     CX_COMPLETION_STRING_CONSTRUCTOR = (
       pointer: Deno.PointerValue,
@@ -4259,9 +4246,6 @@ class CXEvalResult {
     EVAL_RESULT_FINALIZATION_REGISTRY.register(this, pointer, this);
   }
 
-  /**
-   * @private Private API, cannot be used from outside.
-   */
   static {
     CX_EVAL_RESULT_CONSTRUCTOR = (
       pointer: Deno.PointerValue,
@@ -4371,9 +4355,6 @@ class CXModule {
     this.#pointer = pointer;
   }
 
-  /**
-   * @private Private API, cannot be used from outside.
-   */
   static {
     CX_MODULE_CONSTRUCTOR = (
       tu: CXTranslationUnit,
@@ -4423,7 +4404,7 @@ class CXModule {
    */
   getNumberOfTopLevelHeaders(): number {
     return libclang.symbols.clang_Module_getNumTopLevelHeaders(
-      this.tu[POINTER],
+      GET_CX_TRANSLATION_UNIT_POINTER(this.tu),
       this.#pointer,
     );
   }
@@ -4449,7 +4430,7 @@ class CXModule {
       throw new Error("Invalid argument, index must be unsigned integer");
     }
     const pointer = libclang.symbols.clang_Module_getTopLevelHeader(
-      this.tu[POINTER],
+      GET_CX_TRANSLATION_UNIT_POINTER(this.tu),
       this.#pointer,
       index,
     );
@@ -5226,9 +5207,6 @@ class CXSourceRangeList {
     this.#length = length;
   }
 
-  /**
-   * @private Private API, cannot be used from outside.
-   */
   static {
     CX_SOURCE_RANGE_LIST_CONSTRUCTOR = (
       tu: CXTranslationUnit,
@@ -5313,9 +5291,6 @@ export class CXSourceRange {
     this.#buffer = buffer;
   }
 
-  /**
-   * @private Private API, cannot be used from outside.
-   */
   static {
     CX_SOURCE_RANGE_CONSTRUCTOR = (
       tu: null | CXTranslationUnit,
@@ -5433,9 +5408,6 @@ export class CXSourceLocation {
     this.#buffer = buffer;
   }
 
-  /**
-   * @private Private API, cannot be used from outside.
-   */
   static {
     CX_SOURCE_LOCATION_CONSTRUCTOR = (
       tu: null | CXTranslationUnit,
@@ -5796,9 +5768,6 @@ class CXType {
     this.tu = tu;
   }
 
-  /**
-   * @private Private API, cannot be used from outside.
-   */
   static {
     CX_TYPE_CONSTRUCTOR = (
       tu: CXTranslationUnit,
@@ -6284,6 +6253,10 @@ let CX_PRINTING_POLICY_CONSTRUCTOR: (
   pointer: Deno.PointerValue,
 ) => CXPrintingPolicy;
 
+let GET_CX_PRINTING_POLICY_POINTER: (
+  cxPrintingPolicy: CXPrintingPolicy,
+) => Deno.PointerValue;
+
 /**
  * Opaque pointer representing a policy that controls pretty printing
  * for {@link CXCursor.getPrettyPrinted}.
@@ -6310,9 +6283,6 @@ class CXPrintingPolicy {
     this.#pointer = pointer;
   }
 
-  /**
-   * @private Private API, cannot be used from outside.
-   */
   static {
     CX_PRINTING_POLICY_CONSTRUCTOR = (
       pointer: Deno.PointerValue,
@@ -6322,10 +6292,10 @@ class CXPrintingPolicy {
       CXPrintingPolicy.#constructable = false;
       return result;
     };
-  }
 
-  get [POINTER](): Deno.PointerValue {
-    return this.#pointer;
+    GET_CX_PRINTING_POLICY_POINTER = (
+      cxPrintingPolicy: CXPrintingPolicy,
+    ): Deno.PointerValue => cxPrintingPolicy.#pointer;
   }
 
   get indentation(): number {
@@ -6942,9 +6912,6 @@ export class CXDiagnosticSet {
     this.#length = libclang.symbols.clang_getNumDiagnosticsInSet(this.#pointer);
   }
 
-  /**
-   * @private Private API, cannot be used from outside.
-   */
   static {
     CX_DIAGNOSTIC_SET_CONSTRUCTOR = (
       tu: null | CXTranslationUnit,
@@ -7077,9 +7044,6 @@ export class CXDiagnostic {
     DIAGNOSTIC_FINALIZATION_REGISTRY.register(this, pointer, this);
   }
 
-  /**
-   * @private Private API, cannot be used from outside.
-   */
   static {
     CX_DIAGNOSTIC_CONSTRUCTOR = (
       tu: null | CXTranslationUnit,
@@ -7598,7 +7562,7 @@ class CXToken {
       TOKEN_POINTER_USAGE_MAP.set(pointer, {
         count: 1,
         disposed: 0,
-        tu: tu[POINTER],
+        tu: GET_CX_TRANSLATION_UNIT_POINTER(tu),
       });
     }
     TOKEN_FINALIZATION_REGISTRY.register(this, pointer, this);
@@ -7606,9 +7570,6 @@ class CXToken {
     this.#kind = libclang.symbols.clang_getTokenKind(this.#buffer);
   }
 
-  /**
-   * @private Private API, cannot be used from outside.
-   */
   static {
     CX_TOKEN_CONSTRUCTOR = (
       tu: CXTranslationUnit,
@@ -7645,7 +7606,10 @@ class CXToken {
     }
     return CX_SOURCE_RANGE_CONSTRUCTOR(
       this.tu,
-      libclang.symbols.clang_getTokenExtent(this.tu[POINTER], this.#buffer),
+      libclang.symbols.clang_getTokenExtent(
+        GET_CX_TRANSLATION_UNIT_POINTER(this.tu),
+        this.#buffer,
+      ),
     )!;
   }
 
@@ -7658,7 +7622,10 @@ class CXToken {
     }
     return CX_SOURCE_LOCATION_CONSTRUCTOR(
       this.tu,
-      libclang.symbols.clang_getTokenLocation(this.tu[POINTER], this.#buffer),
+      libclang.symbols.clang_getTokenLocation(
+        GET_CX_TRANSLATION_UNIT_POINTER(this.tu),
+        this.#buffer,
+      ),
     );
   }
 
@@ -7673,7 +7640,10 @@ class CXToken {
       throw new Error("Cannot get spelling of disposed CXToken");
     }
     return cxstringToString(
-      libclang.symbols.clang_getTokenSpelling(this.tu[POINTER], this.#buffer),
+      libclang.symbols.clang_getTokenSpelling(
+        GET_CX_TRANSLATION_UNIT_POINTER(this.tu),
+        this.#buffer,
+      ),
     );
   }
 
@@ -7725,9 +7695,6 @@ class CXRewriter {
     REWRITER_FINALIZATION_REGISTRY.register(this, pointer, this);
   }
 
-  /**
-   * @private Private API, cannot be used from outside.
-   */
   static {
     CX_REWRITER_CONSTRUCTOR = (
       tu: CXTranslationUnit,
