@@ -2,14 +2,14 @@ name: Testing LLVM on windows
 
 on:
   push:
-    branches: [ "testing", "main" ]
+    branches: ["testing", "main"]
     paths:
       - ".github/workflows/testWindows.yml"
       - "build/**"
       - "lib/**"
       - "test/**"
   pull_request:
-    branches: [ "testing", "main" ]
+    branches: ["testing", "main"]
     paths:
       - ".github/workflows/testWindows.yml"
       - "build/**"
@@ -20,18 +20,18 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: denoland/setup-deno@v1
-      with:
-        deno-version: 1.44.0
+      - uses: actions/checkout@v3
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: 2.4.1
 
-    - name: Install LLVM
-      run: |
-        choco install -y --allow-downgrade --version 14.0.6 llvm
+      - name: Install LLVM
+        run: |
+          choco install -y --allow-downgrade --version 20.1.7 llvm
 
-    - name: test
-      run: |
-        $Env:LIBCLANG_PATH="C:\Program Files\LLVM\bin"
-        $Env:TEST_DIR=$Env:LIBCLANG_PATH
-        $Env:TEST_PATH="$Env:LIBCLANG_PATH\libclang.dll"
-        deno task test
+      - name: test
+        run: |
+          $Env:LIBCLANG_PATH="C:\Program Files\LLVM\bin"
+          $Env:TEST_DIR=$Env:LIBCLANG_PATH
+          $Env:TEST_PATH="$Env:LIBCLANG_PATH\libclang.dll"
+          deno task test

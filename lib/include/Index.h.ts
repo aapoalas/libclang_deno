@@ -2,6 +2,7 @@ import {
   buf,
   cstringArrayT,
   cstringT,
+  CX_BinaryOperatorKindT,
   CX_CXXAccessSpecifierT,
   CX_StorageClassT,
   CXAvailabilityKindT,
@@ -188,8 +189,7 @@ export const clang_disposeIndex = {
  * ```
  * @sa clang_createIndex()
  */
-// deno-lint-ignore no-unused-vars
-const clang_createIndexWithOptions = {
+export const clang_createIndexWithOptions = {
   parameters: [
     buf(CXIndexOptionsT), // options
   ],
@@ -422,7 +422,7 @@ export const clang_getTranslationUnitSpelling = {
  * '-c'
  * '-emit-ast'
  * '-fsyntax-only'
- * '-o <output file>' (both '-o' and '<output file>' are ignored)
+ * '-o \<output file>' (both '-o' and '\<output file>' are ignored)
  *
  * @param CIdx The index object with which the translation unit will be
  * associated.
@@ -434,7 +434,7 @@ export const clang_getTranslationUnitSpelling = {
  * passed to the `clang` executable if it were being invoked out-of-process.
  * These command-line options will be parsed and will affect how the translation
  * unit is parsed. Note that the following options are ignored: '-c',
- * '-emit-ast', '-fsyntax-only' (which is the default), and '-o <output file>'.
+ * '-emit-ast', '-fsyntax-only' (which is the default), and '-o \<output file>'.
  * @param num_unsaved_files the number of unsaved file entries in `unsaved_files.`
  * @param unsaved_files the files that have not yet been saved to disk
  * but may be required for code completion, including the contents of
@@ -537,7 +537,7 @@ export const clang_parseTranslationUnit = {
  * passed to the `clang` executable if it were being invoked out-of-process.
  * These command-line options will be parsed and will affect how the translation
  * unit is parsed. Note that the following options are ignored: '-c',
- * '-emit-ast', '-fsyntax-only' (which is the default), and '-o <output file>'.
+ * '-emit-ast', '-fsyntax-only' (which is the default), and '-o \<output file>'.
  * @param num_command_line_args The number of command-line arguments in
  * `command_line_args.`
  * @param unsaved_files the files that have not yet been saved to disk
@@ -2333,6 +2333,22 @@ export const clang_isVirtualBase = {
 } as const;
 
 /**
+ * Returns the offset in bits of a CX_CXXBaseSpecifier relative to the parent
+ * class.
+ *
+ * Returns a small negative number if the offset cannot be computed. See
+ * CXTypeLayoutError for error codes.
+ */
+export const clang_getOffsetOfBase = {
+  parameters: [
+    CXCursorT, // Parent
+    CXCursorT, // Base
+  ],
+  result: longLong,
+  optional: true,
+} as const;
+
+/**
  * Returns the access control level for the referenced object.
  *
  * If the cursor refers to a C++ declaration, its access control level within
@@ -2344,6 +2360,26 @@ export const clang_getCXXAccessSpecifier = {
     CXCursorT,
   ],
   result: CX_CXXAccessSpecifierT,
+} as const;
+
+/**
+ * @brief Returns the operator code for the binary operator.
+ */
+export const clang_Cursor_getBinaryOpcode = {
+  parameters: [
+    CXCursorT, // C
+  ],
+  result: CX_BinaryOperatorKindT,
+} as const;
+
+/**
+ * @brief Returns a string containing the spelling of the binary operator.
+ */
+export const clang_Cursor_getBinaryOpcodeStr = {
+  parameters: [
+    CX_BinaryOperatorKindT, // Op
+  ],
+  result: CXStringT,
 } as const;
 
 /**
@@ -2618,6 +2654,20 @@ export const clang_getCursorPrettyPrinted = {
     CXPrintingPolicyT, // Policy
   ],
   result: CXStringT,
+} as const;
+
+/**
+ * Pretty-print the underlying type using a custom printing policy.
+ *
+ * If the type is invalid, an empty string is returned.
+ */
+export const clang_getTypePrettyPrinted = {
+  parameters: [
+    CXTypeT, // CT
+    CXPrintingPolicyT, // cxPolicy
+  ],
+  result: CXStringT,
+  optional: true,
 } as const;
 
 /**
@@ -3247,8 +3297,7 @@ export const clang_CXXMethod_isMoveAssignmentOperator = {
  * This function will return 0 for the constructor and 1 for
  * the conversion function.
  */
-// deno-lint-ignore no-unused-vars
-const clang_CXXMethod_isExplicit = {
+export const clang_CXXMethod_isExplicit = {
   parameters: [
     CXCursorT, // C
   ],
@@ -4525,10 +4574,35 @@ export const clang_Type_visitFields = {
 } as const;
 
 /**
+ * Visit the base classes of a type.
+ *
+ * This function visits all the direct base classes of a the given cursor,
+ * invoking the given `visitor` function with the cursors of each
+ * visited base. The traversal may be ended prematurely, if
+ * the visitor returns `CXFieldVisit_Break.`
+ *
+ * @param T the record type whose field may be visited.
+ * @param visitor the visitor function that will be invoked for each
+ * field of `T.`
+ * @param client_data pointer data supplied by the client, which will
+ * be passed to the visitor each time it is invoked.
+ * @returns a non-zero value if the traversal was terminated
+ * prematurely by the visitor returning `CXFieldVisit_Break.`
+ */
+export const clang_visitCXXBaseClasses = {
+  parameters: [
+    CXTypeT, // T
+    CXFieldVisitorT, // visitor
+    CXClientDataT, // client_data
+  ],
+  result: unsignedInt,
+  optional: true,
+} as const;
+
+/**
  * Retrieve the spelling of a given CXBinaryOperatorKind.
  */
-// deno-lint-ignore no-unused-vars
-const clang_getBinaryOperatorKindSpelling = {
+export const clang_getBinaryOperatorKindSpelling = {
   parameters: [
     CXBinaryOperatorKindT, // kind
   ],
@@ -4540,8 +4614,7 @@ const clang_getBinaryOperatorKindSpelling = {
  *
  * If this cursor is not a binary operator then returns Invalid.
  */
-// deno-lint-ignore no-unused-vars
-const clang_getCursorBinaryOperatorKind = {
+export const clang_getCursorBinaryOperatorKind = {
   parameters: [
     CXCursorT, // cursor
   ],
@@ -4551,8 +4624,7 @@ const clang_getCursorBinaryOperatorKind = {
 /**
  * Retrieve the spelling of a given CXUnaryOperatorKind.
  */
-// deno-lint-ignore no-unused-vars
-const clang_getUnaryOperatorKindSpelling = {
+export const clang_getUnaryOperatorKindSpelling = {
   parameters: [
     CXUnaryOperatorKindT, // kind
   ],
@@ -4564,8 +4636,7 @@ const clang_getUnaryOperatorKindSpelling = {
  *
  * If this cursor is not a unary operator then returns Invalid.
  */
-// deno-lint-ignore no-unused-vars
-const clang_getCursorUnaryOperatorKind = {
+export const clang_getCursorUnaryOperatorKind = {
   parameters: [
     CXCursorT, // cursor
   ],

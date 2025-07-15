@@ -1,6 +1,12 @@
-export const ptr = (_type: unknown) => "pointer" as const;
-export const buf = (_type: unknown) => "buffer" as const;
-export const func = (_func: unknown) => "function" as const;
+export const ptr = <const T = unknown>(_type: T) =>
+  "pointer" as (T extends "void"
+    ? Deno.NativeTypedPointer<Deno.PointerObject<unknown>>
+    : Deno.NativeTypedPointer<Deno.PointerObject<T>>);
+declare const BUFFER_BRAND: unique symbol;
+type TypedBuffer<T = unknown> = "buffer" & { [BUFFER_BRAND]: T };
+export const buf = <const T = unknown>(_type: T) => "buffer" as TypedBuffer<T>;
+export const func = <const T extends Deno.UnsafeCallbackDefinition>(_func: T) =>
+  "function" as Deno.NativeTypedFunction<T>;
 
 export const unsignedInt = "u32" as const;
 
@@ -1614,10 +1620,66 @@ export const enum CXCursorKind {
    */
   CXCursor_OMPScopeDirective = 306,
   /**
+   * OpenMP reverse directive.
+   */
+  CXCursor_OMPReverseDirective = 307,
+  /**
+   * OpenMP interchange directive.
+   */
+  CXCursor_OMPInterchangeDirective = 308,
+  /**
+   * OpenMP assume directive.
+   */
+  CXCursor_OMPAssumeDirective = 309,
+  /**
    * OpenACC Compute Construct.
    */
   CXCursor_OpenACCComputeConstruct = 320,
-  CXCursor_LastStmt = CXCursor_OpenACCComputeConstruct,
+  /**
+   * OpenACC Loop Construct.
+   */
+  CXCursor_OpenACCLoopConstruct = 321,
+  /**
+   * OpenACC Combined Constructs.
+   */
+  CXCursor_OpenACCCombinedConstruct = 322,
+  /**
+   * OpenACC data Construct.
+   */
+  CXCursor_OpenACCDataConstruct = 323,
+  /**
+   * OpenACC enter data Construct.
+   */
+  CXCursor_OpenACCEnterDataConstruct = 324,
+  /**
+   * OpenACC exit data Construct.
+   */
+  CXCursor_OpenACCExitDataConstruct = 325,
+  /**
+   * OpenACC host_data Construct.
+   */
+  CXCursor_OpenACCHostDataConstruct = 326,
+  /**
+   * OpenACC wait Construct.
+   */
+  CXCursor_OpenACCWaitConstruct = 327,
+  /**
+   * OpenACC init Construct.
+   */
+  CXCursor_OpenACCInitConstruct = 328,
+  /**
+   * OpenACC shutdown Construct.
+   */
+  CXCursor_OpenACCShutdownConstruct = 329,
+  /**
+   * OpenACC set Construct.
+   */
+  CXCursor_OpenACCSetConstruct = 330,
+  /**
+   * OpenACC update Construct.
+   */
+  CXCursor_OpenACCUpdateConstruct = 331,
+  CXCursor_LastStmt = CXCursor_OpenACCUpdateConstruct,
   /**
    * Cursor that represents the translation unit itself.
    *
@@ -1934,6 +1996,8 @@ export const enum CXTypeKind {
   CXType_ExtVector = 176,
   CXType_Atomic = 177,
   CXType_BTFTagAttributed = 178,
+  CXType_HLSLResource = 179,
+  CXType_HLSLAttributedResource = 180,
 }
 /**
  * Describes the kind of type
@@ -2032,8 +2096,7 @@ export const enum CXTypeNullabilityKind {
 export const CXTypeNullabilityKindT = unsignedInt;
 
 /**
- * List the possible error codes for `clang_Type_getSizeOf,` `clang_Type_getAlignOf,` `clang_Type_getOffsetOf` and
- * `clang_Cursor_getOffsetOf.`
+ * List the possible error codes for `clang_Type_getSizeOf,` `clang_Type_getAlignOf,` `clang_Type_getOffsetOf,` `clang_Cursor_getOffsetOf,` and `clang_getOffsetOfBase.`
  *
  * A value of this enumeration type can be returned if the target type is not
  * a valid argument to sizeof, alignof or offsetof.
@@ -2065,8 +2128,7 @@ export const enum CXTypeLayoutError {
   CXTypeLayoutError_Undeduced = -6,
 }
 /**
- * List the possible error codes for `clang_Type_getSizeOf,` `clang_Type_getAlignOf,` `clang_Type_getOffsetOf` and
- * `clang_Cursor_getOffsetOf.`
+ * List the possible error codes for `clang_Type_getSizeOf,` `clang_Type_getAlignOf,` `clang_Type_getOffsetOf,` `clang_Cursor_getOffsetOf,` and `clang_getOffsetOfBase.`
  *
  * A value of this enumeration type can be returned if the target type is not
  * a valid argument to sizeof, alignof or offsetof.
@@ -2124,6 +2186,51 @@ export const enum CX_StorageClass {
  * was added for the case that the passed cursor in not a declaration.
  */
 export const CX_StorageClassT = unsignedInt;
+
+/**
+ * Represents a specific kind of binary operator which can appear at a cursor.
+ */
+export const enum CX_BinaryOperatorKind {
+  CX_BO_Invalid = 0,
+  CX_BO_PtrMemD = 1,
+  CX_BO_PtrMemI = 2,
+  CX_BO_Mul = 3,
+  CX_BO_Div = 4,
+  CX_BO_Rem = 5,
+  CX_BO_Add = 6,
+  CX_BO_Sub = 7,
+  CX_BO_Shl = 8,
+  CX_BO_Shr = 9,
+  CX_BO_Cmp = 10,
+  CX_BO_LT = 11,
+  CX_BO_GT = 12,
+  CX_BO_LE = 13,
+  CX_BO_GE = 14,
+  CX_BO_EQ = 15,
+  CX_BO_NE = 16,
+  CX_BO_And = 17,
+  CX_BO_Xor = 18,
+  CX_BO_Or = 19,
+  CX_BO_LAnd = 20,
+  CX_BO_LOr = 21,
+  CX_BO_Assign = 22,
+  CX_BO_MulAssign = 23,
+  CX_BO_DivAssign = 24,
+  CX_BO_RemAssign = 25,
+  CX_BO_AddAssign = 26,
+  CX_BO_SubAssign = 27,
+  CX_BO_ShlAssign = 28,
+  CX_BO_ShrAssign = 29,
+  CX_BO_AndAssign = 30,
+  CX_BO_XorAssign = 31,
+  CX_BO_OrAssign = 32,
+  CX_BO_Comma = 33,
+  CX_BO_LAST = CX_BO_Comma,
+}
+/**
+ * Represents a specific kind of binary operator which can appear at a cursor.
+ */
+export const CX_BinaryOperatorKindT = unsignedInt;
 
 /**
  * Describes how the traversal of the children of a particular
@@ -2248,7 +2355,7 @@ export const enum CXNameRefFlags {
    */
   CXNameRange_WantQualifier = 1,
   /**
-   * Include the explicit template arguments, e.g. <int> in x.f<int>,
+   * Include the explicit template arguments, e.g. \<int> in x.f<int>,
    * in the range.
    */
   CXNameRange_WantTemplateArgs = 2,

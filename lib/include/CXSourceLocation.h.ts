@@ -35,6 +35,22 @@ export const clang_equalLocations = {
 } as const;
 
 /**
+ * Determine for two source locations if the first comes
+ * strictly before the second one in the source code.
+ *
+ * @returns non-zero if the first source location comes
+ * strictly before the second one, zero otherwise.
+ */
+export const clang_isBeforeInTranslationUnit = {
+  parameters: [
+    CXSourceLocationT, // loc1
+    CXSourceLocationT, // loc2
+  ],
+  result: unsignedInt,
+  optional: true,
+} as const;
+
+/**
  * Returns non-zero if the given source location is in a system header.
  */
 export const clang_Location_isInSystemHeader = {

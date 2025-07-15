@@ -1,8 +1,4 @@
-import {
-  dirname,
-  fromFileUrl,
-  join,
-} from "https://deno.land/std@0.170.0/path/mod.ts";
+import { dirname, fromFileUrl, join } from "jsr:@std/path";
 import {
   CXChildVisitResult,
   CXCursorKind,
@@ -18,6 +14,7 @@ import {
   structFieldToDeinlineString,
   toAnyType,
 } from "./build_utils.ts";
+import { tryLoadLibclang } from "../lib/baseUtils.ts";
 
 const formatSync = (filePath: string) => {
   new Deno.Command("deno", {
@@ -30,7 +27,7 @@ const index = new libclang.CXIndex(false, true);
 const includeDirectory = join(dirname(fromFileUrl(import.meta.url)), "include");
 
 const includePaths = [
-  "-I/usr/lib64/clang/16/include/",
+  "-I/usr/lib64/clang/20/include/",
   `-I${includeDirectory}`,
 ];
 
@@ -76,7 +73,7 @@ HEADER_FILES.forEach((fileName) => {
       case CXCursorKind.CXCursor_EnumDecl: {
         let name = cx.getDisplayName();
         if (!name) {
-          // Typedef enums have no name and are handled by the typdef case.
+          // Typedef enums have no name and are handled by the typedef case.
           break;
         }
         if (name.startsWith("enum ")) {
@@ -349,34 +346,44 @@ for (
 
 // Hard-coded exceptions
 {
-  const INDEX_FUCNTIONS = FUNCTIONS_MAP.get("Index.h")!;
+  const INDEX_FUNCTIONS = FUNCTIONS_MAP.get("Index.h")!;
 
   // clang_annotateTokens takes a user-defined C array of tokens, not a token pointer like tokens are usually passed around as.
-  const clang_annotateTokens = INDEX_FUCNTIONS.find((func) =>
+  const clang_annotateTokens = INDEX_FUNCTIONS.find((func) =>
     func.name === "clang_annotateTokens"
-  )!;
-  const clang_annotateTokens_arg1 = clang_annotateTokens.parameters[1];
-  if (clang_annotateTokens_arg1.type.kind !== "pointer") {
-    throw new Error("unreachable");
+  );
+  if (clang_annotateTokens) {
+    const clang_annotateTokens_arg1 = clang_annotateTokens.parameters[1];
+    if (clang_annotateTokens_arg1.type.kind !== "pointer") {
+      throw new Error("unreachable");
+    }
+    clang_annotateTokens_arg1.type.useBuffer = true;
   }
-  clang_annotateTokens_arg1.type.useBuffer = true;
 
   // clang_disposeOverriddenCursors takes a C array of cursors as pointer received through an out-buffer from clang_getOverriddenCursors.
-  const clang_disposeOverriddenCursors = INDEX_FUCNTIONS.find((func) =>
+  const clang_disposeOverriddenCursors = INDEX_FUNCTIONS.find((func) =>
     func.name === "clang_disposeOverriddenCursors"
-  )!;
-  const clang_disposeOverriddenCursors_arg0 =
-    clang_disposeOverriddenCursors.parameters[0];
-  if (clang_disposeOverriddenCursors_arg0.type.kind !== "pointer") {
-    throw new Error("unreachable");
+  );
+  if (clang_disposeOverriddenCursors) {
+    const clang_disposeOverriddenCursors_arg0 =
+      clang_disposeOverriddenCursors.parameters[0];
+    if (clang_disposeOverriddenCursors_arg0.type.kind !== "pointer") {
+      throw new Error("unreachable");
+    }
+    clang_disposeOverriddenCursors_arg0.type.useBuffer = false;
   }
-  clang_disposeOverriddenCursors_arg0.type.useBuffer = false;
 }
 
 const results: string[] = [
-  `export const ptr = (_type: unknown) => "pointer" as const;
-export const buf = (_type: unknown) => "buffer" as const;
-export const func = (_func: unknown) => "function" as const;
+  `export const ptr = <const T = unknown>(_type: T) =>
+    "pointer" as (T extends "void"
+      ? Deno.NativeTypedPointer<Deno.PointerObject<unknown>>
+      : Deno.NativeTypedPointer<Deno.PointerObject<T>>);
+  declare const BUFFER_BRAND: unique symbol;
+  type TypedBuffer<T = unknown> = "buffer" & { [BUFFER_BRAND]: T };
+  export const buf = <const T = unknown>(_type: T) => "buffer" as TypedBuffer<T>;
+  export const func = <const T extends Deno.UnsafeCallbackDefinition>(_func: T) =>
+    "function" as Deno.NativeTypedFunction<T>;
 `,
 ];
 
@@ -517,6 +524,14 @@ const emplaceRefs = (imports: Set<string>, type: AnyType) => {
   }
 };
 
+const libclangPath = Deno.env.get("LIBCLANG_PATH");
+
+if (!libclangPath) {
+  throw new Error(
+    "Cannot load libclang without LIBCLANG_PATH environment variable",
+  );
+}
+
 for (const [fileName, apiFunctions] of FUNCTIONS_MAP) {
   const imports = new Set<string>();
 
@@ -524,8 +539,8 @@ for (const [fileName, apiFunctions] of FUNCTIONS_MAP) {
   for (const { comment, name, parameters, result } of apiFunctions) {
     let isAvailable = true;
     try {
-      Deno.dlopen(
-        "/lib64/libclang.so.16.0.6",
+      tryLoadLibclang(
+        libclangPath,
         {
           [name]: {
             type: "pointer",

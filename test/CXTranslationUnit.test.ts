@@ -1,8 +1,4 @@
-import {
-  assertEquals,
-  assertNotEquals,
-  assertThrows,
-} from "https://deno.land/std@0.163.0/testing/asserts.ts";
+import { assertEquals, assertNotEquals, assertThrows } from "jsr:@std/assert";
 import {
   CXChildVisitResult,
   CXCursorKind,
