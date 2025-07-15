@@ -561,7 +561,12 @@ export const toAnyType = (
         return CXVisitorResult.CXVisit_Break;
       });
       if (!result) {
-        throw new Error("empty union");
+        const loc = typeDeclaration.getLocation().getFileLocation();
+        throw new Error(
+          `empty union '${underlyingType.getSpelling()}' in '${
+            loc.file.tryGetRealPathName() || loc.file.getName()
+          }:${loc.line}:${loc.column}'`,
+        );
       }
       return result;
     } else {
